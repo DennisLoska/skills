@@ -55,6 +55,65 @@ A cybernetic SDLC harness for OpenCode V2. One gated controller (`oneshot`), fou
 +-------------------------------------------------------------------------+
 ```
 
+## Usage & Example Prompts
+
+### 1. Full Autonomous Pipeline (`oneshot` - 3 Human Gates)
+
+Trigger the end-to-end controller by prefixing a task with `oneshot`:
+
+```text
+oneshot build a rate-limited webhook delivery worker with exponential backoff, dead-letter queue, and SQLite persistence
+```
+
+What happens across the 7 phases:
+
+1. **Phase 1 - `shape` (Design & Spec):** creates branch `feat/webhook-delivery-worker`, explores constraints and trade-offs, and writes `docs/specs/YYYY-MM-DD-webhook-delivery-worker-design.md`. **Pauses at Gate 1 for design approval.**
+2. **Phase 2 - `plan` (Task Decomposition):** breaks the approved spec into bite-size TDD tasks with exact file paths and verification commands in `docs/plans/YYYY-MM-DD-webhook-delivery-worker.md`. **Pauses at Gate 2 for plan approval.**
+3. **Phase 3 - `dispatch` + `tdd` (L1 Task Loop):**
+   - Dispatches `scout` (`mimo-v2.6-flash`) for compressed `path:line` discovery without polluting main-session context.
+   - Dispatches fresh per-task `implementer` (`deepseek-v4.1-flash#high`) or `implementer-b` (`muse-spark-1.3-contributor#medium`) subagents following strict red-green-refactor TDD.
+   - Escalates complex multi-file architecture tasks or 3x task failures (via `debug`) to `implementer-deep` (`gemini-4-argon#high`).
+   - Runs two-stage review after every task: Stage 1 spec compliance, then Stage 2 code quality (`glm-5.3-flash#high`).
+4. **Phase 4 - `verify` (Evidence Gate):** runs the full test suite, typecheck, linter, and build, confirming every spec checklist item with fresh command output.
+5. **Phase 5 - `land` (PR Filing):** pushes the feature branch and opens a problem-led GitHub PR (`## Summary`, `## Changes`, `## Test plan`).
+6. **Phase 6.5 - `make-ci-green` (L3 CI Loop):** watches GitHub Actions and review bots, dispatches surgical `patch` fixers on real failures, and requires concrete log-line evidence before retrying a suspected flake.
+7. **Phase 6 - `council` (L2 Branch Loop):** dispatches 3 adversarial reviewers from independent model families in parallel (`reviewer-a` on `muse-spark-1.3-contributor#xhigh`, `reviewer-b` on `deepseek-v4.1-flash#max`, `reviewer-c` on `glm-5.3-flash#high`). Any confirmed red finding triggers `patch` fixers and re-review (up to 3 rounds, then `reviewer-esc` on `kimi-k3.1-pro#high`).
+8. **Phase 7 - `land` (Gate 3 Finish & Handoff):** presents finish options (merge PR and hand off to default branch, keep PR open, keep branch, or drop).
+
+### 2. Zero-Gate Unattended Mode (`oneshot` Auto-Approve)
+
+Include an explicit bypass phrase (`auto-approve`, `skip all approvals`, `no approval gates`, or `full autonomy no questions`) in the initial prompt to run Phases 1 through 7 non-stop without human pauses:
+
+```text
+oneshot auto-approve: fix the race condition in session token refresh when concurrent requests hit an expired JWT
+```
+
+The controller records `auto-approve: true` with the quoted trigger phrase in the spec header and executes the entire pipeline through CI verification and council consensus autonomously.
+
+### 3. Confidential Mode (Privacy Gate)
+
+Mark a prompt or diff as confidential to engage the privacy gate automatically:
+
+```text
+oneshot [confidential] implement HMAC signature rotation for partner billing webhooks
+```
+
+Any rung marked as training on request data in [`AGENTS.md`](./AGENTS.md) (`muse-spark-*`) is automatically skipped across both implementation and council seats, routing exclusively to zero-training rungs (`deepseek-v4.1-flash`, `glm-5.3-flash`, `gemini-4-argon`, `claude-haiku-5-5`, `gpt-6-luna`, `kimi-k3.1-pro`).
+
+### 4. Standalone Skills & Individual Loops
+
+Every pipeline skill and seat agent can also be triggered directly outside a full `oneshot` run:
+
+| Example Prompt | Unit Triggered | What It Does |
+| --- | --- | --- |
+| `"shape a plugin hook system for custom tool permissions"` | `shape` | Socratic design exploration; writes spec to `docs/specs/` |
+| `"write a plan for docs/specs/2026-11-04-plugin-hooks-design.md"` | `plan` | Produces a bite-size TDD task plan in `docs/plans/` |
+| `"dispatch docs/plans/2026-11-04-plugin-hooks.md"` | `dispatch` | Runs the L1 per-task subagent loop + two-stage review on an existing plan |
+| `"debug why test/webhook-retry.test.ts fails intermittently"` | `debug` | 4-phase root-cause investigation before any fix is proposed |
+| `"council review this branch"` | `council` | Runs the 3-family adversarial review loop (`reviewer-a`, `reviewer-b`, `reviewer-c`) + `patch` fixes |
+| `"make ci green on this PR"` | `make-ci-green` | Watches PR checks and review bots until green; fixes real bugs via `patch` |
+| `"land it"` / `"next feature"` | `land` | Files or merges the PR, checks out default branch, pulls latest, and reports ready |
+
 ## Model Tank (OpenCode Go)
 
 All seats use `opencode-go/*` exclusively. Primary seats sit on high-allowance tiers (6,320 to 45,300 req/5h) so everyday work never hits rate limits; scarce frontier capacity (`gemini-4-argon#high`, `kimi-k3.1-pro#high`) is reserved for complex tasks, difficult bugs, and last-resort escalation.
