@@ -79,7 +79,10 @@ done
 # Preflight: walk every parent component of each target between $DEST and the
 # file. mkdir -p follows a symlinked parent under $DEST, so a copy could land
 # outside $DEST. Refuse (or repair under --force) before anything is copied.
+# A parent component that exists as a regular file (not a directory, not a
+# symlink) can never contain a target; refuse before anything is copied.
 parent_links=()
+parent_blocks=()
 for i in "${!rels[@]}"; do
   target="$DEST/${rels[$i]}"
   parent="$(dirname "$target")"
@@ -101,10 +104,30 @@ for i in "${!rels[@]}"; do
       if [ "$dup" -eq 0 ]; then
         parent_links+=("$parent")
       fi
+    elif [ -e "$parent" ] && [ ! -d "$parent" ]; then
+      dup=0
+      if [ "${#parent_blocks[@]}" -gt 0 ]; then
+        for p in "${parent_blocks[@]}"; do
+          if [ "$p" = "$parent" ]; then
+            dup=1
+            break
+          fi
+        done
+      fi
+      if [ "$dup" -eq 0 ]; then
+        parent_blocks+=("$parent")
+      fi
     fi
     parent="$(dirname "$parent")"
   done
 done
+
+if [ "${#parent_blocks[@]}" -gt 0 ]; then
+  for pb in "${parent_blocks[@]}"; do
+    printf 'install.sh: parent path is not a directory: %s\n' "$pb" >&2
+  done
+  exit 1
+fi
 
 if [ "${#parent_links[@]}" -gt 0 ] && [ "$force" -eq 0 ]; then
   for pl in "${parent_links[@]}"; do
@@ -152,12 +175,19 @@ owned() {
 
 installed=0
 if [ "${#parent_links[@]}" -gt 0 ]; then
-  for pl in "${parent_links[@]}"; do
+  # Repair shallowest-first: discovery order can list a nested parent before
+  # its outer parent, and repairing the inner path first would act through
+  # the outer symlink onto the outside tree. Sorting by depth ascending
+  # repairs each outer parent first; the inner check then re-tests the
+  # repaired tree and skips paths that no longer resolve to a symlink.
+  sorted_parents="$(printf '%s\n' "${parent_links[@]}" | awk -F/ '{ print NF " " $0 }' | sort -n | cut -d' ' -f2-)"
+  while IFS= read -r pl || [ -n "$pl" ]; do
+    [ -n "$pl" ] || continue
     if [ -L "$pl" ]; then
       rm -f -- "$pl"
       mkdir -p "$pl"
     fi
-  done
+  done <<<"$sorted_parents"
 fi
 for i in "${!rels[@]}"; do
   target="$DEST/${rels[$i]}"
@@ -177,6 +207,9 @@ if [ "$prune" -eq 1 ]; then
     pruned=0
     while IFS= read -r rel || [ -n "$rel" ]; do
       [ -n "$rel" ] || continue
+      case "$rel" in
+        '#'*) continue ;;
+      esac
       case "$rel" in
         /*|..|../*|*/..|*/../*)
           printf 'install.sh: ignoring unsafe manifest entry: %s\n' "$rel" >&2
@@ -217,10 +250,34 @@ if [ "$prune" -eq 1 ]; then
   fi
 fi
 
+if harness_sha="$(git -C "$SRC" rev-parse --short HEAD 2>/dev/null)"; then
+  :
+else
+  harness_sha="unknown"
+fi
+prev_sha=""
+prev_manifest_present=0
+if [ -f "$MANIFEST" ]; then
+  prev_manifest_present=1
+  while IFS= read -r mline || [ -n "$mline" ]; do
+    case "$mline" in
+      '# harness '*) prev_sha="${mline#'# harness '}"; break ;;
+    esac
+  done <"$MANIFEST"
+  if [ -z "$prev_sha" ]; then
+    prev_sha="unknown"
+  fi
+fi
+
 : >"$TMP_MANIFEST"
+printf '# harness %s\n' "$harness_sha" >>"$TMP_MANIFEST"
 for rel in "${rels[@]}"; do
   printf '%s\n' "$rel" >>"$TMP_MANIFEST"
 done
 mv -f -- "$TMP_MANIFEST" "$MANIFEST"
+
+if [ "$prev_manifest_present" -eq 1 ] && [ "$prev_sha" != "$harness_sha" ]; then
+  printf 'harness updated: %s -> %s\n' "$prev_sha" "$harness_sha"
+fi
 
 printf 'installed %d files into %s (harness instructions at %s)\n' "$installed" "$DEST" "$DEST/HARNESS.md"
