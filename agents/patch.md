@@ -36,6 +36,72 @@ permissions:
   - action: read
     resource: ".ssh/*"
     effect: deny
+  - action: grep
+    resource: "*"
+    effect: allow
+  - action: grep
+    resource: ".env"
+    effect: deny
+  - action: grep
+    resource: ".env.*"
+    effect: deny
+  - action: grep
+    resource: ".zshrc"
+    effect: deny
+  - action: grep
+    resource: ".zsh_history"
+    effect: deny
+  - action: grep
+    resource: ".ssh/*"
+    effect: deny
+  - action: grep
+    resource: "**/.env"
+    effect: deny
+  - action: grep
+    resource: "**/.env.*"
+    effect: deny
+  - action: grep
+    resource: "**/.zshrc"
+    effect: deny
+  - action: grep
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: grep
+    resource: "**/.ssh/*"
+    effect: deny
+  - action: glob
+    resource: "*"
+    effect: allow
+  - action: glob
+    resource: ".env"
+    effect: deny
+  - action: glob
+    resource: ".env.*"
+    effect: deny
+  - action: glob
+    resource: ".zshrc"
+    effect: deny
+  - action: glob
+    resource: ".zsh_history"
+    effect: deny
+  - action: glob
+    resource: ".ssh/*"
+    effect: deny
+  - action: glob
+    resource: "**/.env"
+    effect: deny
+  - action: glob
+    resource: "**/.env.*"
+    effect: deny
+  - action: glob
+    resource: "**/.zshrc"
+    effect: deny
+  - action: glob
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: glob
+    resource: "**/.ssh/*"
+    effect: deny
   - action: edit
     resource: "*"
     effect: allow
@@ -71,12 +137,6 @@ permissions:
     effect: deny
   - action: shell
     resource: "rm -r *"
-    effect: deny
-  - action: bash
-    resource: "rm -f *"
-    effect: deny
-  - action: shell
-    resource: "rm -f *"
     effect: deny
   - action: bash
     resource: "git push *"

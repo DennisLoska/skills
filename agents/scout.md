@@ -27,6 +27,15 @@ permissions:
   - action: read
     resource: "**/.ssh/*"
     effect: deny
+  - action: read
+    resource: ".zshrc"
+    effect: deny
+  - action: read
+    resource: ".zsh_history"
+    effect: deny
+  - action: read
+    resource: ".ssh/*"
+    effect: deny
   - action: grep
     resource: "*"
     effect: allow
@@ -51,6 +60,15 @@ permissions:
   - action: grep
     resource: "**/.ssh/*"
     effect: deny
+  - action: grep
+    resource: ".zshrc"
+    effect: deny
+  - action: grep
+    resource: ".zsh_history"
+    effect: deny
+  - action: grep
+    resource: ".ssh/*"
+    effect: deny
   - action: glob
     resource: "*"
     effect: allow
@@ -74,6 +92,15 @@ permissions:
     effect: deny
   - action: glob
     resource: "**/.ssh/*"
+    effect: deny
+  - action: glob
+    resource: ".zshrc"
+    effect: deny
+  - action: glob
+    resource: ".zsh_history"
+    effect: deny
+  - action: glob
+    resource: ".ssh/*"
     effect: deny
   - action: bash
     resource: "*"
@@ -146,6 +173,24 @@ permissions:
     effect: deny
   - action: shell
     resource: "git show *.ssh*"
+    effect: deny
+  - action: bash
+    resource: "git log * -p*"
+    effect: deny
+  - action: shell
+    resource: "git log * -p*"
+    effect: deny
+  - action: bash
+    resource: "git log *--patch*"
+    effect: deny
+  - action: shell
+    resource: "git log *--patch*"
+    effect: deny
+  - action: bash
+    resource: "git show *--patch*"
+    effect: deny
+  - action: shell
+    resource: "git show *--patch*"
     effect: deny
   - action: task
     resource: "*"
@@ -189,6 +234,7 @@ Locations always `path:line`. End with a totals line: `Total: N locations, M fil
 - You have no edit permission and no shell except git log. Do not ask for more.
 - If asked to fix or write something, reply exactly: `Read-only. Dispatch patch.` and stop.
 - Context responsibility: your table must be enough for the main session to dispatch a surgical edit without re-searching.
+- Git plumbing can still read committed secret history; those denies are best-effort guardrails, not a sandbox.
 - Permissions are last-match-wins: broad denies come first, narrow allows last.
 
 ## Compression rules

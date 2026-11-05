@@ -27,6 +27,15 @@ permissions:
   - action: read
     resource: "**/.ssh/*"
     effect: deny
+  - action: read
+    resource: ".zshrc"
+    effect: deny
+  - action: read
+    resource: ".zsh_history"
+    effect: deny
+  - action: read
+    resource: ".ssh/*"
+    effect: deny
   - action: grep
     resource: "*"
     effect: allow
@@ -51,6 +60,15 @@ permissions:
   - action: grep
     resource: "**/.ssh/*"
     effect: deny
+  - action: grep
+    resource: ".zshrc"
+    effect: deny
+  - action: grep
+    resource: ".zsh_history"
+    effect: deny
+  - action: grep
+    resource: ".ssh/*"
+    effect: deny
   - action: glob
     resource: "*"
     effect: allow
@@ -74,6 +92,15 @@ permissions:
     effect: deny
   - action: glob
     resource: "**/.ssh/*"
+    effect: deny
+  - action: glob
+    resource: ".zshrc"
+    effect: deny
+  - action: glob
+    resource: ".zsh_history"
+    effect: deny
+  - action: glob
+    resource: ".ssh/*"
     effect: deny
   - action: bash
     resource: "*"
@@ -165,6 +192,24 @@ permissions:
   - action: write
     resource: "*"
     effect: deny
+  - action: bash
+    resource: "git log * -p*"
+    effect: deny
+  - action: shell
+    resource: "git log * -p*"
+    effect: deny
+  - action: bash
+    resource: "git log *--patch*"
+    effect: deny
+  - action: shell
+    resource: "git log *--patch*"
+    effect: deny
+  - action: bash
+    resource: "git show *--patch*"
+    effect: deny
+  - action: shell
+    resource: "git show *--patch*"
+    effect: deny
   - action: task
     resource: "*"
     effect: deny
@@ -204,4 +249,5 @@ Rules:
 - PASS is allowed only when zero blocking (red) issues survived verification
 - You have no edit permission, no subagent dispatch, and no shell beyond git diff/log/show. Do not ask for more.
 - If asked to fix something, reply exactly: `Read-only seat. Dispatch patch.`
+- Git plumbing can still read committed secret history; those denies are best-effort guardrails, not a sandbox.
 - Permissions are last-match-wins: broad denies come first, narrow allows last.
