@@ -65,6 +65,19 @@ if [ -z "$DEST_COMPACT" ]; then
   exit 1
 fi
 
+# One refusal message per unsafe case; the reason is named on the same line.
+refuse_dest() {
+  printf 'install.sh: refusing unsafe destination: %s (%s)\n' "$DEST_RAW" "$1" >&2
+  exit 1
+}
+
+# A bare self reference or any parent-traversal component is refused before
+# resolution, so relative paths such as nonexistent/../evil cannot slip past
+# canonical_dest when the leading component does not exist yet.
+case "$DEST_RAW" in
+  .|..|../*|*/..|*/../*) refuse_dest "a relative self or parent reference" ;;
+esac
+
 SRC_PHYS="$(cd "$SRC" && pwd -P)"
 HOME_PHYS="${HOME:-}"
 if [ -n "$HOME_PHYS" ] && [ -d "$HOME_PHYS" ]; then
@@ -85,18 +98,12 @@ if [ -e "$DEST_STRIPPED" ] && [ ! -d "$DEST_STRIPPED" ]; then
   exit 1
 fi
 
-# One refusal message per unsafe case; the reason is named on the same line.
-refuse_dest() {
-  printf 'install.sh: refusing unsafe destination: %s (%s)\n' "$DEST_RAW" "$1" >&2
-  exit 1
-}
-
 # canonical_dest <path>: physical form of the path. An existing directory is
 # resolved with pwd -P so every symlink is followed; a path that does not exist
 # yet is resolved through its deepest existing ancestor with the remaining
 # components appended, so "$PWD/agents" and a relative "../skills" compare
 # against $SRC_PHYS before they exist. A "." or ".." component is returned
-# as-is and handled by the literal checks below.
+# as-is and handled by the literal checks above.
 canonical_dest() {
   local p="$1"
   local suffix=""
@@ -116,11 +123,6 @@ canonical_dest() {
   esac
   printf '%s' "$out"
 }
-
-# A bare self or parent reference is refused before resolution.
-case "$DEST_RAW" in
-  .|..) refuse_dest "a relative self or parent reference" ;;
-esac
 
 DEST_CANON="$(canonical_dest "$DEST_STRIPPED")"
 if [ -z "$DEST_CANON" ]; then
@@ -151,6 +153,10 @@ fi
 
 DEST="$DEST_CANON"
 MANIFEST="$DEST/.harness-manifest"
+if [ -L "$MANIFEST" ] || { [ -e "$MANIFEST" ] && [ ! -f "$MANIFEST" ]; }; then
+  printf 'install.sh: manifest path is not a regular file: %s\n' "$MANIFEST" >&2
+  exit 1
+fi
 TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
 trap 'rm -f -- "$TMP_MANIFEST"' EXIT HUP INT TERM
 
@@ -291,20 +297,16 @@ normalize_rel() {
   printf '%s' "$r"
 }
 
-lower_rel() {
-  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
-}
-
-# owned <rel>: true when this run installs <rel>. Comparison is normalized and
-# case-insensitive; when in doubt the file is treated as owned so prune skips
-# the deletion rather than removing a file this run just wrote.
+# owned <rel>: true when this run installs <rel>. Comparison uses normalized
+# relative paths (./ and // stripped) and exact case matching so case-variant
+# stale files are still pruned on case-sensitive filesystems.
 norm_rels=()
 for r in "${rels[@]}"; do
-  norm_rels+=("$(lower_rel "$(normalize_rel "$r")")")
+  norm_rels+=("$(normalize_rel "$r")")
 done
 owned() {
   local want r
-  want="$(lower_rel "$(normalize_rel "$1")")"
+  want="$(normalize_rel "$1")"
   for r in "${norm_rels[@]}"; do
     if [ "$r" = "$want" ]; then
       return 0

@@ -221,7 +221,7 @@ Quality reviewer: PASS
 ...
 
 [After all tasks]
-[Dispatch final reviewer for entire implementation]
+[Dispatch final reviewer for entire implementation (explicit `model` from the `Task-stage reviewers` row in `AGENTS.md`)]
 Final reviewer: All requirements met, ready to merge
 
 [Return to the controller with the final review verdict]

@@ -524,4 +524,37 @@ grep -q 'install.sh: destination symlink is dangling' "$TMPROOT/case34.out" || f
 [ -z "$(ls -A "$DANGLE_HOME")" ] || fail "dangling destination symlink creates nothing in HOME"
 pass "a dangling destination symlink exits 1 before any mkdir"
 
+# 35. a destination containing a .. path component is refused before resolution
+DOTDOT_HOME="$TMPROOT/home-dotdot"
+mkdir -p "$DOTDOT_HOME"
+rc35=0
+HOME="$DOTDOT_HOME" OPENCODE_CONFIG="$TMPROOT/missing/../evil" "$INSTALL" >"$TMPROOT/case35.out" 2>&1 || rc35=$?
+[ "$rc35" -eq 1 ] || { cat "$TMPROOT/case35.out" >&2; fail "dotdot destination exits 1"; }
+grep -q 'install.sh: refusing unsafe destination:' "$TMPROOT/case35.out" || fail "dotdot destination is named"
+[ ! -e "$TMPROOT/missing" ] || fail "dotdot destination does not create missing parent"
+[ ! -e "$TMPROOT/evil" ] || fail "dotdot destination does not create target directory"
+[ -z "$(ls -A "$DOTDOT_HOME")" ] || fail "dotdot destination creates nothing in HOME"
+pass "a destination containing a .. component exits 1 and creates nothing"
+
+# 36. a non-regular-file .harness-manifest (e.g. a directory) is refused before copying anything
+rm -f "$MANIFEST"
+mkdir -p "$MANIFEST"
+printf 'keep\n' >"$MANIFEST/inside.md"
+rm -f "$DEST/skills/oneshot/SKILL.md"
+find "$DEST" -type f -exec cksum {} + | sort >"$TMPROOT/case36.snap"
+rc36=0
+HOME="$HOME_DIR" "$INSTALL" --force >"$TMPROOT/case36.out" 2>&1 || rc36=$?
+[ "$rc36" -eq 1 ] || { cat "$TMPROOT/case36.out" >&2; fail "directory at .harness-manifest with --force exits 1"; }
+grep -q 'install.sh: manifest path is not a regular file:' "$TMPROOT/case36.out" || fail "non-regular manifest path is named"
+[ -d "$MANIFEST" ] || fail "manifest directory is left in place"
+[ ! -e "$DEST/skills/oneshot/SKILL.md" ] || fail "non-regular manifest run copies nothing before aborting"
+find "$DEST" -type f -exec cksum {} + | sort >"$TMPROOT/case36.after"
+cmp -s "$TMPROOT/case36.snap" "$TMPROOT/case36.after" || fail "non-regular manifest run leaves destination files untouched"
+rm -f "$MANIFEST/inside.md"
+rmdir "$MANIFEST"
+rc36b=0
+HOME="$HOME_DIR" "$INSTALL" --force >"$TMPROOT/case36b.out" 2>&1 || rc36b=$?
+[ "$rc36b" -eq 0 ] || { cat "$TMPROOT/case36b.out" >&2; fail "restore after manifest directory case exits 0"; }
+pass "a directory at .harness-manifest exits 1 before copying anything"
+
 printf 'all install tests passed\n'

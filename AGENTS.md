@@ -40,7 +40,7 @@ Rules:
 - Council runs at most 3 rounds per PR. Primary reviewers (`muse-spark-1.3-contributor#xhigh`, `deepseek-v4.1-flash#max`, `glm-5.3-flash#high`) have 6,320 to 45,300 req/5h so normal PRs never touch scarce limits; `kimi-k3.1-pro#high` (147 req/5h) is strictly last-resort / escalation.
 - Deepseek v4 models are cheapest off-peak: 01:00-04:00, 06:00-10:00 UTC Mon-Fri is peak.
 - Council budget guard: at most 14 reviewer dispatches per PR including escalation (9 seat, 3 seat demotion, 1 escalation, 1 escalation demotion); a seat that demoted once holds its new rung for the rest of the day.
-- Family independence holds across the whole PR, not just one round: when two seats demote in the same round, skip any fallback whose family is already active on another seat that round (for example, if Seat A already demoted to `claude-haiku-5-5#high`, Seat C skips straight to `gpt-6-luna#high`). Escalation only runs on a family no seat used this PR; if `kimi-k3.1-pro#high` was already consumed as a seat last-resort, `reviewer-esc` demotes to `gemini-4-argon#high`.
+- Family independence holds across the whole PR, not just one round: when two seats demote in the same round, skip any fallback whose family is already active on another seat anywhere in this PR (for example, if Seat A already demoted to `claude-haiku-5-5#high`, Seat C skips straight to `gpt-6-luna#high`). Escalation only runs on a family no seat used this PR; if `kimi-k3.1-pro#high` was already consumed as a seat last-resort, `reviewer-esc` demotes to `gemini-4-argon#high`.
 - Privacy gate: any rung marked as training on request data auto-skips when the task or diff carries a confidential flag; demote to the next privacy-safe rung and announce.
 - Action-name aliases: some OpenCode builds register permission actions as `bash`/`task`, some as `shell`/`subagent`; agent files carry both spellings so denies never go inert.
 
@@ -84,7 +84,7 @@ Compaction and summary never route to a training family.
 - One line per finding: `path:line: emoji severity: problem. fix.`
 - Severity only: red bug, yellow risk, blue nit (nits only on request).
 - No praise, no scope creep, no "looks good".
-- PASS requires: agreed verdict from at least 2 of 3 reviewers + zero unresolved confirmed red findings + green tests.
+- PASS requires: agreed verdict from at least 2 of 3 reviewers + zero unresolved confirmed red findings + green tests (or the no-tests rule under Review contracts).
 - Reviewer never fixes, fixer never reviews.
 - Receiving-side rigor: verify each finding against real code before acting; no performative agreement with hostile-but-wrong findings.
 
@@ -108,4 +108,4 @@ Compaction and summary never route to a training family.
 
 ## Fallback Mechanics
 
-Every agent file pins its primary model, so a subagent session never silently runs the main session model. When a seat's primary returns a usage-limit, allowance, or 429-style provider error: re-dispatch the SAME agent id with an explicit `model` pointing at the next ladder entry for that role in the Model Tank. Announce the demotion. Skip any ladder entry whose model family already serves another seat this round (independence rule). A seat with zero healthy ladder entries is lost; the council stops at `yellow: degraded council` when fewer than 2 independent families remain healthy.
+Every agent file pins its primary model, so a subagent session never silently runs the main session model. When a seat's primary returns a usage-limit, allowance, or 429-style provider error: re-dispatch the SAME agent id with an explicit `model` pointing at the next ladder entry for that role in the Model Tank. Announce the demotion. Skip any ladder entry whose model family already serves another seat anywhere in this PR (independence rule). A seat with zero healthy ladder entries is lost; the council stops at `yellow: degraded council` when fewer than 2 independent families remain healthy.
