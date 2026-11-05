@@ -28,5 +28,7 @@ _Avoid_: Bill, payment request
 ## Single versus multi-context
 
 - **Single context:** one `GLOSSARY.md` at the repo root.
-- **Multiple contexts:** root `GLOSSARY-MAP.md` lists each context, where its glossary lives, and how contexts relate (events emitted, shared IDs). Infer the active context from the map; if unclear, ask.
+- **Multiple contexts:** root `GLOSSARY-MAP.md` lists each context, where its glossary lives, and how contexts relate (events emitted, shared IDs). Infer the active context from the map; if unclear, ask (auto-approve: choose and record).
 - **Neither exists:** create root `GLOSSARY.md` lazily at the first resolved term.
+
+Adapted from mattpocock/skills (MIT).

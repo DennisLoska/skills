@@ -13,7 +13,9 @@ Do NOT invoke any implementation skill, write any code, scaffold any project, or
 
 ## Auto-approve
 
-If the dispatch prompt or the spec header carries `auto-approve: true`, skip the User review gate, skip the Visual Companion offer, and note `auto-approved` at the top of the spec. The self-review still runs. Derive the clarifying questions from the dispatch prompt and the spec header instead of asking them, record each derived assumption in the spec under `## Assumptions`, and skip the per-section approval (checklist item 5), noting `auto-approved` per section or once at the top.
+If the dispatch prompt carries the auto-approve trigger, or the spec header carries `auto-approve: true`, skip the User review gate and skip the Visual Companion offer. The self-review still runs. Derive the clarifying questions from the dispatch prompt and the spec header instead of asking them, record each derived assumption in the spec under `## Assumptions`, and skip the per-section approval (checklist item 5).
+
+Shape writes the canonical literal `auto-approve: true` into the spec header BEFORE committing the spec, with the quoted trigger phrase on the same line. Section-level `auto-approved` notes are secondary and never substitute for that header line.
 
 ## Anti-Pattern: "This Is Too Simple To Need A Design"
 
@@ -115,13 +117,16 @@ digraph shape {
 - Plain, concise prose. Cut every sentence that adds nothing.
 - Commit the document to git only when it is not ignored:
 ```
-if ! git check-ignore -q "$spec_path"; then
-  git add "$spec_path"
+if ! git check-ignore -q docs/specs/YYYY-MM-DD-<topic>-design.md; then
+  git add docs/specs/YYYY-MM-DD-<topic>-design.md
+  git add GLOSSARY.md GLOSSARY-MAP.md docs/adr 2>/dev/null || true
   git commit -m "docs: spec for [topic]"
 else
   # local-only spec, never git add -f
 fi
 ```
+
+After writing the spec, shape also stages and commits any `GLOSSARY.md`, `GLOSSARY-MAP.md`, and `docs/adr/` files it created in the same commit as the spec, so Phase 3 starts from a clean tree.
 
 **Spec self-review.** Reread with fresh eyes:
 
@@ -168,5 +173,3 @@ An optional browser-based companion shows mockups, diagrams, and visual options 
 - **Use the terminal** for content that is text - requirements questions, conceptual choices, tradeoff lists, A/B/C/D options, scope decisions
 
 A question about a UI topic is not automatically a visual question. "What does personality mean in this context?" is conceptual: terminal. "Which wizard layout works better?" is visual: browser.
-
-If `visual-companion.md` is present in this skill's directory, read it before driving the browser.

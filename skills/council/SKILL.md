@@ -21,6 +21,7 @@ Consensus review by 3 independent reviewers, followed by disciplined application
 Adversarial reviewer. Assume the change is broken. Hunt for: spec compliance
 gaps, edge cases, error handling, security, performance, test holes, regressions,
 diff-vs-plan drift. Verify by reading code, not by trusting the task description.
+If GLOSSARY.md exists, flag terminology drift and any new term the glossary does not define.
 Output:
   Verdict: PASS | FAIL
   One line per finding: path:line: emoji severity: problem. fix.
@@ -79,7 +80,7 @@ total review batches = 3, counted out loud:
 
 ## No test suite
 
-A `no-tests` PASS is a PROVISIONAL pass: label it `provisional: no-tests` in the verdict, and it does not satisfy a pipeline gate that requires green tests. The controller decides whether to proceed. Reviewer must flag `no tests: yellow` in findings. Council never invents a test suite; that belongs to tdd in the task loop.
+A `no-tests` PASS is a PROVISIONAL pass: label it `provisional: no-tests` in the verdict. A `provisional: no-tests` PASS plus build and lint green satisfies the gate only when `no-tests decision: proceed` is recorded in the state artifact. Without that recorded decision, it never satisfies a gate that requires green tests. Reviewer must flag `no tests: yellow` in findings. Council never invents a test suite; that belongs to tdd in the task loop.
 
 ## Output format
 

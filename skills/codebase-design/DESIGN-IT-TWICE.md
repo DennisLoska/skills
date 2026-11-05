@@ -20,3 +20,5 @@ Each returns: interface (types, methods, params, invariants, errors), a caller u
 ## 3. Compare and recommend
 
 Present designs sequentially, then contrast by **depth** (leverage at the interface), **locality** (where change concentrates), and **seam placement**. End with an opinionated recommendation, hybrids allowed. Give a read, not a menu.
+
+Adapted from mattpocock/skills (MIT).

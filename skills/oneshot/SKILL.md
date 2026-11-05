@@ -9,7 +9,7 @@ Autonomous end-to-end SDLC: task -> spec -> plan -> implementation -> verificati
 
 **Core principle:** Full autonomy once started. No pauses between phases. User consulted only at design approval (Gate 1), plan approval (Gate 2), and the final branch decision (Gate 3).
 
-**Auto-approve bypass:** If the initial task description explicitly asks for it ("auto-approve", "skip all approvals", "no approval gates", "full autonomy no questions"), skip all 3 gates. Record `auto-approve: true` plus the quoted trigger phrase at the top of the spec. User instruction at start overrides default gates. Later turns never override it.
+**Auto-approve bypass:** If the initial task description explicitly asks for it ("auto-approve", "skip all approvals", "no approval gates", "full autonomy no questions"), skip all 3 gates. Shape writes `auto-approve: true` plus the quoted trigger phrase on the same header line of the spec BEFORE committing it; oneshot verifies that header line is present and never edits the spec after shape commits it. User instruction at start overrides default gates. Later turns never override it.
 
 **Auto-approve propagation:** when `auto-approve: true` is recorded, the flag travels into the shape and plan dispatch prompts, and those skills must suppress their own approval waits.
 
@@ -53,7 +53,7 @@ Run phases sequentially 1 -> 7 in the main session. No skipping. Validate the pr
 1. Create the feature branch `feat/<topic>` if the tree sits on the default branch (master/main). This is the FIRST step, before the shape skill runs: shape writes and commits the spec, so the branch must exist before it runs. All pipeline commits after this point happen on a feature branch.
 2. Invoke the `shape` skill via the `skill` tool. Follow its Socratic design checklist: purpose, constraints, success criteria, 2-3 approaches with trade-offs, user-approved design. Shape invokes `domain-modeling` when the design introduces or renames domain concepts, and `codebase-design` when it changes a module interface. The shape skill writes and commits the spec onto that branch.
 3. The spec commit is owned by shape (step 2). Oneshot only verifies the spec artifact exists at `docs/specs/YYYY-MM-DD-<topic>-design.md` and proceeds. Do not run `git add` or `git commit` here.
-4. Gate 1: user approves the design (skip under bypass, note `auto-approved` in spec).
+4. Gate 1: user approves the design (skip under bypass; verify the `auto-approve: true` header line shape wrote before committing, do not edit the spec here).
 
 ---
 
@@ -65,8 +65,8 @@ Run phases sequentially 1 -> 7 in the main session. No skipping. Validate the pr
 1. Invoke the `plan` skill via the `skill` tool. Decompose the spec into bite-size tasks with exact file paths, commands, and commit points. No placeholders.
 2. Save to `docs/plans/YYYY-MM-DD-<feature>.md`. Shape owns the spec commit, oneshot owns the plan commit. Commit the plan with this explicit form:
 ```
-if ! git check-ignore -q "$plan_file"; then
-  git add "$plan_file"
+if ! git check-ignore -q docs/plans/YYYY-MM-DD-<feature>.md; then
+  git add docs/plans/YYYY-MM-DD-<feature>.md
   git commit -m "docs: plan for [topic]"
 fi
 ```
@@ -136,7 +136,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
    - CI freshness gate: if any council fix round pushed commits after the last green `make-ci-green` receipt, re-enter Phase 6.5 on the final HEAD before Phase 7. A stale green receipt never satisfies the gate.
    - If that 6.5 re-entry itself pushes further CI-repair commits, the final HEAD needs one delta council round on the changed files (counted against the 3-round budget); when the round budget is exhausted alongside red CI, STOP and escalate instead of landing unreviewed.
 5. Rounds exhausted -> one escalation review with the AGENTS.md escalation row -> still failing -> STOP, escalate to user with round count, findings, test output. Do not proceed.
-6. No test suite: a reviewer PASS is labelled `provisional: no-tests` in the verdict, the controller records an explicit decision in the state artifact, and this never satisfies a gate that requires green tests. Reviewer flags `no tests` as yellow.
+6. No test suite: a reviewer PASS is labelled `provisional: no-tests` in the verdict. A `provisional: no-tests` PASS plus build and lint green satisfies the gate only when `no-tests decision: proceed` is recorded in the state artifact. Without that recorded decision, it never satisfies a gate that requires green tests. Reviewer flags `no tests` as yellow.
 
 **Rules:** Reviewer never fixes, fixer never reviews. Fresh subagents every round. Rounds 1-2 never pause for user input; stream results in passing. Verify every finding against real code before acting.
 
@@ -146,7 +146,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 
 **Skill:** `land` (Gate 3)
 
-1. Verify tests pass on final state.
+1. Verify tests pass on final state. A `provisional: no-tests` PASS plus build and lint green satisfies this gate only when `no-tests decision: proceed` is recorded in the state artifact.
 2. Landed options: merge PR and clean up, keep PR open, keep branch, discard. Present options (skip under bypass: default keep PR open).
 3. `land` executes the user choice. It reuses the standard flow: create-PR-if-none, merge open PR, checkout default, pull (the "next feature" handoff).
 4. Record it with the memory tool: mode "add", content "oneshot completed: [task] on [branch]". Remove the state artifact at the end of the run.

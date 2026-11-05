@@ -23,7 +23,9 @@ Finish a development branch: PR body that leads with the problem, then the merge
 
 ## Part 2 - Finish options (oneshot Phase 7, Gate 3)
 
-Present exactly these, get user choice:
+When `auto-approve: true` is present, skip the menu: default to Keep PR open, report the URL, and continue to the handoff without waiting.
+
+Otherwise present exactly these, get user choice:
 
 1. **Merge PR** - `gh pr merge --squash -t "<subject>"` then handoff (Part 3)
 2. **Keep PR open** - done, report URL

@@ -9,7 +9,7 @@ Design **deep modules**: much behavior behind a small interface, placed at a cle
 
 ## Glossary
 
-Use these terms exactly. No substitutes: never "component", "service", "API", or "boundary".
+Use these terms exactly when discussing module interfaces in this skill. No substitutes: never "component", "service", "API", or "boundary" for Module, Interface, or Seam. Other skills may use ordinary words.
 
 - **Module:** anything with an interface and an implementation. Scale-agnostic: function, class, package, or tier-spanning slice.
 - **Interface:** everything a caller must know: signature plus invariants, ordering constraints, error modes, config, performance. More than the type surface.

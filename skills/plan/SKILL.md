@@ -53,7 +53,7 @@ This structure drives task decomposition. Each task should produce self-containe
 
 **Goal:** [One sentence describing what this builds]
 
-**Auto-approved:** [true | omit this line unless `auto-approve: true` was set; when set, record `auto-approved: true` here]
+**Auto-approved:** [omit this line unless `auto-approve: true` was set; when set, record `auto-approve: true` here]
 
 **Architecture:** [2-3 sentences about approach]
 
@@ -139,7 +139,9 @@ Fix issues inline. No re-review - just fix and move on. A spec requirement with 
 
 ## Execution Handoff
 
-When `auto-approve: true` is present, do NOT offer the choice and do NOT offer inline execution: invoke the dispatch skill directly via the skill tool. Otherwise, save the plan and return control to the controller so Gate 2 can run (oneshot never authorizes inline main-session implementation).
+Read `auto-approve: true` from the committed spec header or the dispatch prompt.
+
+When `auto-approve: true` is present under oneshot, do NOT offer the choice, do NOT offer inline execution, and do NOT invoke dispatch: record the plan, note `auto-approve: true` in the plan header, and return control to oneshot, which runs Gate 2 and then Phase 3 dispatch. Plan invokes dispatch directly via the skill tool only when run standalone with auto-approve and no oneshot controller. Otherwise, save the plan and return control to the controller so Gate 2 can run (oneshot never authorizes inline main-session implementation).
 
 For standalone use only, offer the execution choice after saving the plan:
 

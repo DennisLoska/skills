@@ -22,3 +22,5 @@ Classify before deepening. The category sets how the deepened module is tested.
 - Write new tests at the deepened interface. The interface is the test surface.
 - Assert observable outcomes through the interface, never internal state.
 - Tests must survive internal refactors. A test that breaks on an internal change tests past the interface.
+
+Adapted from mattpocock/skills (MIT).

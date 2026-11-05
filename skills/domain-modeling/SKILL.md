@@ -40,6 +40,10 @@ Multiple contexts: a root `GLOSSARY-MAP.md` points at one `GLOSSARY.md` per cont
 
 Create files lazily: no `GLOSSARY.md` yet, create it when the first term is resolved. No `docs/adr/` yet, create it when the first ADR is needed. If `GLOSSARY-MAP.md` exists, read it first to find which context the current topic belongs to; if unclear, ask.
 
+## Auto-approve
+
+When `auto-approve: true` is set, do not ask the user to resolve a term. Pick the strongest term, record rejected alternatives under `_Considered_`, and note the decision in the spec Assumptions.
+
 ## The five in-session moves
 
 1. **Challenge against the glossary.** User language conflicts with `GLOSSARY.md`, call it out now: "Your glossary defines X this way, but you seem to mean Y. Which is it?"

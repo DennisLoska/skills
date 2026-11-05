@@ -35,3 +35,5 @@ All three must hold: hard to reverse, surprising without context, a real trade-o
 - **Deliberate deviations:** where a reasonable reader would assume the opposite, so nobody "fixes" it later.
 - **Invisible constraints:** compliance bans, latency contracts the code cannot show.
 - **Non-obvious rejections:** alternatives that will be re-suggested in six months if unrecorded.
+
+Adapted from mattpocock/skills (MIT).
