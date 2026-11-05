@@ -107,20 +107,15 @@ Skills never hardcode model IDs. Route every subagent through the AGENTS.md ladd
 - `implementer` and `implementer-b` - the two default high-allowance implementation seats (medium effort class). Alternate or pick either for standard and mechanical tasks (`implementer` for confidential briefs).
 - `implementer-deep` - the heavy-reasoning seat (`#high` effort) reserved for complex multi-file architecture tasks and difficult bugs escalated by `debug`.
 
-Per-task dispatch = one of the three seats + the brief from `implementer-prompt.md`. On a usage-limit/429 error from a seat: re-dispatch the same seat agent id with an explicit `model` override along its AGENTS.md ladder, announce the demotion, and continue.
+Per-task dispatch = one of the three seats + the brief from `implementer-prompt.md`, via the `subagent` tool (some builds register this tool as `task`; use whichever the session exposes). On a usage-limit/429 error from a seat: re-dispatch the same seat agent id with an explicit `model` override along its AGENTS.md ladder, announce the demotion, and continue.
 
-**Stage reviewers dispatch ad-hoc:** spec-reviewer and quality-reviewer subagents always carry an explicit `model` from the AGENTS.md "task-stage reviewers" rung, chosen after the task complexity call below. They are not seat agents; fresh context each time, model override each time.
+**Stage reviewers dispatch ad-hoc:** spec-reviewer and quality-reviewer subagents always carry an explicit `model` from the AGENTS.md "task-stage reviewers" rung, chosen after the seat matrix call above. They are not seat agents; fresh context each time, model override each time.
 
-**Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): cheapest rung on the implementation ladder. Most implementation tasks are mechanical when the plan is well-specified.
-
-**Integration and judgment tasks** (multi-file coordination, pattern matching, debugging): a stronger rung.
-
-**Architecture, design, and review tasks:** the strongest rung available. Reviews that need the council run on the AGENTS.md council rows.
-
-**Task complexity signals:**
-- Touches 1-2 files with a complete spec: cheapest rung
-- Touches multiple files with integration concerns: mid rung
-- Requires design judgment or broad codebase understanding: strongest rung
+**Seat matrix (route every implementation through a named seat agent; models and effort levels are pinned in the agent files):**
+- Default single-task work -> `implementer`.
+- Second parallel track or lower-risk mechanical work -> `implementer-b`.
+- Multi-file architecture, concurrency, or a bug that resisted one standard attempt -> `implementer-deep`.
+- 1-2 file surgical edits with no test run -> `patch`.
 
 Confidential briefs: when a task brief is marked confidential, any rung marked as training on request data in AGENTS.md Privacy Footnotes auto-skips; demote straight to the next privacy-safe rung per the AGENTS.md ladder and announce.
 

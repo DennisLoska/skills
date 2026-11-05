@@ -14,7 +14,7 @@ Consensus review by 3 independent reviewers, followed by disciplined application
 ## Request phase
 
 1. Scope: diff of the branch (git diff against target), or PR, or given files. Read spec + plan when present.
-2. Dispatch the three council seat agents via the `task` tool, one fresh subagent each: `reviewer-a`, `reviewer-b`, `reviewer-c`. Same scope, same instructions, one independent model family per seat (each agent file pins its seat model, so no seat ever inherits the main session model).
+2. Dispatch the three council seat agents via the `subagent` tool (some builds register this tool as `task`; use whichever the session exposes), one fresh subagent each: `reviewer-a`, `reviewer-b`, `reviewer-c`. Same scope, same instructions, one independent model family per seat (each agent file pins its seat model, so no seat ever inherits the main session model).
 3. Reviewer instruction block:
 
 ```
@@ -37,7 +37,7 @@ No praise. No "looks good". No scope creep.
 Every seat lives in an agent file with a pinned primary model. When its primary returns a usage-limit or 429-style provider error:
 
 ```
-re-dispatch: task: agent <seat>, model <next ladder entry>
+re-dispatch: subagent: agent <seat>, model <next ladder entry>
 announce: "seat <seat> demoted to <model>"
 ```
 
@@ -48,7 +48,7 @@ announce: "seat <seat> demoted to <model>"
 ## Verdict phase
 
 - PASS = at least 2 of 3 seats vote PASS AND zero unresolved confirmed red findings from any seat. A confirmed red from a single FAIL seat blocks PASS just the same, until it is fixed or rebutted with evidence.
-- Fewer than 2 families healthy: report `yellow: degraded council` and treat single-family PASS as provisional only.
+- Fewer than 2 families healthy: STOP with `yellow: degraded council`; never report a provisional PASS.
 - Merge findings into one list, severity sorted red -> yellow -> blue. Dedupe identical findings, keep the sharpest wording.
 - Escalation seat independence spans the whole PR: `reviewer-esc` never runs on a model family another seat already used this PR (check AGENTS.md family map per ladder rung). On conflict, demote along the `reviewer-esc` ladder in AGENTS.md until an unused Go family is found, else stop and surface `yellow: degraded council`.
 
@@ -65,7 +65,7 @@ round 1 = the initial three-seat review from the Request phase (no extra batches
 total review batches = 3, counted out loud:
   round 1 = the initial three-seat review from the Request phase (no extra batch)
   verdict of round N FAIL, N < 3:
-    dispatch fresh fixer subagents, one per finding cluster (max 2 files each)
+    dispatch fresh fixer subagents from `implementer` (one per finding cluster, max 2 files each; `patch` is for edits that need no test execution)
     fixers run tests before declaring done
     re-run verify skill checks (tests, lint, typecheck, build)
     round N+1 review = 3 fresh reviewer seats
@@ -79,7 +79,7 @@ total review batches = 3, counted out loud:
 
 ## No test suite
 
-Reviewer PASS + build/lint green suffices. Reviewer must flag `no tests: yellow` in findings. Council never invents a test suite; that belongs to tdd in the task loop.
+A `no-tests` PASS is a PROVISIONAL pass: label it `provisional: no-tests` in the verdict, and it does not satisfy a pipeline gate that requires green tests. The controller decides whether to proceed. Reviewer must flag `no tests: yellow` in findings. Council never invents a test suite; that belongs to tdd in the task loop.
 
 ## Output format
 

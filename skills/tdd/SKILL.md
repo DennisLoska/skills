@@ -176,7 +176,7 @@ npm test path/to/test.test.ts
 Confirm:
 - Test passes
 - Other tests still pass
-- Output pristine (no errors, warnings)
+- Output shows no NEW errors or warnings introduced by this change
 
 **Test fails?** Fix code, not test.
 
@@ -333,7 +333,7 @@ Before marking work complete:
 - [ ] Each test failed for the expected reason (feature missing, not typo)
 - [ ] Wrote minimal code to pass each test
 - [ ] All tests pass
-- [ ] Output pristine (no errors, warnings)
+- [ ] Output shows no NEW errors or warnings introduced by this change
 - [ ] Tests use real code (mocks only if unavoidable)
 - [ ] Edge cases and errors covered
 
