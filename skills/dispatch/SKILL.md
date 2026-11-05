@@ -104,7 +104,7 @@ Standalone (no oneshot): after final review PASS, run the verify skill yourself,
 Skills never hardcode model IDs. Route every subagent through the AGENTS.md ladder ("Model Tank"), by role. Named seat agents pin their primary in the agent file; ad-hoc dispatches must always pass an explicit `model` field so nothing inherits the main session model by accident.
 
 **Three implementation seats exist** (models and effort levels pinned in their agent files; ladders in AGENTS.md "Model Tank"):
-- `implementer` and `implementer-b` - the two default high-allowance implementation seats (medium effort class). Alternate or pick either for standard and mechanical tasks (`implementer` for confidential briefs).
+- `implementer` and `implementer-b` - the two default high-allowance implementation seats (pinned variant in their agent files). Alternate or pick either for standard and mechanical tasks (`implementer` for confidential briefs).
 - `implementer-deep` - the heavy-reasoning seat (`#high` effort) reserved for complex multi-file architecture tasks and difficult bugs escalated by `debug`.
 
 Per-task dispatch = one of the three seats + the brief from `implementer-prompt.md`, via the `subagent` tool (some builds register this tool as `task`; use whichever the session exposes). On a usage-limit/429 error from a seat: re-dispatch the same seat agent id with an explicit `model` override along its AGENTS.md ladder, announce the demotion, and continue.
@@ -139,7 +139,7 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 
 ## Review Stages
 
-Both review stages dispatch fresh reviewer subagents that follow the council skill contract. Invoke the council skill via the skill tool for the reviewer instruction block, the one-line finding format (`path:line: severity: problem. fix.`), and receiving-side rigor (confirm every finding against real code before dispatching fixes).
+Both review stages dispatch fresh reviewer subagents that follow the council review contract. One owner: use the reviewer instruction block from `skills/council/SKILL.md` verbatim for each single reviewer (never invoke the council skill via the skill tool, which would start the full 3-seat branch loop), with the one-line finding format (`path:line: severity: problem. fix.`), and receiving-side rigor (confirm every finding against real code before dispatching fixes).
 
 - **Stage 1, spec compliance:** verify the implementer built what was requested, nothing more, nothing less.
 - **Stage 2, code quality:** verify the implementation is well-built. Order is fixed. Never start quality review before spec compliance passes.

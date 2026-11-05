@@ -120,9 +120,10 @@ digraph shape {
 ```
 if ! git check-ignore -q docs/specs/YYYY-MM-DD-<topic>-design.md; then
   git add docs/specs/YYYY-MM-DD-<topic>-design.md
-  for p in GLOSSARY.md GLOSSARY-MAP.md docs/adr; do
-    if [ -e "$p" ]; then git add -- "$p"; fi
-  done
+  # Then stage only the glossary/ADR paths this run created or modified,
+  # each named explicitly, for example:
+  #   git add -- GLOSSARY.md docs/adr/ADR-0007-choice.md
+  # Never stage pre-existing untracked files.
   git commit -m "docs: spec for [topic]"
 else
   # local-only spec, never git add -f

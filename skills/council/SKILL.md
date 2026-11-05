@@ -30,7 +30,7 @@ Output:
 No praise. No "looks good". No scope creep.
 ```
 
-4. If a seat's model is exhausted mid-round: re-dispatch the SAME seat agent id with an explicit `model` field set to the seat's next ladder entry from AGENTS.md "Model Tank" (mechanics below). Rerun only that seat. Never fill a seat with a model from a family already on the council this round.
+4. If a seat's model is exhausted mid-round: re-dispatch the SAME seat agent id with an explicit `model` field set to the seat's next ladder entry from AGENTS.md "Model Tank" (mechanics below). Rerun only that seat. Never fill a seat with a model from a family already used anywhere in this PR.
 5. Confidentiality gate: if the review brief or referenced diff carries a confidential flag, any rung marked as training on request data in AGENTS.md Privacy Footnotes auto-skips for every seat; demote to the next privacy-safe rung and announce.
 
 ## Fallback mechanics
@@ -42,14 +42,14 @@ re-dispatch: subagent: agent <seat>, model <next ladder entry>
 announce: "seat <seat> demoted to <model>"
 ```
 
-- A demotion never breaks family independence: skip any ladder entry whose family already serves another seat this round.
+- A demotion never breaks family independence: skip any ladder entry whose family already serves another seat used anywhere in this PR.
 - A seat with zero healthy ladder entries = seat lost. Continue if at least 2 independent families remain; otherwise stop with `yellow: degraded council`.
 - The escalation seat is a separate agent (`reviewer-esc`), pinned to the AGENTS.md escalation row. It never substitutes a lost seat mid-round; it enters only after the round budget is spent.
 
 ## Verdict phase
 
 - PASS = at least 2 of 3 seats vote PASS AND zero unresolved confirmed red findings from any seat, and tests green, or the no-tests rule satisfied. A confirmed red from a single FAIL seat blocks PASS just the same, until it is fixed or rebutted with evidence.
-- Fewer than 2 families healthy: STOP with `yellow: degraded council` (see `AGENTS.md` Review contracts for the degraded-council rule).
+- Fewer than 2 families healthy: STOP with `yellow: degraded council` per the canonical degraded-council rule in `AGENTS.md` Review contracts.
 - Merge findings into one list, severity sorted red -> yellow -> blue. Dedupe identical findings, keep the sharpest wording.
 - Escalation seat independence spans the whole PR: `reviewer-esc` never runs on a model family another seat already used this PR (check AGENTS.md family map per ladder rung). On conflict, demote along the `reviewer-esc` ladder in AGENTS.md until an unused Go family is found, else stop and surface `yellow: degraded council`.
 

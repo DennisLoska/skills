@@ -1,6 +1,6 @@
 # Great Refactor Implementation Plan
 
-> Historical plan. Tasks 9 to 11 and the Validation record below were superseded by Revision 7; anything they say about a `commands/` tree, `skills/craft`, or importing twelve domain skills no longer describes this repository.
+> Historical plan. Tasks 9 to 11 and the Validation record below were superseded by Revision 7; anything they say about a `commands/` tree, `skills/craft`, or importing twelve domain skills no longer describes this repository. Agents pin `model:` per seat; the early `model: inherit` wording in Tasks 3 and 13 was corrected before merge and is not current.
 
 > **For agentic workers:**
 > - [ ] Read this plan before starting; read `AGENTS.md` after Task 2 and before any model-routed dispatch.
@@ -12,7 +12,7 @@
 
 **Architecture:** `oneshot` orchestrates task, branch, CI, and meta feedback loops while `patch` and `dispatch` act, and `scout`, `verify`, `council`, `make-ci-green`, and `stats` sense state. Three default user gates, hard loop budgets, evidence-based stop-on-red behavior, and model fallback ladders keep the system stable without external process-skill dependencies.
 
-**Tech Stack:** OpenCode V2 markdown agents, skills, and commands; Bash installer; Git and GitHub CLI `gh`; MIT license. Skills use `skills/name/SKILL.md` with `name` and trigger-rich `description` frontmatter, agents use `agents/name.md` with `description`, `mode`, no-op `model: inherit`, and ordered `permissions` rules, and commands use `commands/name.md`; configuration reloads without restart.
+**Tech Stack:** OpenCode V2 markdown agents, skills, and commands; Bash installer; Git and GitHub CLI `gh`; MIT license. Skills use `skills/name/SKILL.md` with `name` and trigger-rich `description` frontmatter, agents use `agents/name.md` with `description`, `mode`, pinned `model:` per seat, and ordered `permissions` rules, and commands use `commands/name.md`; configuration reloads without restart.
 
 ## File structure (9 agents, 12 skills)
 

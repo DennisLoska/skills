@@ -48,11 +48,11 @@ Rules:
 
 - Agent `permissions:` lists are evaluated last-match-wins, so order is the policy.
 - Read-only seats deny `bash`/`shell` broadly first, then allow only the narrow git commands each seat has: `scout` allows `git log` only; reviewers (`reviewer-a`, `reviewer-b`, `reviewer-c`) and escalation (`reviewer-esc`) allow `git diff`, `git log`, and `git show`.
-- Implementation seats (`implementer`, `implementer-b`, `implementer-deep`) allow `bash`/`shell` broadly, then deny specific destructive patterns (`rm -r*`, `git clean`, `git push`, `pkill`, `killall`) and secret-reading commands (`cat`, `head`, `tail`, `less`, `strings`, `xxd`, `sed`, `awk`, `base64`, `od`, `paste`, `printenv`, `env`).
+- Implementation seats (`implementer`, `implementer-b`, `implementer-deep`) allow `bash`/`shell` broadly, then deny specific destructive patterns (`rm -r*`, `git clean`, `git push`, `pkill`, `killall`) and deny reader commands only in the `<cmd> *<secret>*` pattern form, so a bare `cat src/app.ts` is allowed but `cat *.env*` is denied (`cat`, `head`, `tail`, `less`, `strings`, `xxd`, `sed`, `awk`, `base64`, `od`, `paste`, `printenv`, `env`).
 - `patch` denies `bash` and `shell` broadly and edits files only.
 - In both allow/deny layouts the last matching rule is the policy.
 - Every seat denies reads of `.env`, `.env.*`, `.zshrc`, `.zsh_history`, and `.ssh/*` in both bare and nested forms after its broad read allow.
-- A seat may not commit or push on `main`/`master`: every implementer seat runs `git branch --show-current` as Step 0 and refuses on `main`/`master`, and council and CI fixer dispatches must use the implementer seats so the check always applies. Shell pattern denies are best-effort guardrails, not a sandbox.
+- A seat may not commit or push on `main`/`master`: every implementer seat runs `git branch --show-current` as Step 0 and refuses on `main`/`master`, and council and CI fixer dispatches that run tests, commit, or push must use the implementer seats so the check always applies; `patch` remains valid for a 1-2 file edit with no test run. Shell pattern denies are best-effort guardrails, not a sandbox.
 - Shell and git denies are an enumerated blocklist and best-effort guardrails, not a sandbox. Sibling names such as .envrc are not covered. Never treat a shell command as secret-safe.
 - The canonical statements of the no-tests rule, the degraded-council rule, and fixer seat routing live in this file under Review contracts; skills reference them and do not restate them in different words.
 

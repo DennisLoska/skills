@@ -12,8 +12,8 @@ Watch a PR through CI checks and bot reviews. Fix real findings. Kill flakes wit
 ## Loop
 
 ```
-while checks not green:
-  read state: gh pr checks <id> --watch, gh pr view <id> --json reviews,labels
+while checks not green (bounded poll: run `gh pr checks <id>` in a loop with a 30-second wait, at most 10 minutes total; on timeout return `CI stalled at <sha>` and hand back to the controller):
+  read state: gh pr checks <id>, gh pr view <id> --json reviews,labels
   classifier, for each failing/blocked item:
     - bot review finding -> real finding?
     - failing check -> root cause in log?

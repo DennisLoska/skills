@@ -234,6 +234,12 @@ permissions:
   - action: shell
     resource: "git show *-p*"
     effect: deny
+  - action: webfetch
+    resource: "*"
+    effect: deny
+  - action: websearch
+    resource: "*"
+    effect: deny
   - action: task
     resource: "*"
     effect: deny
