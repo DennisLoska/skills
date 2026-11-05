@@ -157,7 +157,34 @@ cd skills
 ./install.sh
 ```
 
-`./install.sh` copies `agents/` and `skills/` into `${OPENCODE_CONFIG:-$HOME/.config/opencode}` and writes [`AGENTS.md`](./AGENTS.md) to `~/.config/opencode/HARNESS.md` so any existing `~/.config/opencode/AGENTS.md` is never overwritten.
+`./install.sh` copies `agents/` and `skills/` into `${OPENCODE_CONFIG:-$HOME/.config/opencode}` and writes [`AGENTS.md`](./AGENTS.md) to `<dest>/HARNESS.md` so any existing `AGENTS.md` is never overwritten.
+
+The copy is collision-safe. Before touching anything, the installer checks every target path; if any already exists it prints one `collision: <dest path>` line per conflict plus `refusing to overwrite; rerun with --force`, then exits 1 having copied nothing. Content is not compared, so a second run always needs `--force`, even when nothing changed.
+
+| Flag | Effect |
+| --- | --- |
+| `--force` | overwrite files that already exist in the destination |
+| `--prune` | after copying, remove files under `<dest>/agents` and `<dest>/skills` that no longer exist in this repository, then print `pruned N stale file(s)`. Nothing else under the destination is touched |
+| `-h`, `--help` | print usage and exit 0 without copying |
+
+Reinstall after pulling changes:
+
+```sh
+./install.sh --force              # refresh the harness files
+./install.sh --force --prune      # also drop skills or agents removed upstream
+```
+
+Set `OPENCODE_CONFIG` to install anywhere other than `~/.config/opencode`:
+
+```sh
+OPENCODE_CONFIG="$HOME/.config/opencode-v2" ./install.sh
+```
+
+Run the installer contract tests (they use a throwaway `HOME` and never touch your real config):
+
+```sh
+bash test/install.sh
+```
 
 ### 2. Register `HARNESS.md` in `~/.config/opencode/opencode.json`
 
