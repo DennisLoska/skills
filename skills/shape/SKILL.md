@@ -17,7 +17,7 @@ If the dispatch prompt or the spec header carries `auto-approve: true`, skip the
 
 ## Anti-Pattern: "This Is Too Simple To Need A Design"
 
-Every project runs this process: todo lists, single-function utilities, config changes, all of them. "Simple" projects are where unexamined assumptions cause the most wasted work. The design can be short (a few sentences for truly simple projects), but it MUST be presented and approved.
+Every project runs this process: todo lists, single-function utilities, config changes, all of them. "Simple" projects are where unexamined assumptions cause the most wasted work. The design can be short (a few sentences for truly simple projects), but it MUST be presented and approved, or auto-approved and recorded when the flag is set.
 
 ## Checklist
 
