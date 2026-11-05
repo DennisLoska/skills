@@ -66,7 +66,7 @@ total review batches = 3, counted out loud:
   round 1 = the initial three-seat review from the Request phase (no extra batch)
   verdict of round N FAIL, N < 3:
     dispatch fresh fixer subagents from `implementer` (one per finding cluster, max 2 files each; `patch` is for edits that need no test execution)
-    fixers run tests before declaring done
+    implementer fixers run tests before declaring done
     re-run verify skill checks (tests, lint, typecheck, build)
     round N+1 review = 3 fresh reviewer seats
     PASS + green -> done

@@ -49,9 +49,11 @@ This structure drives task decomposition. Each task should produce self-containe
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For agentic workers:** REQUIRED SKILL: invoke the dispatch skill via the skill tool (recommended) to implement this plan task-by-task, or execute inline with batch checkpoints. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SKILL: invoke the dispatch skill via the skill tool (recommended) to implement this plan task-by-task. For standalone plans only, inline execution with batch checkpoints is also allowed. Under oneshot or `auto-approve: true`, execution is subagent-driven only: never execute inline. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** [One sentence describing what this builds]
+
+**Auto-approved:** [true | omit this line unless `auto-approve: true` was set; when set, record `auto-approved: true` here]
 
 **Architecture:** [2-3 sentences about approach]
 
@@ -61,6 +63,8 @@ This structure drives task decomposition. Each task should produce self-containe
 ```
 
 ## Task Structure
+
+When a task touches a domain concept or a module interface, the task names the glossary term or seam it preserves.
 
 ````markdown
 ### Task N: [Component Name]
@@ -135,7 +139,7 @@ Fix issues inline. No re-review - just fix and move on. A spec requirement with 
 
 ## Execution Handoff
 
-When the invocation comes from oneshot, or when `auto-approve: true` is present, do NOT offer the choice and do NOT offer inline execution: invoke the dispatch skill directly via the skill tool. Oneshot never authorizes inline main-session implementation.
+When `auto-approve: true` is present, do NOT offer the choice and do NOT offer inline execution: invoke the dispatch skill directly via the skill tool. Otherwise, save the plan and return control to the controller so Gate 2 can run (oneshot never authorizes inline main-session implementation).
 
 For standalone use only, offer the execution choice after saving the plan:
 

@@ -13,7 +13,7 @@ Do NOT invoke any implementation skill, write any code, scaffold any project, or
 
 ## Auto-approve
 
-If the dispatch prompt or the spec header carries `auto-approve: true`, skip the User review gate, skip the Visual Companion offer, and note `auto-approved` at the top of the spec. The self-review still runs.
+If the dispatch prompt or the spec header carries `auto-approve: true`, skip the User review gate, skip the Visual Companion offer, and note `auto-approved` at the top of the spec. The self-review still runs. Derive the clarifying questions from the dispatch prompt and the spec header instead of asking them, record each derived assumption in the spec under `## Assumptions`, and skip the per-section approval (checklist item 5), noting `auto-approved` per section or once at the top.
 
 ## Anti-Pattern: "This Is Too Simple To Need A Design"
 
@@ -25,13 +25,16 @@ You MUST create a task for each of these items and complete them in order:
 
 1. **Explore project context** - check files, docs, recent commits
 2. **Offer the visual companion** (only if the topic will involve visual questions, and skipped under auto-approve) - its own message, nothing else in it. See the Visual Companion section below.
-3. **Ask clarifying questions** - one at a time: purpose, constraints, success criteria
+3. **Ask clarifying questions** (skipped under auto-approve) - one at a time: purpose, constraints, success criteria
 4. **Propose 2-3 approaches** - with trade-offs and your recommendation
-5. **Present the design** - in sections scaled to complexity, user approval after each section
+5. **Present the design** - in sections scaled to complexity, user approval after each section (skipped under auto-approve; note `auto-approved` instead)
 6. **Write the design doc** - save to `docs/specs/YYYY-MM-DD-<topic>-design.md`, commit it
 7. **Spec self-review** - inline check for placeholders, contradictions, ambiguity, scope (below)
 8. **User reviews the written spec** - wait for explicit approval before proceeding (skipped under auto-approve; note auto-approved in the spec)
 9. **Transition to implementation** - invoke the plan skill via the skill tool
+
+- During context exploration and design, invoke the `domain-modeling` skill when the work introduces or renames domain concepts.
+- During context exploration and design, invoke the `codebase-design` skill when the work changes a module interface or seam.
 
 ## Process Flow
 
@@ -62,6 +65,7 @@ digraph shape {
     "Spec self-review\n(fix inline)" -> "User reviews spec?";
     "User reviews spec?" -> "Write design doc" [label="changes requested"];
     "User reviews spec?" -> "Invoke plan skill" [label="approved"];
+    "Explore project context" -> "Write design doc" [label="auto-approve: derive assumptions, skip clarify/approval loop"];
 }
 ```
 
@@ -141,7 +145,7 @@ Wait for the response. Changes requested: make them and rerun the self-review. P
 
 ## Key Principles
 
-- **One question at a time** - never bundle questions in a message
+- **One question at a time** (skipped under auto-approve) - never bundle questions in a message
 - **Multiple choice preferred** - easier to answer than open-ended
 - **YAGNI ruthlessly** - cut unnecessary features from every design
 - **Explore alternatives** - always 2-3 approaches before settling

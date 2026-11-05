@@ -19,6 +19,8 @@ subagent dispatch: agent `implementer` or `implementer-b` for standard tasks, `i
 
     [Scene-setting: where this fits, dependencies, architectural context]
 
+    Domain vocabulary: <glossary terms this task must honor, or "none">
+
     ## Before You Begin
 
     If you have questions about:
@@ -32,12 +34,13 @@ subagent dispatch: agent `implementer` or `implementer-b` for standard tasks, `i
     ## Your Job
 
     Once you're clear on requirements:
-    1. Implement exactly what the task specifies
-    2. Write tests (invoke the tdd skill via the skill tool if the task says to)
-    3. Verify implementation works
-    4. If `Parallel: true` (Dispatch mode): leave all changes STAGED, do not commit, and note `staged-uncommitted` in your receipt. If `Parallel: false`: make one conventional commit (feat|fix|refactor|test|chore(scope): subject, max 50 chars) and never push
-    5. Self-review (see below)
-    6. Report back
+    1. Run `git branch --show-current` and STOP with `wrong-branch.` if the branch is `main` or `master`. This branch check is the branch protection; do not rely on shell deny patterns.
+    2. Implement exactly what the task specifies
+    3. Write tests (invoke the tdd skill via the skill tool if the task says to)
+    4. Verify implementation works
+    5. If `Parallel: true` (Dispatch mode): leave all changes STAGED, do not commit, and note `staged-uncommitted` in your receipt. If `Parallel: false`: make one conventional commit (feat|fix|refactor|test|chore(scope): subject, max 50 chars) and never push
+    6. Self-review (see below)
+    7. Report back
 
     Work from: [directory], in place on the feature branch
 
