@@ -1,5 +1,7 @@
 # Great Refactor Implementation Plan
 
+> Historical plan. Tasks 9 to 11 and the Validation record below were superseded by Revision 7; anything they say about a `commands/` tree, `skills/craft`, or importing twelve domain skills no longer describes this repository.
+
 > **For agentic workers:**
 > - [ ] Read this plan before starting; read `AGENTS.md` after Task 2 and before any model-routed dispatch.
 > - [ ] Execute Tasks 1-13 in order on `feat/system-v1`, using fresh implementation subagents after Task 5.

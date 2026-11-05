@@ -6,7 +6,7 @@ Instructions for the `oneshot` cybernetic control system. Skills and ad-hoc disp
 
 - Any code search touching more than one file or 50+ lines goes to `scout` (read-only locator, compressed `path:line` tables) instead of inline search loops in the main session.
 - The main session orchestrates and never writes implementation code inline; dispatch a fresh subagent per task (`implementer`, `implementer-b`, or `implementer-deep`) via `dispatch`.
-- Surgical 1-2 file fixes (micro-loops and council fix rounds) go to `patch`.
+- `patch` handles 1 to 2 file edits that need no test run (micro-loops, typo fixes, mechanical renames). Council and CI fixers that must run tests are implementation seats.
 
 ## Model Tank
 
@@ -24,7 +24,7 @@ Skills reference the ROLE NAME or SEAT AGENT only. On a provider error mentionin
 | Implementation (default A) | `implementer` | `opencode-go/deepseek-v4.1-flash#high` (43,330) | `opencode-go/muse-spark-1.3-contributor#medium` (45,300) | `opencode-go/gpt-6-luna#medium` (4,230) |
 | Implementation (default B) | `implementer-b` | `opencode-go/muse-spark-1.3-contributor#medium` (45,300) | `opencode-go/deepseek-v4.1-flash#high` (43,330) | `opencode-go/gpt-6-luna#medium` (4,230) |
 | Complex tasks / difficult bugs | `implementer-deep` | `opencode-go/gemini-4-argon#high` (440) | `opencode-go/deepseek-v4.1-flash#max` (43,330) | `opencode-go/muse-spark-1.3-contributor#high` (45,300) |
-| Surgical fixes (1-2 files, council fixers) | `patch` | `opencode-go/deepseek-v4.1-flash#high` (43,330) | `opencode-go/muse-spark-1.3-contributor#medium` (45,300) | `opencode-go/gpt-6-luna#medium` (4,230) |
+| Surgical fixes (1-2 files, no test run) | `patch` | `opencode-go/deepseek-v4.1-flash#high` (43,330) | `opencode-go/muse-spark-1.3-contributor#medium` (45,300) | `opencode-go/gpt-6-luna#medium` (4,230) |
 | Task-stage reviewers (spec + quality) | ad-hoc, explicit model | `opencode-go/glm-5.3-flash#high` (6,320) | `opencode-go/claude-haiku-5-5#high` (3,850) | `opencode-go/gpt-6-luna#high` (4,230) |
 | Scout / discovery | `scout` | `opencode-go/mimo-v2.6-flash` (30,100) | `opencode-go/deepseek-v4.1-flash#low` (43,330) | `opencode-go/glm-5.3-flash#low` (6,320) |
 | Council reviewer A | `reviewer-a` | `opencode-go/muse-spark-1.3-contributor#xhigh` (45,300) | `opencode-go/claude-haiku-5-5#high` (3,850) | `opencode-go/kimi-k3.1-pro#high` (147) |
@@ -36,10 +36,10 @@ Skills reference the ROLE NAME or SEAT AGENT only. On a provider error mentionin
 Rules:
 
 - Only `opencode-go/*` models are permitted in this harness.
-- Never run the council with fewer than 2 independent reviewer families. If only 1 healthy model remains, surface it as a yellow finding instead of pretending consensus.
+- Never run the council with fewer than 2 independent reviewer families. If fewer than 2 independent reviewer families are healthy, stop with `yellow: degraded council`. Never continue on one reviewer.
 - Council runs at most 3 rounds per PR. Primary reviewers (`muse-spark-1.3-contributor#xhigh`, `deepseek-v4.1-flash#max`, `glm-5.3-flash#high`) have 6,320 to 45,300 req/5h so normal PRs never touch scarce limits; `kimi-k3.1-pro#high` (147 req/5h) is strictly last-resort / escalation.
 - Deepseek v4 models are cheapest off-peak: 01:00-04:00, 06:00-10:00 UTC Mon-Fri is peak.
-- Council budget guard: at most 13 reviewer dispatches per PR including escalation (9 seat, 3 demotion, 1 escalation); a seat that demoted once holds its new rung for the rest of the day.
+- Council budget guard: at most 14 reviewer dispatches per PR including escalation (9 seat, 3 seat demotion, 1 escalation, 1 escalation demotion); a seat that demoted once holds its new rung for the rest of the day.
 - Family independence holds across the whole PR, not just one round: when two seats demote in the same round, skip any fallback whose family is already active on another seat that round (for example, if Seat A already demoted to `claude-haiku-5-5#high`, Seat C skips straight to `gpt-6-luna#high`). Escalation only runs on a family no seat used this PR; if `kimi-k3.1-pro#high` was already consumed as a seat last-resort, `reviewer-esc` demotes to `gemini-4-argon#high`.
 - Privacy gate: any rung marked as training on request data auto-skips when the task or diff carries a confidential flag; demote to the next privacy-safe rung and announce.
 - Action-name aliases: some OpenCode builds register permission actions as `bash`/`task`, some as `shell`/`subagent`; agent files carry both spellings so denies never go inert.
@@ -47,7 +47,9 @@ Rules:
 ### Permission rules
 
 - Agent `permissions:` lists are evaluated last-match-wins, so order is the policy.
-- The broad `bash`/`shell` deny comes first and narrow allows come last.
+- Read-only seats (`scout`, reviewers, escalation) deny `bash`/`shell` broadly first, then allow the narrow `git diff|log|show` commands they need.
+- Implementation seats (`implementer`, `implementer-b`, `implementer-deep`, `patch`) allow `bash`/`shell` broadly, then deny specific destructive patterns (`rm -r*`, `git clean`, `git push`, `pkill`, `killall`, commits on `main`/`master`).
+- In both layouts the last matching rule is the policy.
 - Every seat denies reads of `.env`, `.env.*`, `.zshrc`, `.zsh_history`, and `.ssh/*` after its broad read allow.
 - A seat may not commit or push on `main`/`master`.
 
@@ -73,6 +75,7 @@ Compaction and summary never route to a training family.
 ## Council Contract
 
 - Seats are named agents: `implementer` and `implementer-b` (default planned tasks), `implementer-deep` (complex tasks / difficult bugs), `scout`, `patch`, `reviewer-a`, `reviewer-b`, `reviewer-c`, escalation `reviewer-esc`; each file pins its seat model and `#variant` effort level, so subagents never inherit the main session model.
+- Seat briefs carry the project glossary terms when a `GLOSSARY.md` exists; reviewers flag drift between code vocabulary and the glossary.
 - Three reviewers, three independent model families, fresh subagent each.
 - One line per finding: `path:line: emoji severity: problem. fix.`
 - Severity only: red bug, yellow risk, blue nit (nits only on request).

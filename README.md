@@ -1,6 +1,6 @@
 # skills
 
-A cybernetic SDLC harness for OpenCode V2. One gated controller (`oneshot`), four closed feedback loops, nine model-pinned agent seats on OpenCode Go, and ten flat-named pipeline skills.
+A cybernetic SDLC harness for OpenCode V2. One gated controller (`oneshot`), four closed feedback loops, nine model-pinned agent seats on OpenCode Go, and twelve flat-named pipeline skills.
 
 ## Cybernetic Architecture
 
@@ -40,12 +40,12 @@ A cybernetic SDLC harness for OpenCode V2. One gated controller (`oneshot`), fou
 |  reviewer-b: deepseek-v4.1-flash#max          (43.3k req/5h)  -+-> PASS |
 |  reviewer-c: glm-5.3-flash#high               ( 6.3k req/5h)  -+    or  |
 |                                                                    FAIL |
-|  FAIL (rounds 1-2) -> [PATCH] surgical fixer -> re-review               |
+|  FAIL (rounds 1-2) -> implementation fixer (tests) -> re-review         |
 |  Rounds exhausted  -> [REVIEWER-ESC] kimi-k3.1-pro#high -> STOP         |
 +-------------------------------------------------------------------------+
 
 +------------------------- L3  CI LOOP -----------------------------------+
-|  [MAKE-CI-GREEN] watches checks + review bots -> [PATCH] on real bugs   |
+|  [MAKE-CI-GREEN] watches checks + review bots -> implementation fixers  |
 |  No blind reruns; flakes require log-line evidence before a single retry|
 +-------------------------------------------------------------------------+
 
@@ -76,8 +76,8 @@ What happens across the 7 numbered phases plus 6.5:
    - Runs two-stage review after every task: Stage 1 spec compliance, then Stage 2 code quality (`glm-5.3-flash#high`).
 4. **Phase 4 - `verify` (Evidence Gate):** runs the full test suite, typecheck, linter, and build, confirming every spec checklist item with fresh command output.
 5. **Phase 5 - `land` (PR Filing):** pushes the feature branch and opens a problem-led GitHub PR (`## Summary`, `## Changes`, `## Test plan`).
-6. **Phase 6.5 - `make-ci-green` (L3 CI Loop):** watches GitHub Actions and review bots, dispatches surgical `patch` fixers on real failures, and requires concrete log-line evidence before retrying a suspected flake.
-7. **Phase 6 - `council` (L2 Branch Loop):** dispatches 3 adversarial reviewers from independent model families in parallel (`reviewer-a` on `muse-spark-1.3-contributor#xhigh`, `reviewer-b` on `deepseek-v4.1-flash#max`, `reviewer-c` on `glm-5.3-flash#high`). Any confirmed red finding triggers `patch` fixers and re-review (up to 3 rounds, then `reviewer-esc` on `kimi-k3.1-pro#high`).
+6. **Phase 6.5 - `make-ci-green` (L3 CI Loop):** watches GitHub Actions and review bots, dispatches implementation-seat fixers on real failures, and requires concrete log-line evidence before retrying a suspected flake.
+7. **Phase 6 - `council` (L2 Branch Loop):** dispatches 3 adversarial reviewers from independent model families in parallel (`reviewer-a` on `muse-spark-1.3-contributor#xhigh`, `reviewer-b` on `deepseek-v4.1-flash#max`, `reviewer-c` on `glm-5.3-flash#high`). Any confirmed red finding triggers implementation-seat fixers and re-review (up to 3 rounds, then `reviewer-esc` on `kimi-k3.1-pro#high`).
 8. **Phase 7 - `land` (Gate 3 Finish & Handoff):** presents finish options (merge PR and hand off to default branch, keep PR open, keep branch, or drop).
 
 ### 2. Zero-Gate Unattended Mode (`oneshot` Auto-Approve)
@@ -110,8 +110,10 @@ Every pipeline skill and seat agent can also be triggered directly outside a ful
 | `"write a plan for docs/specs/2026-11-04-plugin-hooks-design.md"` | `plan` | Produces a bite-size TDD task plan in `docs/plans/` |
 | `"dispatch docs/plans/2026-11-04-plugin-hooks.md"` | `dispatch` | Runs the L1 per-task subagent loop + two-stage review on an existing plan |
 | `"debug why test/webhook-retry.test.ts fails intermittently"` | `debug` | 4-phase root-cause investigation before any fix is proposed |
-| `"council review this branch"` | `council` | Runs the 3-family adversarial review loop (`reviewer-a`, `reviewer-b`, `reviewer-c`) + `patch` fixes |
-| `"make ci green on this PR"` | `make-ci-green` | Watches PR checks and review bots until green; fixes real bugs via `patch` |
+| `"council review this branch"` | `council` | Runs the 3-family adversarial review loop (`reviewer-a`, `reviewer-b`, `reviewer-c`) + implementation-seat fixes |
+| `"make ci green on this PR"` | `make-ci-green` | Watches PR checks and review bots until green; fixes real bugs through implementation seats |
+| `"model the domain for the billing module"` | `domain-modeling` | Builds and sharpens `GLOSSARY.md` and ADRs so code vocabulary matches the domain |
+| `"deepen this module's interface"` | `codebase-design` | Applies deep-module vocabulary, seams, and deepening moves to an existing codebase |
 | `"land it"` / `"next feature"` | `land` | Files or merges the PR, checks out default branch, pulls latest, and reports ready |
 
 ## Model Tank (OpenCode Go)
@@ -123,7 +125,7 @@ All seats use `opencode-go/*` exclusively. Most seats sit on high-allowance tier
 | Implementation (default A) | `implementer` | `deepseek-v4.1-flash#high` (43,330) | `muse-spark-1.3-contributor#medium` (45,300) | `gpt-6-luna#medium` (4,230) |
 | Implementation (default B) | `implementer-b` | `muse-spark-1.3-contributor#medium` (45,300) | `deepseek-v4.1-flash#high` (43,330) | `gpt-6-luna#medium` (4,230) |
 | Complex tasks / hard bugs | `implementer-deep` | `gemini-4-argon#high` (440) | `deepseek-v4.1-flash#max` (43,330) | `muse-spark-1.3-contributor#high` (45,300) |
-| Surgical fixes (1-2 files) | `patch` | `deepseek-v4.1-flash#high` (43,330) | `muse-spark-1.3-contributor#medium` (45,300) | `gpt-6-luna#medium` (4,230) |
+| Surgical fixes (1-2 files, no test run) | `patch` | `deepseek-v4.1-flash#high` (43,330) | `muse-spark-1.3-contributor#medium` (45,300) | `gpt-6-luna#medium` (4,230) |
 | Scout / discovery | `scout` | `mimo-v2.6-flash` (30,100) | `deepseek-v4.1-flash#low` (43,330) | `glm-5.3-flash#low` (6,320) |
 | Council reviewer A | `reviewer-a` | `muse-spark-1.3-contributor#xhigh` (45,300) | `claude-haiku-5-5#high` (3,850) | `kimi-k3.1-pro#high` (147) |
 | Council reviewer B | `reviewer-b` | `deepseek-v4.1-flash#max` (43,330) | `gpt-6-luna#high` (4,230) | `kimi-k3.1-pro#high` (147) |
@@ -139,9 +141,10 @@ All seats use `opencode-go/*` exclusively. Most seats sit on high-allowance tier
 agents/      9 model-pinned seats:        implementer, implementer-b,
              implementer-deep,            scout, patch,
              reviewer-a, reviewer-b,      reviewer-c, reviewer-esc
-skills/      10 pipeline skills:          oneshot, shape, plan, dispatch, tdd,
-                                          debug, verify, council, land,
-                                          make-ci-green
+skills/      12 pipeline skills:          oneshot, shape, plan, dispatch,
+                                          tdd, debug, verify, council, land,
+                                          make-ci-green, domain-modeling,
+                                          codebase-design
 AGENTS.md    harness routing instructions (installed as ~/.config/opencode/HARNESS.md)
 install.sh   installer for ~/.config/opencode/
 ```

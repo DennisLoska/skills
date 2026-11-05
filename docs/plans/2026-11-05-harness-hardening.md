@@ -61,7 +61,7 @@
 - [ ] 2. `AGENTS.md`: recalculate the council budget to a number that is arithmetically possible (3 rounds x 3 seats + 3 demotions + 1 escalation = 13, so cap it at 13) or restate what counts. Route compaction off the training family or add it to the privacy gate.
 - [ ] 3. `README.md`: fix "7 phases" to "7 numbered phases plus 6.5", fix the primary-seat allowance claim to exclude the 440 and 147 tiers, and make the auto-approve claim match Task 3.
 - [ ] 4. `docs/plans/2026-11-04-great-refactor.md`: replace the file-structure map with the real tree (9 agents, 10 skills, no commands, no craft), and mark the superseded validation gates as historical in a Revision 7 note.
-- [ ] 5. Verify: `rg -n 'commands/|skills/craft' docs/plans/` returns nothing outside the revision history note.
+- [ ] 5. Verify: `rg -n 'commands/|skills/craft' README.md AGENTS.md` returns nothing; the historical plan `docs/plans/2026-11-04-great-refactor.md` keeps those strings by design under its new historical banner.
 
 ---
 

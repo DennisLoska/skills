@@ -1,5 +1,9 @@
+# A global gitignore drops docs/, so these repo-level negations re-include the
+# spec and plan artifacts that must ship in this repository.
 !docs/
 !docs/plans/
 !docs/plans/*.md
 !docs/specs/
 !docs/specs/*.md
+# Controller state stays local.
+docs/oneshot-state.md
