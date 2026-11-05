@@ -47,14 +47,21 @@ done
 
 # Destination validation. Runs before any path is created or removed, and
 # before the trailing slash is stripped, so a hostile or degenerate
-# OPENCODE_CONFIG never reaches the install or prune loops: "/" strips to the
-# empty string and hangs the parent walk, "." under --force can unlink files
-# out of the source tree, and a whitespace value silently installs into a
-# relative directory. Only an unset variable falls back to the default, so an
-# explicitly empty value is caught instead of being replaced.
+# OPENCODE_CONFIG never reaches the install or prune loops: a value made only
+# of whitespace and slashes names no directory at all, "/" and "//" are the
+# filesystem root, "." under --force can unlink files out of the source tree,
+# a destination inside the source checkout can overwrite it, and a whitespace
+# value silently installs into a relative directory. Only an unset variable
+# falls back to the default, so an explicitly empty value is caught instead of
+# being replaced.
 DEST_RAW="${OPENCODE_CONFIG-$HOME/.config/opencode}"
-if [ -z "${DEST_RAW//[[:space:]]/}" ]; then
-  printf 'install.sh: destination is empty\n' >&2
+
+# Degenerate values: strip whitespace and slashes; nothing left means there is
+# no directory component to install into (empty, " ", "/", "//", "/ /").
+DEST_COMPACT="${DEST_RAW//[[:space:]]/}"
+DEST_COMPACT="${DEST_COMPACT//\//}"
+if [ -z "$DEST_COMPACT" ]; then
+  printf 'install.sh: refusing unsafe destination: %s\n' "$DEST_RAW" >&2
   exit 1
 fi
 
@@ -66,24 +73,10 @@ fi
 DEST_STRIPPED="${DEST_RAW%/}"
 [ -n "$DEST_STRIPPED" ] || DEST_STRIPPED="/"
 
-unsafe_dest=0
-case "$DEST_RAW" in
-  /|.|..) unsafe_dest=1 ;;
-esac
-if [ "$DEST_RAW" = "${HOME:-}" ] || [ "$DEST_STRIPPED" = "${HOME:-}" ]; then
-  unsafe_dest=1
-fi
-if [ "$DEST_STRIPPED" = "$SRC" ] || [ "$DEST_STRIPPED" = "$SRC_PHYS" ]; then
-  unsafe_dest=1
-fi
-if [ -d "$DEST_STRIPPED" ]; then
-  dest_phys="$(cd "$DEST_STRIPPED" && pwd -P)"
-  if [ "$dest_phys" = "$SRC_PHYS" ] || [ "$dest_phys" = "$HOME_PHYS" ]; then
-    unsafe_dest=1
-  fi
-fi
-if [ "$unsafe_dest" -eq 1 ]; then
-  printf 'install.sh: refusing unsafe destination: %s\n' "$DEST_RAW" >&2
+# A dangling destination symlink cannot hold anything: mkdir -p follows it and
+# creates the link target, so refuse before any directory is made.
+if [ -L "$DEST_STRIPPED" ] && [ ! -e "$DEST_STRIPPED" ]; then
+  printf 'install.sh: destination symlink is dangling: %s\n' "$DEST_RAW" >&2
   exit 1
 fi
 
@@ -92,10 +85,71 @@ if [ -e "$DEST_STRIPPED" ] && [ ! -d "$DEST_STRIPPED" ]; then
   exit 1
 fi
 
-DEST="$DEST_STRIPPED"
-if [ -d "$DEST" ]; then
-  DEST="$(cd "$DEST" && pwd -P)"
+# One refusal message per unsafe case; the reason is named on the same line.
+refuse_dest() {
+  printf 'install.sh: refusing unsafe destination: %s (%s)\n' "$DEST_RAW" "$1" >&2
+  exit 1
+}
+
+# canonical_dest <path>: physical form of the path. An existing directory is
+# resolved with pwd -P so every symlink is followed; a path that does not exist
+# yet is resolved through its deepest existing ancestor with the remaining
+# components appended, so "$PWD/agents" and a relative "../skills" compare
+# against $SRC_PHYS before they exist. A "." or ".." component is returned
+# as-is and handled by the literal checks below.
+canonical_dest() {
+  local p="$1"
+  local suffix=""
+  local base
+  local out
+  while [ ! -d "$p" ]; do
+    base="$(basename -- "$p")"
+    case "$base" in
+      ''|.|..|/) printf '%s%s' "$p" "$suffix"; return 0 ;;
+    esac
+    suffix="/$base$suffix"
+    p="$(dirname -- "$p")"
+  done
+  out="$(cd "$p" && pwd -P)$suffix"
+  case "$out" in
+    //*) out="/${out#//}" ;;
+  esac
+  printf '%s' "$out"
+}
+
+# A bare self or parent reference is refused before resolution.
+case "$DEST_RAW" in
+  .|..) refuse_dest "a relative self or parent reference" ;;
+esac
+
+DEST_CANON="$(canonical_dest "$DEST_STRIPPED")"
+if [ -z "$DEST_CANON" ]; then
+  refuse_dest "an unresolvable path"
 fi
+
+# The filesystem root, reached directly ("/", already refused above) or
+# through an alias such as "/." or "/./".
+if [ "$DEST_CANON" = "/" ]; then
+  refuse_dest "the filesystem root"
+fi
+
+# The source checkout itself, or anything nested inside it: --force would
+# rewrite the harness sources in place.
+if [ "$DEST_CANON" = "$SRC_PHYS" ] || [ "$DEST_CANON" = "$SRC" ] ||
+   [ "$DEST_STRIPPED" = "$SRC" ] || [ "$DEST_STRIPPED" = "$SRC_PHYS" ]; then
+  refuse_dest "the source checkout"
+fi
+case "$DEST_CANON" in
+  "$SRC_PHYS"/*|"$SRC"/*) refuse_dest "inside the source checkout" ;;
+esac
+
+# HOME itself would scatter HARNESS.md and agents over the home directory.
+if [ "$DEST_CANON" = "$HOME_PHYS" ] ||
+   { [ -n "${HOME:-}" ] && { [ "$DEST_RAW" = "$HOME" ] || [ "$DEST_STRIPPED" = "$HOME" ]; }; }; then
+  refuse_dest "the HOME directory"
+fi
+
+DEST="$DEST_CANON"
 MANIFEST="$DEST/.harness-manifest"
 TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
 trap 'rm -f -- "$TMP_MANIFEST"' EXIT HUP INT TERM

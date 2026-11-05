@@ -403,7 +403,7 @@ for empty_val in "" "   " "	"; do
   rc27=0
   ( cd "$EMPTY_SCRATCH" && HOME="$EMPTY_HOME" OPENCODE_CONFIG="$empty_val" "$INSTALL" ) >"$TMPROOT/case27.$empty_idx.out" 2>&1 || rc27=$?
   [ "$rc27" -eq 1 ] || { cat "$TMPROOT/case27.$empty_idx.out" >&2; fail "empty destination value $empty_idx exits 1"; }
-  grep -q 'install.sh: destination is empty' "$TMPROOT/case27.$empty_idx.out" || fail "empty destination value $empty_idx is named"
+  grep -q 'install.sh: refusing unsafe destination' "$TMPROOT/case27.$empty_idx.out" || fail "empty destination value $empty_idx is named"
   [ -z "$(ls -A "$EMPTY_SCRATCH")" ] || fail "empty destination value $empty_idx creates nothing in the working directory"
   [ ! -e "$EMPTY_HOME" ] || fail "empty destination value $empty_idx creates nothing in HOME"
 done
@@ -457,6 +457,14 @@ HOME="$HOME_DIR" "$INSTALL" --force --prune >"$TMPROOT/case30.out" 2>&1 || rc30=
 [ -f "$DEST/skills/oneshot/SKILL.md" ] || fail "./-prefixed manifest entry does not prune the just-installed file"
 cmp -s "$ROOT/skills/oneshot/SKILL.md" "$DEST/skills/oneshot/SKILL.md" || fail "./-prefixed manifest entry leaves the installed file byte-identical"
 grep -q 'pruned 0 stale file(s)' "$TMPROOT/case30.out" || fail "./-prefixed manifest entry prunes nothing"
+# drop the appended line so the cases that follow see a clean manifest
+CLEAN_MANIFEST="$TMPROOT/case30.manifest.clean"
+grep -vxF -- './skills/oneshot/SKILL.md' "$MANIFEST" >"$CLEAN_MANIFEST" || :
+cat "$CLEAN_MANIFEST" >"$MANIFEST"
+if grep -qxF -- './skills/oneshot/SKILL.md' "$MANIFEST"; then
+  fail "./-prefixed manifest line is removed after the case"
+fi
+[ -f "$DEST/skills/oneshot/SKILL.md" ] || fail "prune leaves the just-installed file in place"
 pass "a ./-prefixed manifest entry does not prune the file this run installs"
 
 # 31. NOTICE and LICENSE are installed with their own names preserved
@@ -467,5 +475,53 @@ cmp -s "$ROOT/LICENSE" "$DEST/LICENSE" || fail "LICENSE is byte-identical to the
 grep -qx 'NOTICE' "$MANIFEST" || fail "manifest records NOTICE"
 grep -qx 'LICENSE' "$MANIFEST" || fail "manifest records LICENSE"
 pass "NOTICE and LICENSE are installed alongside the harness"
+
+# 32. destinations nested inside the source checkout are refused and leave the
+# source tree untouched, with or without --force
+NESTED_SRC_BEFORE="$(find "$ROOT/agents" "$ROOT/skills" -type f -exec cksum {} + | sort)"
+NESTED_SCRATCH="$TMPROOT/nested-dest-cwd"
+NESTED_HOME="$TMPROOT/home-nested-dest"
+mkdir -p "$NESTED_SCRATCH" "$NESTED_HOME"
+check_unsafe nested-agents "$NESTED_SCRATCH" "$ROOT/agents" "$NESTED_HOME"
+check_unsafe nested-skill "$NESTED_SCRATCH" "$ROOT/skills/oneshot" "$NESTED_HOME"
+check_unsafe nested-agents-force "$NESTED_SCRATCH" "$ROOT/agents" "$NESTED_HOME" --force
+grep -q 'inside the source checkout' "$TMPROOT/case28.nested-agents.out" || fail "source-nested destination names the reason"
+grep -q 'inside the source checkout' "$TMPROOT/case28.nested-skill.out" || fail "skill-nested destination names the reason"
+grep -q 'inside the source checkout' "$TMPROOT/case28.nested-agents-force.out" || fail "source-nested destination with --force names the reason"
+NESTED_SRC_AFTER="$(find "$ROOT/agents" "$ROOT/skills" -type f -exec cksum {} + | sort)"
+[ "$NESTED_SRC_BEFORE" = "$NESTED_SRC_AFTER" ] || fail "source-nested destinations leave the source tree untouched"
+[ -z "$(ls -A "$NESTED_SCRATCH")" ] || fail "source-nested destinations create nothing in the working directory"
+[ -z "$(ls -A "$NESTED_HOME")" ] || fail "source-nested destinations create nothing in HOME"
+pass "destinations nested inside the source checkout exit 1 and leave sources untouched"
+
+# 33. root aliases such as // and /. are refused before anything is created
+ROOT_SCRATCH="$TMPROOT/root-alias-cwd"
+ROOT_HOME="$TMPROOT/home-root-alias"
+mkdir -p "$ROOT_SCRATCH" "$ROOT_HOME"
+check_unsafe root-slashes "$ROOT_SCRATCH" "//" "$ROOT_HOME"
+check_unsafe root-dot "$ROOT_SCRATCH" "/." "$ROOT_HOME"
+check_unsafe root-dot-slash "$ROOT_SCRATCH" "/./" "$ROOT_HOME"
+grep -q 'the filesystem root' "$TMPROOT/case28.root-dot.out" || fail "/. destination names the filesystem root"
+grep -q 'the filesystem root' "$TMPROOT/case28.root-dot-slash.out" || fail "/./ destination names the filesystem root"
+[ -z "$(ls -A "$ROOT_SCRATCH")" ] || fail "root alias destinations create nothing in the working directory"
+[ -z "$(ls -A "$ROOT_HOME")" ] || fail "root alias destinations create nothing in HOME"
+pass "root alias destinations // and /. exit 1 and create nothing"
+
+# 34. a dangling destination symlink is refused before any mkdir
+DANGLE_DIR="$TMPROOT/dangle"
+DANGLE_TARGET="$DANGLE_DIR/missing-target"
+DANGLE_LINK="$DANGLE_DIR/opencode"
+DANGLE_HOME="$TMPROOT/home-dangle"
+mkdir -p "$DANGLE_DIR" "$DANGLE_HOME"
+ln -s "$DANGLE_TARGET" "$DANGLE_LINK"
+[ -L "$DANGLE_LINK" ] || fail "dangling case starts from a symlink"
+rc34=0
+HOME="$DANGLE_HOME" OPENCODE_CONFIG="$DANGLE_LINK" "$INSTALL" >"$TMPROOT/case34.out" 2>&1 || rc34=$?
+[ "$rc34" -eq 1 ] || { cat "$TMPROOT/case34.out" >&2; fail "dangling destination symlink exits 1"; }
+grep -q 'install.sh: destination symlink is dangling' "$TMPROOT/case34.out" || fail "dangling destination symlink is named"
+[ -L "$DANGLE_LINK" ] || fail "dangling destination symlink is left in place"
+[ ! -e "$DANGLE_TARGET" ] || fail "dangling destination symlink target is not created"
+[ -z "$(ls -A "$DANGLE_HOME")" ] || fail "dangling destination symlink creates nothing in HOME"
+pass "a dangling destination symlink exits 1 before any mkdir"
 
 printf 'all install tests passed\n'
