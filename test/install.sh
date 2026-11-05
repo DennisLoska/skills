@@ -68,10 +68,13 @@ pass "--force install exits 0"
 
 # 8. preflight aborts before copying anything: a missing destination file stays missing
 rm -f "$DEST/skills/oneshot/SKILL.md"
+find "$DEST" -type f -exec cksum {} + | sort >"$TMPROOT/case8.snap"
 if HOME="$HOME_DIR" "$INSTALL" >"$TMPROOT/case8.out" 2>&1; then
   fail "install without --force exits 1 when a target exists"
 fi
 [ ! -e "$DEST/skills/oneshot/SKILL.md" ] || fail "aborted run copies nothing (missing file stays missing)"
+find "$DEST" -type f -exec cksum {} + | sort >"$TMPROOT/case8.after"
+cmp -s "$TMPROOT/case8.snap" "$TMPROOT/case8.after" || fail "aborted run leaves every file byte-identical"
 pass "preflight aborts before copying anything"
 
 # restore the destination for the cases that follow
@@ -151,5 +154,38 @@ fi
 [ ! -e "$HOME2/.config/opencode/skills/oneshot/SKILL.md" ] || fail "OPENCODE_CONFIG run leaves HOME untouched"
 [ -f "$CUSTOM/.harness-manifest" ] || fail "OPENCODE_CONFIG destination receives the manifest"
 pass "OPENCODE_CONFIG override is honored"
+
+# 15. a symlinked parent directory refuses without --force and is repaired with --force
+PHOME="$TMPROOT/parent-home"
+PDEST="$PHOME/.config/opencode"
+if ! HOME="$PHOME" "$INSTALL" >"$TMPROOT/case15a.out" 2>&1; then
+  cat "$TMPROOT/case15a.out" >&2
+  fail "fresh parent-case install exits 0"
+fi
+POUTSIDE="$TMPROOT/parent-outside"
+mkdir -p "$POUTSIDE"
+printf 'marker\n' >"$POUTSIDE/marker.md"
+find "$POUTSIDE" -type f -exec cksum {} + | sort >"$TMPROOT/case15.snap"
+find "$PDEST/skills" -depth -delete
+ln -s "$POUTSIDE" "$PDEST/skills"
+rc=0
+HOME="$PHOME" "$INSTALL" >"$TMPROOT/case15b.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || fail "parent symlink run without --force exits 1"
+grep -q 'parent symlink under destination' "$TMPROOT/case15b.out" || fail "parent symlink run names the offending path"
+[ -L "$PDEST/skills" ] || fail "refused run leaves the parent symlink in place"
+[ "$(cat "$POUTSIDE/marker.md")" = "marker" ] || fail "refused run preserves the outside marker file"
+find "$POUTSIDE" -type f -exec cksum {} + | sort >"$TMPROOT/case15b.after"
+cmp -s "$TMPROOT/case15.snap" "$TMPROOT/case15b.after" || fail "refused run adds no files outside the destination"
+pass "parent symlink refuses without --force and writes nothing outside"
+if ! HOME="$PHOME" "$INSTALL" --force >"$TMPROOT/case15c.out" 2>&1; then
+  cat "$TMPROOT/case15c.out" >&2
+  fail "parent symlink repair install exits 0"
+fi
+[ -d "$PDEST/skills" ] && [ ! -L "$PDEST/skills" ] || fail "--force restores the parent as a real directory"
+cmp -s "$ROOT/skills/oneshot/SKILL.md" "$PDEST/skills/oneshot/SKILL.md" || fail "repaired parent receives installed files"
+[ "$(cat "$POUTSIDE/marker.md")" = "marker" ] || fail "--force preserves the outside marker file"
+find "$POUTSIDE" -type f -exec cksum {} + | sort >"$TMPROOT/case15c.after"
+cmp -s "$TMPROOT/case15.snap" "$TMPROOT/case15c.after" || fail "--force leaves the outside directory unchanged"
+pass "--force repairs a symlinked parent without touching the outside"
 
 printf 'all install tests passed\n'

@@ -72,6 +72,43 @@ for i in "${!rels[@]}"; do
   fi
 done
 
+# Preflight: walk every parent component of each target between $DEST and the
+# file. mkdir -p follows a symlinked parent under $DEST, so a copy could land
+# outside $DEST. Refuse (or repair under --force) before anything is copied.
+parent_links=()
+for i in "${!rels[@]}"; do
+  target="$DEST/${rels[$i]}"
+  parent="$(dirname "$target")"
+  while [ "$parent" != "$DEST" ]; do
+    case "$parent" in
+      "$DEST"/*) ;;
+      *) break ;;
+    esac
+    if [ -L "$parent" ]; then
+      dup=0
+      if [ "${#parent_links[@]}" -gt 0 ]; then
+        for p in "${parent_links[@]}"; do
+          if [ "$p" = "$parent" ]; then
+            dup=1
+            break
+          fi
+        done
+      fi
+      if [ "$dup" -eq 0 ]; then
+        parent_links+=("$parent")
+      fi
+    fi
+    parent="$(dirname "$parent")"
+  done
+done
+
+if [ "${#parent_links[@]}" -gt 0 ] && [ "$force" -eq 0 ]; then
+  for pl in "${parent_links[@]}"; do
+    printf 'install.sh: parent symlink under destination: %s\n' "$pl" >&2
+  done
+  exit 1
+fi
+
 if [ "${#collisions[@]}" -gt 0 ] && [ "$force" -eq 0 ]; then
   for c in "${collisions[@]}"; do
     printf 'collision: %s\n' "$c"
@@ -93,6 +130,14 @@ owned() {
 }
 
 installed=0
+if [ "${#parent_links[@]}" -gt 0 ]; then
+  for pl in "${parent_links[@]}"; do
+    if [ -L "$pl" ]; then
+      rm -f -- "$pl"
+      mkdir -p "$pl"
+    fi
+  done
+fi
 for i in "${!rels[@]}"; do
   target="$DEST/${rels[$i]}"
   mkdir -p "$(dirname "$target")"
