@@ -48,10 +48,11 @@ Rules:
 
 - Agent `permissions:` lists are evaluated last-match-wins, so order is the policy.
 - Read-only seats (`scout`, reviewers, escalation) deny `bash`/`shell` broadly first, then allow the narrow `git diff|log|show` commands they need.
-- Implementation seats (`implementer`, `implementer-b`, `implementer-deep`, `patch`) allow `bash`/`shell` broadly, then deny specific destructive patterns (`rm -r*`, `git clean`, `git push`, `pkill`, `killall`, commits on `main`/`master`).
-- In both layouts the last matching rule is the policy.
+- Implementation seats (`implementer`, `implementer-b`, `implementer-deep`) allow `bash`/`shell` broadly, then deny specific destructive patterns (`rm -r*`, `git clean`, `git push`, `pkill`, `killall`, commits on `main`/`master`).
+- `patch` denies `bash` and `shell` broadly and edits files only.
+- In both allow/deny layouts the last matching rule is the policy.
 - Every seat denies reads of `.env`, `.env.*`, `.zshrc`, `.zsh_history`, and `.ssh/*` after its broad read allow.
-- A seat may not commit or push on `main`/`master`.
+- A seat may not commit or push on `main`/`master`: branch protection is enforced by the `git branch --show-current` check in the implementer brief, and shell pattern denies are best-effort guardrails, not a sandbox.
 
 ### Review contracts
 
@@ -90,6 +91,8 @@ Compaction and summary never route to a training family.
 | --- | --- |
 | oneshot | full pipeline (controller) |
 | shape, plan | spec and planning skills |
+| domain-modeling | domain modeling discipline (glossary and ADRs) |
+| codebase-design | deep module and seam vocabulary |
 | dispatch | subagent-driven execution |
 | tdd, debug, verify | discipline skills |
 | council | consensus review (skill) |

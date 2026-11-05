@@ -26,7 +26,7 @@ Every one of the three council seats returns at least 9/10 with zero confirmed r
 
 - `test/install.sh` passes: clean install, second run refuses with exit 1 listing collisions, `--force` overwrites, stale destination file is pruned, `OPENCODE_CONFIG` is honored.
 - `bash -n install.sh` and `bash -n test/install.sh` pass.
-- Frontmatter loop passes for all 9 agents and 10 skills.
+- Frontmatter loop passes for all 9 agents and 12 skills (including `domain-modeling` and `codebase-design`).
 - No emdash characters anywhere in the tree.
 - No `bash|shell` allow appears after a broader deny in any read-only seat.
 - Every `gh ` command in the skills is a real `gh` subcommand.

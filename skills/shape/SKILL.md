@@ -5,7 +5,7 @@ description: Use when doing any creative work - creating features, building comp
 
 # Shape: Ideas Into Approved Designs
 
-Turn ideas into validated specs through collaborative dialogue. Understand the project, ask questions one at a time, present the design, get approval, then hand off to planning.
+Turn ideas into validated specs through collaborative dialogue. Understand the project, ask questions one at a time, present the design, get approval (or record auto-approval when `auto-approve: true` is set), then hand off to planning.
 
 <HARD-GATE>
 Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action until a design has been presented and the user has approved it. This applies to EVERY project regardless of perceived simplicity. Exception: when auto-approve is set, the design is recorded as auto-approved and the gate is satisfied.
@@ -92,7 +92,7 @@ digraph shape {
 
 - Present once confident in what you're building.
 - Scale each section to its complexity: a few sentences if straightforward, 200-300 words if nuanced.
-- Ask after each section whether it looks right so far.
+- Ask after each section whether it looks right so far (under auto-approve, record the section as `auto-approved` and continue without waiting).
 - Cover: architecture, components, data flow, error handling, testing.
 - Be ready to go back and clarify when something doesn't make sense.
 
@@ -136,7 +136,7 @@ Fix any issues inline. No re-review cycle: fix and move on.
 
 > "Spec written and committed to `<path>`. Please review it and tell me if anything should change before I write the implementation plan."
 
-Wait for the response. Changes requested: make them and rerun the self-review. Proceed only after approval.
+Wait for the response. Changes requested: make them and rerun the self-review. Proceed only after approval (or immediately when auto-approve is set and recorded in the spec).
 
 **Implementation handoff:**
 
@@ -149,18 +149,18 @@ Wait for the response. Changes requested: make them and rerun the self-review. P
 - **Multiple choice preferred** - easier to answer than open-ended
 - **YAGNI ruthlessly** - cut unnecessary features from every design
 - **Explore alternatives** - always 2-3 approaches before settling
-- **Incremental validation** - present each section, get approval, move on
+- **Incremental validation** - present each section, get approval, move on (under auto-approve, record the section and continue without waiting)
 - **Be flexible** - go back and clarify when something doesn't make sense
 
 ## Visual Companion
 
 An optional browser-based companion shows mockups, diagrams, and visual options while shaping. It is a tool, not a mode: accepting it makes it available for questions that benefit from visuals; it does NOT route every question through the browser.
 
-**Offering it:** when upcoming questions look visual (mockups, layouts, diagrams), offer once for consent:
+**Offering it:** when upcoming questions look visual (mockups, layouts, diagrams), offer once for consent (skipped under auto-approve):
 
 > "Some of this might be easier to show than tell. I can put mockups, diagrams, comparisons, and other visuals in a web browser as we go. The feature is new and token-hungry. Want to try it? (Requires opening a local URL)"
 
-**This offer MUST be its own message.** Only the offer, nothing else: no clarifying questions, no context summary. Wait for the response. Declined: continue text-only.
+**This offer MUST be its own message.** Only the offer, nothing else: no clarifying questions, no context summary. Wait for the response (unless skipped under auto-approve). Declined: continue text-only.
 
 **Per-question decision,** even after acceptance: **would the user understand this better by seeing it than reading it?**
 

@@ -155,7 +155,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 
 ## State Artifact
 
-At every phase transition, update `.git/info/oneshot-state.md` (append or rewrite in place): phase, branch, PR URL, tests status, council round count, standing red findings (one line each). On interrupt, resume from the state artifact plus the spec and plan; the state file is the truth for round counters and standing findings - never re-open a closed round or re-spend a burnt budget. The state file is intentionally local-only state: machine-local, never committed, never `git add -f`'d. When `docs/` is gitignored, `docs/oneshot-state.md` may be used as a fallback instead. The controller deletes it at the end of Phase 7.
+At every phase transition, update `.git/info/oneshot-state.md` (append or rewrite in place): phase, branch, PR URL, tests status, council round count, standing red findings (one line each). On interrupt, resume from the state artifact plus the spec and plan; the state file is the truth for round counters and standing findings - never re-open a closed round or re-spend a burnt budget. `.git/info/oneshot-state.md` is the only state location: it is machine-local, never committed, never `git add -f`'d, and removed at the end of Phase 7.
 
 ## Error Handling
 
