@@ -1,5 +1,7 @@
 # Harness Hardening Implementation Plan
 
+Status: executed on branch fix/harness-hardening; see git log.
+
 > **For agentic workers:** execute tasks in order. Each task is file-disjoint. Commit once per task with the message given.
 
 **Goal:** fix every verified red and yellow from council round 1 so that all three seats score 9/10 or higher.
@@ -7,6 +9,8 @@
 **Architecture:** markdown harness plus one bash installer. No build step. Each contract gets one canonical statement in `AGENTS.md`; skills reference it instead of restating it.
 
 **Spec:** `docs/specs/2026-11-05-harness-hardening-design.md`
+
+**Revision note:** The shipped installer (`install.sh`) implements `--prune` as manifest-scoped (`<dest>/.harness-manifest`) rather than source-diff pruned against all files under `skills/` and `agents/`, as a deliberate safer deviation so user-owned agents and skills in the destination directory are never removed.
 
 ---
 

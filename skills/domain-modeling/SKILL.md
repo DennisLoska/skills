@@ -42,7 +42,7 @@ Create files lazily: no `GLOSSARY.md` yet, create it when the first term is reso
 
 ## Auto-approve
 
-When `auto-approve: true` is set, do not ask the user to resolve a term. Pick the strongest term, record rejected alternatives under `_Considered_`, and note the decision in the spec Assumptions.
+When `auto-approve: true` is set, do not ask the user to resolve a term. Pick the strongest term, record the rejected alternatives considered when the term was chosen under `_Considered_` (per [GLOSSARY-FORMAT.md](./GLOSSARY-FORMAT.md)), and note the decision in the spec Assumptions.
 
 ## The five in-session moves
 

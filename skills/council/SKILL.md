@@ -48,7 +48,7 @@ announce: "seat <seat> demoted to <model>"
 
 ## Verdict phase
 
-- PASS = at least 2 of 3 seats vote PASS AND zero unresolved confirmed red findings from any seat. A confirmed red from a single FAIL seat blocks PASS just the same, until it is fixed or rebutted with evidence.
+- PASS = at least 2 of 3 seats vote PASS AND zero unresolved confirmed red findings from any seat, and tests green, or the no-tests rule satisfied. A confirmed red from a single FAIL seat blocks PASS just the same, until it is fixed or rebutted with evidence.
 - Fewer than 2 families healthy: STOP with `yellow: degraded council` (see `AGENTS.md` Review contracts for the degraded-council rule).
 - Merge findings into one list, severity sorted red -> yellow -> blue. Dedupe identical findings, keep the sharpest wording.
 - Escalation seat independence spans the whole PR: `reviewer-esc` never runs on a model family another seat already used this PR (check AGENTS.md family map per ladder rung). On conflict, demote along the `reviewer-esc` ladder in AGENTS.md until an unused Go family is found, else stop and surface `yellow: degraded council`.
@@ -75,7 +75,7 @@ total review batches = 3, counted out loud:
 ```
 
 - Rounds exhausted -> escalation review on the AGENTS.md escalation row (own family, not one already used).
-- Escalation still FAIL -> STOP: report rounds, final findings, test output. This is the only council stop point.
+- Escalation still FAIL -> STOP: report rounds, final findings, test output. This is one of the council stop points (alongside the degraded-council stop).
 - Reviewer never fixes. Fixer never reviews. Fresh subagent each round, both ways.
 
 ## No test suite

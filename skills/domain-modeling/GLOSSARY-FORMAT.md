@@ -12,6 +12,7 @@
 **Order**:
 {One or two sentence definition of the term.}
 _Avoid_: Purchase, transaction
+_Considered_: {Optional: rejected alternatives considered when the term was chosen}
 
 **Invoice**:
 A request for payment sent to a customer after delivery.
@@ -20,7 +21,7 @@ _Avoid_: Bill, payment request
 
 ## Rules
 
-- **Be opinionated.** One term per concept. List rejected synonyms under `_Avoid_`.
+- **Be opinionated.** One term per concept. List rejected synonyms under `_Avoid_`, and rejected alternatives considered when the term was chosen under `_Considered_`.
 - **Keep definitions tight.** One or two sentences. Say what it IS, not what it does.
 - **No general programming concepts.** Timeouts, error types, utility patterns do not belong, however heavily used. Ask: is this unique to this context? Only then include it.
 - **Group under subheadings** when clusters emerge. Flat list is fine for one cohesive area.

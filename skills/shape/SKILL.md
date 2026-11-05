@@ -28,7 +28,7 @@ You MUST create a task for each of these items and complete them in order:
 1. **Explore project context** - check files, docs, recent commits
 2. **Offer the visual companion** (only if the topic will involve visual questions, and skipped under auto-approve) - its own message, nothing else in it. See the Visual Companion section below.
 3. **Ask clarifying questions** (skipped under auto-approve) - one at a time: purpose, constraints, success criteria
-4. **Propose 2-3 approaches** - with trade-offs and your recommendation
+4. **Propose 2-3 approaches** - with trade-offs and your recommendation (still required under auto-approve: approaches are proposed in the spec and recorded as chosen with rationale)
 5. **Present the design** - in sections scaled to complexity, user approval after each section (skipped under auto-approve; note `auto-approved` instead)
 6. **Write the design doc** - save to `docs/specs/YYYY-MM-DD-<topic>-design.md`, commit it
 7. **Spec self-review** - inline check for placeholders, contradictions, ambiguity, scope (below)
@@ -67,11 +67,12 @@ digraph shape {
     "Spec self-review\n(fix inline)" -> "User reviews spec?";
     "User reviews spec?" -> "Write design doc" [label="changes requested"];
     "User reviews spec?" -> "Invoke plan skill" [label="approved"];
-    "Explore project context" -> "Write design doc" [label="auto-approve: derive assumptions, skip clarify/approval loop"];
+    "Explore project context" -> "Propose 2-3 approaches" [label="auto-approve: derive assumptions, skip clarify"];
+    "Propose 2-3 approaches" -> "Write design doc" [label="auto-approve: record chosen approach with rationale, skip section approval"];
 }
 ```
 
-**The terminal state is invoking the plan skill via the skill tool.** Do NOT invoke any implementation skill of any kind. plan is the ONLY skill this one hands off to.
+**Standalone, the terminal state is invoking the plan skill via the skill tool; under oneshot, end the skill and return control to the controller, which invokes plan exactly once.** Do NOT invoke any implementation skill of any kind. plan is the ONLY skill this one hands off to.
 
 ## The Process
 
@@ -119,14 +120,16 @@ digraph shape {
 ```
 if ! git check-ignore -q docs/specs/YYYY-MM-DD-<topic>-design.md; then
   git add docs/specs/YYYY-MM-DD-<topic>-design.md
-  git add GLOSSARY.md GLOSSARY-MAP.md docs/adr 2>/dev/null || true
+  for p in GLOSSARY.md GLOSSARY-MAP.md docs/adr; do
+    if [ -e "$p" ]; then git add -- "$p"; fi
+  done
   git commit -m "docs: spec for [topic]"
 else
   # local-only spec, never git add -f
 fi
 ```
 
-After writing the spec, shape also stages and commits any `GLOSSARY.md`, `GLOSSARY-MAP.md`, and `docs/adr/` files it created in the same commit as the spec, so Phase 3 starts from a clean tree.
+After writing the spec, shape also stages and commits only paths this run created or modified (`GLOSSARY.md`, `GLOSSARY-MAP.md`, `docs/adr/`), never pre-existing user files, in the same commit as the spec so Phase 3 starts from a clean tree.
 
 **Spec self-review.** Reread with fresh eyes:
 
@@ -145,7 +148,8 @@ Wait for the response. Changes requested: make them and rerun the self-review. P
 
 **Implementation handoff:**
 
-- Invoke the plan skill via the skill tool to create the detailed implementation plan.
+- Standalone: invoke the plan skill via the skill tool to create the detailed implementation plan.
+- Under oneshot: end the skill and return control to the controller, which invokes plan exactly once.
 - Do NOT invoke anything else. plan is the next step.
 
 ## Key Principles

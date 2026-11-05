@@ -8,7 +8,7 @@ Write a user-facing brief first: constraints any interface must satisfy, depende
 
 ## 2. Spawn 3+ fresh subagents in parallel
 
-One technical brief each (paths, coupling, dependency category, what hides behind the seam), one differing design constraint each:
+Dispatch each via the `subagent` tool with an explicit model or named seat from `AGENTS.md` (never an inherited main-session model). Give each one technical brief (paths, coupling, dependency category, what hides behind the seam), one differing design constraint each:
 
 - Agent 1: minimize the interface, 1 to 3 entry points max, max leverage each.
 - Agent 2: maximize flexibility, many use cases and extension.

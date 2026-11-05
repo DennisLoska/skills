@@ -23,7 +23,7 @@ Finish a development branch: PR body that leads with the problem, then the merge
 
 ## Part 2 - Finish options (oneshot Phase 7, Gate 3)
 
-When `auto-approve: true` is present, skip the menu: default to Keep PR open, report the URL, and continue to the handoff without waiting.
+When `auto-approve: true` is present (read from the spec header, or from the dispatch prompt when oneshot passes it), skip the menu: default to Keep PR open, report the URL, and continue to the handoff without waiting.
 
 Otherwise present exactly these, get user choice:
 

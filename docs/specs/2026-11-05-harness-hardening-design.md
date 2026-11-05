@@ -1,7 +1,6 @@
 # Harness Hardening Design
 
-auto-approve: true
-trigger: "Work on a draft PR until it has an approval of 9/10 from all council members using oneshot"
+auto-approve: true (trigger: "Work on a draft PR until it has an approval of 9/10 from all council members using oneshot")
 
 ## Problem
 
@@ -41,10 +40,10 @@ Every one of the three council seats returns at least 9/10 with zero confirmed r
 
 ## Decisions
 
-- Permission order is stated once in `AGENTS.md` as last-match-wins, and every seat lists the broad deny first.
+- Permission order is stated once in `AGENTS.md` as last-match-wins: read-only seats (`scout`, `reviewer-a/b/c/esc`) list the broad `bash`/`shell` deny first and narrow git allows after (`patch` denies `bash`/`shell` broadly with no allows); implementation seats (`implementer`, `implementer-b`, `implementer-deep`) list the broad `bash`/`shell` allow first and specific destructive/secret-reading denies after.
 - Secrets protection moves from prose to permission rules: explicit `read` deny for `.env*`, `.zshrc`, `.zsh_history`, and `.ssh/*` placed after the broad read allow.
 - Main-branch protection is enforced by the Step 0 `git branch --show-current` check in every implementer seat (and council and CI fixer dispatches must use implementer seats so the check always applies), plus a `bash`/`shell` deny for `git push *`. Shell pattern denies are best-effort guardrails, not a sandbox.
 - `install.sh` gains `--force` and `--prune`; collision preflight exits 1 before any copy.
-- Auto-approve is recorded as `auto-approve: true` in the spec header, with the trigger phrase on the following line, and read by both `shape` and `plan`, which suppress their approval waits and the inline option.
+- Auto-approve is recorded on one line in the spec header as `auto-approve: true (trigger: "<phrase>")`, and read by both `shape` and `plan`, which suppress their approval waits and the inline option.
 - No-tests PASS is a provisional PASS, explicitly labelled, and never satisfies the standard green-tests gate.
 - `patch` stays shell-free; loops that need tests route fixers to `implementer`.

@@ -141,7 +141,7 @@ Fix issues inline. No re-review - just fix and move on. A spec requirement with 
 
 Read `auto-approve: true` from the committed spec header or the dispatch prompt.
 
-When `auto-approve: true` is present under oneshot, do NOT offer the choice, do NOT offer inline execution, and do NOT invoke dispatch: record the plan, note `auto-approve: true` in the plan header, and return control to oneshot, which runs Gate 2 and then Phase 3 dispatch. Plan invokes dispatch directly via the skill tool only when run standalone with auto-approve and no oneshot controller. Otherwise, save the plan and return control to the controller so Gate 2 can run (oneshot never authorizes inline main-session implementation).
+When `auto-approve: true` is present under oneshot, do NOT offer the choice, do NOT offer inline execution, and do NOT invoke dispatch: record the plan and note `auto-approve: true` in the plan header; under auto-approve Gate 2 is auto-satisfied and recorded, and plan returns control to oneshot, which runs Phase 3 dispatch. Standalone dispatched mode invokes dispatch directly via the skill tool (immediately when run standalone with auto-approve, or when the user chooses Dispatched below). Under interactive oneshot (no auto-approve), save the plan and return control to the controller so Gate 2 can run (oneshot never authorizes inline main-session implementation).
 
 For standalone use only, offer the execution choice after saving the plan:
 

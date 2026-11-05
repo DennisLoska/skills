@@ -78,7 +78,7 @@ What happens across the 7 numbered phases plus 6.5:
 5. **Phase 5 - `land` (PR Filing):** pushes the feature branch and opens a problem-led GitHub PR (`## Summary`, `## Changes`, `## Test plan`).
 6. **Phase 6.5 - `make-ci-green` (L3 CI Loop):** watches GitHub Actions and review bots, dispatches implementation-seat fixers on real failures, and requires concrete log-line evidence before retrying a suspected flake.
 7. **Phase 6 - `council` (L2 Branch Loop):** dispatches 3 adversarial reviewers from independent model families in parallel (`reviewer-a` on `muse-spark-1.3-contributor#xhigh`, `reviewer-b` on `deepseek-v4.1-flash#max`, `reviewer-c` on `glm-5.3-flash#high`). Any confirmed red finding triggers implementation-seat fixers and re-review (up to 3 rounds, then `reviewer-esc` on `kimi-k3.1-pro#high`).
-8. **Phase 7 - `land` (Gate 3 Finish & Handoff):** presents finish options (merge PR and hand off to default branch, keep PR open, keep branch, or drop).
+8. **Phase 7 - `land` (Gate 3 Finish & Handoff):** presents finish options (merge PR and hand off to default branch, keep PR open, keep branch, or Discard).
 
 ### 2. Zero-Gate Unattended Mode (`oneshot` Auto-Approve)
 
@@ -120,22 +120,9 @@ Every pipeline skill and seat agent can also be triggered directly outside a ful
 
 ## Model Tank (OpenCode Go)
 
-All seats use `opencode-go/*` exclusively. Most seats sit on high-allowance tiers, so everyday work never hits rate limits; `implementer-deep` (440 req/5h) and `reviewer-esc` (147 req/5h) are scarce and reserved for complex work, hard bugs, and escalation only.
+All seats use `opencode-go/*` exclusively. Most seats sit on high-allowance tiers (6,320 to 45,300 req/5h), so everyday work never hits rate limits; `implementer-deep` (440 req/5h) and `reviewer-esc` (147 req/5h) are scarce and reserved for complex work, hard bugs, and escalation only. [`AGENTS.md`](./AGENTS.md) is the single source for seat models, fallback ladders, effort tiers, and review contracts (`deepseek-v4.1-flash` exposes `low|high|max` in the Go catalog; `mimo-v2.6-flash` exposes a single default tier; a fixer that must run tests is an implementation seat, never `patch`).
 
-| Role | Seat Agent | Pinned Primary (est. req / 5h) | Fallback | Last Resort |
-| --- | --- | --- | --- | --- |
-| Implementation (default A) | `implementer` | `deepseek-v4.1-flash#high` (43,330) | `muse-spark-1.3-contributor#medium` (45,300) | `gpt-6-luna#medium` (4,230) |
-| Implementation (default B) | `implementer-b` | `muse-spark-1.3-contributor#medium` (45,300) | `deepseek-v4.1-flash#high` (43,330) | `gpt-6-luna#medium` (4,230) |
-| Complex tasks / hard bugs | `implementer-deep` | `gemini-4-argon#high` (440) | `deepseek-v4.1-flash#max` (43,330) | `muse-spark-1.3-contributor#high` (45,300) |
-| Surgical fixes (1-2 files, no test run) | `patch` | `deepseek-v4.1-flash#high` (43,330) | `muse-spark-1.3-contributor#medium` (45,300) | `gpt-6-luna#medium` (4,230) |
-| Scout / discovery | `scout` | `mimo-v2.6-flash` (30,100) | `deepseek-v4.1-flash#low` (43,330) | `glm-5.3-flash#low` (6,320) |
-| Council reviewer A | `reviewer-a` | `muse-spark-1.3-contributor#xhigh` (45,300) | `claude-haiku-5-5#high` (3,850) | `kimi-k3.1-pro#high` (147) |
-| Council reviewer B | `reviewer-b` | `deepseek-v4.1-flash#max` (43,330) | `gpt-6-luna#high` (4,230) | `kimi-k3.1-pro#high` (147) |
-| Council reviewer C | `reviewer-c` | `glm-5.3-flash#high` (6,320) | `claude-haiku-5-5#high` (3,850) | `gpt-6-luna#high` (4,230) |
-| Council escalation | `reviewer-esc` | `kimi-k3.1-pro#high` (147) | `gemini-4-argon#high` (440) | `gpt-6-luna#high` (4,230) |
-| Compaction / summary / memory | built-in agent config | `claude-haiku-5-5#low` (3,850) | `gpt-6-luna#low` (4,230) | - |
-
-*Note:* `deepseek-v4.1-flash` exposes `low|high|max` in the Go catalog (`#high` is its middle tier, `#max` its top tier), while `mimo-v2.6-flash` exposes a single default reasoning tier (no `#variant` suffix). A fixer that must run tests is an implementation seat, never `patch`. Full routing rules, review contracts, and privacy gates live in [`AGENTS.md`](./AGENTS.md).
+*Privacy note:* `muse-spark-*` trains on request data and is skipped automatically when the confidential flag is set; `claude-haiku-5-5` and `gpt-6-luna` carry 30-day retention (not used for training), while `glm-5.3-flash`, `kimi-k3.1-pro`, `gemini-4-argon`, and `mimo-v2.6-flash` via Go have 0-day retention and are not used for training. Compaction and summary never route to a training family; see [`AGENTS.md`](./AGENTS.md) Privacy Footnotes for the full table.
 
 ## Structure
 
@@ -165,7 +152,7 @@ cd skills
 
 `./install.sh` copies `agents/` and `skills/` into `${OPENCODE_CONFIG:-$HOME/.config/opencode}` and writes [`AGENTS.md`](./AGENTS.md) to `<dest>/HARNESS.md` so any existing `AGENTS.md` is never overwritten. It also records every path it installed in `<dest>/.harness-manifest`, one relative path per line.
 
-The copy is collision-safe. Before touching anything, the installer checks every target path and every parent directory under the destination; if any target already exists it prints one `collision: <dest path>` line per conflict plus `refusing to overwrite; rerun with --force` (and refuses on any symlinked parent directory under the destination), then exits 1 before copying. Preflight refusal is atomic; a mid-copy failure can leave a partial tree, which rerunning the installer repairs. Content is not compared, so a second run always needs `--force`, even when nothing changed.
+The copy is collision-safe. Before touching anything, the installer runs preflight checks in strict refusal order: destination checks first (rejecting empty/whitespace paths, paths equal to `/`, `.`, `..`, `$HOME`, or the repo root, and symlinked destinations unless `--force`), then parent-path checks under the destination (exiting immediately on any symlinked or file parent directory before scanning targets, or replacing a symlinked parent with a real directory under `--force`), and finally target collision checks (printing one `collision: <dest path>` line per conflict plus `refusing to overwrite; rerun with --force` and exiting 1 before copying). Preflight refusal is atomic; a mid-copy failure can leave a partial tree, which rerunning the installer repairs. Content is not compared, so a second run always needs `--force`, even when nothing changed.
 
 | Flag | Effect |
 | --- | --- |
