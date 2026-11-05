@@ -11,6 +11,10 @@ Turn ideas into validated specs through collaborative dialogue. Understand the p
 Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action until a design has been presented and the user has approved it. This applies to EVERY project regardless of perceived simplicity.
 </HARD-GATE>
 
+## Auto-approve
+
+If the dispatch prompt or the spec header carries `auto-approve: true`, skip the User review gate, skip the Visual Companion offer, and note `auto-approved` at the top of the spec. The self-review still runs.
+
 ## Anti-Pattern: "This Is Too Simple To Need A Design"
 
 Every project runs this process: todo lists, single-function utilities, config changes, all of them. "Simple" projects are where unexamined assumptions cause the most wasted work. The design can be short (a few sentences for truly simple projects), but it MUST be presented and approved.
@@ -105,7 +109,15 @@ digraph shape {
 
 - Write the validated design (spec) to `docs/specs/YYYY-MM-DD-<topic>-design.md`. User preferences for location override this default.
 - Plain, concise prose. Cut every sentence that adds nothing.
-- Commit the document to git.
+- Commit the document to git only when it is not ignored:
+```
+if ! git check-ignore -q "$spec_path"; then
+  git add "$spec_path"
+  git commit -m "docs: spec for [topic]"
+else
+  # local-only spec, never git add -f
+fi
+```
 
 **Spec self-review.** Reread with fresh eyes:
 
@@ -116,7 +128,7 @@ digraph shape {
 
 Fix any issues inline. No re-review cycle: fix and move on.
 
-**User review gate.** After the self-review passes:
+**User review gate.** After the self-review passes (skipped when auto-approve is set):
 
 > "Spec written and committed to `<path>`. Please review it and tell me if anything should change before I write the implementation plan."
 

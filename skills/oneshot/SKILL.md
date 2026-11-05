@@ -11,11 +11,13 @@ Autonomous end-to-end SDLC: task -> spec -> plan -> implementation -> verificati
 
 **Auto-approve bypass:** If the initial task description explicitly asks for it ("auto-approve", "skip all approvals", "no approval gates", "full autonomy no questions"), skip all 3 gates. Record `auto-approve: true` plus the quoted trigger phrase at the top of the spec. User instruction at start overrides default gates. Later turns never override it.
 
+**Auto-approve propagation:** when `auto-approve: true` is recorded, the flag travels into the shape and plan dispatch prompts, and those skills must suppress their own approval waits.
+
 **Announce at start:** "Oneshot pipeline starting for: [task description]"
 
 **Visibility:** The whole pipeline runs in the main session. Announce every phase transition. Stream every subagent result back into main as it returns.
 
-**Context hygiene:** Main orchestrates. Main never writes implementation code inline. Per-task and per-round work is dispatched to fresh subagents via the `task` tool. Never delegate a whole phase or the whole pipeline to one subagent.
+**Context hygiene:** Main orchestrates. Main never writes implementation code inline. Per-task and per-round work is dispatched to fresh subagents via the `subagent` tool (some builds register this tool as `task`; use whichever the session exposes). Never delegate a whole phase or the whole pipeline to one subagent.
 
 **Model routing:** Skills never hardcode models. Role rows and fallback ladders live in AGENTS.md ("Model Tank"); every seat agent pins its primary in its agent file. On a usage-limit or 429-style provider error, re-dispatch the same seat agent with an explicit model override along that role's ladder and announce it.
 
@@ -50,7 +52,7 @@ Run phases sequentially 1 -> 7 in the main session. No skipping. Validate the pr
 
 1. Create the feature branch `feat/<topic>` if the tree sits on the default branch (master/main). This is the FIRST step, before the shape skill runs: shape writes and commits the spec, so the branch must exist before it runs. All pipeline commits after this point happen on a feature branch.
 2. Invoke the `shape` skill via the `skill` tool. Follow its Socratic design checklist: purpose, constraints, success criteria, 2-3 approaches with trade-offs, user-approved design. The shape skill writes and commits the spec onto that branch.
-3. Spec lands at `docs/specs/YYYY-MM-DD-<topic>-design.md`; commit only if not gitignored: `git check-ignore -q <spec-file> || git add <spec-file> && git commit -m "docs: spec for [topic]"`. Never `git add -f` an ignored path.
+3. The spec commit is owned by shape (step 2). Oneshot only verifies the spec artifact exists at `docs/specs/YYYY-MM-DD-<topic>-design.md` and proceeds. Do not run `git add` or `git commit` here.
 4. Gate 1: user approves the design (skip under bypass, note `auto-approved` in spec).
 
 ---
@@ -61,7 +63,14 @@ Run phases sequentially 1 -> 7 in the main session. No skipping. Validate the pr
 **Output:** `docs/plans/YYYY-MM-DD-<feature>.md` (implementation plan)
 
 1. Invoke the `plan` skill via the `skill` tool. Decompose the spec into bite-size tasks with exact file paths, commands, and commit points. No placeholders.
-2. Save to `docs/plans/YYYY-MM-DD-<feature>.md`. Same gitignore-commit rule as the spec.
+2. Save to `docs/plans/YYYY-MM-DD-<feature>.md`. Shape owns the spec commit, oneshot owns the plan commit. Commit the plan with this explicit form:
+```
+if ! git check-ignore -q "$plan_file"; then
+  git add "$plan_file"
+  git commit -m "docs: plan for [topic]"
+fi
+```
+If the path IS ignored, record the local path and never use `git add -f`.
 3. Gate 2: user approves the plan (skip under bypass).
 4. Execution mode is subagent-driven only. Do not offer inline execution.
 
@@ -74,7 +83,7 @@ Run phases sequentially 1 -> 7 in the main session. No skipping. Validate the pr
 
 1. Invoke `dispatch` and `tdd` via the `skill` tool.
 2. Work in place on the feature branch created in Phase 1. Clean `git status` first; create the branch here only if Phase 1 was skipped (e.g. resume into Phase 3). No worktrees.
-3. For each plan task, dispatch one of the default implementation seats (`implementer` or `implementer-b`, or `implementer-deep` for tasks flagged complex) via the `task` tool with the task brief from `dispatch/implementer-prompt.md`. The implementer seat follows TDD: failing test -> minimal implementation -> green -> commit (unless Parallel mode: stage only, main commits serially) -> receipt. Seat models and effort levels are pinned in the agent files; fallback rungs live in the AGENTS.md implementation rows.
+3. For each plan task, dispatch one of the default implementation seats (`implementer` or `implementer-b`, or `implementer-deep` for tasks flagged complex) via the `subagent` tool with the task brief from `dispatch/implementer-prompt.md`. The implementer seat follows TDD: failing test -> minimal implementation -> green -> commit (unless Parallel mode: stage only, main commits serially) -> receipt. Seat models and effort levels are pinned in the agent files; fallback rungs live in the AGENTS.md implementation rows.
 4. Independent tasks run in parallel as separate fresh subagents (parallel fan-out lives inside `dispatch`).
 5. Stream task results to the user as they return (task name, pass/fail, key outputs).
 6. Task failure routes to `debug`: root cause first, then re-dispatch (escalating to `implementer-deep` when a bug resists standard fixes). Unfixable after the debug loop: escalate to user with failure context.
@@ -140,13 +149,13 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 1. Verify tests pass on final state.
 2. Landed options: merge PR and clean up, keep PR open, keep branch, discard. Present options (skip under bypass: default keep PR open).
 3. `land` executes the user choice. It reuses the standard flow: create-PR-if-none, merge open PR, checkout default, pull (the "next feature" handoff).
-4. Write memory: `memory add "oneshot completed: [task] on [branch]"`.
+4. Record it with the memory tool: mode "add", content "oneshot completed: [task] on [branch]".
 
 ---
 
 ## State Artifact
 
-At every phase transition, update `docs/oneshot-state.md` (append or rewrite in place): phase, branch, PR URL, tests status, council round count, standing red findings (one line each). On interrupt, resume from the state artifact plus the spec and plan; the state file is the truth for round counters and standing findings - never re-open a closed round or re-spend a burnt budget. The state file is intentionally local-only state: never committed, never `git add -f`'d. If the target repo would track it (its docs/ tree is not ignored), park it in the repo's `.git/info/exclude` so it never dirties status checks; clean-status gates may ignore it as controller-owned output.
+At every phase transition, update `.git/info/oneshot-state.md` (append or rewrite in place): phase, branch, PR URL, tests status, council round count, standing red findings (one line each). On interrupt, resume from the state artifact plus the spec and plan; the state file is the truth for round counters and standing findings - never re-open a closed round or re-spend a burnt budget. The state file is intentionally local-only state: machine-local, never committed, never `git add -f`'d. When `docs/` is gitignored, `docs/oneshot-state.md` may be used as a fallback instead. The controller deletes it at the end of Phase 7.
 
 ## Error Handling
 

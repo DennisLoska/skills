@@ -135,11 +135,13 @@ Fix issues inline. No re-review - just fix and move on. A spec requirement with 
 
 ## Execution Handoff
 
-After saving the plan, offer the execution choice:
+When the invocation comes from oneshot, or when `auto-approve: true` is present, do NOT offer the choice and do NOT offer inline execution: invoke the dispatch skill directly via the skill tool. Oneshot never authorizes inline main-session implementation.
+
+For standalone use only, offer the execution choice after saving the plan:
 
 **"Plan complete and saved to `docs/plans/<filename>.md`. Two execution options:**
 
-**1. Dispatched (recommended)** - fresh subagent per task (task tool), review between tasks, fast iteration
+**1. Dispatched (recommended)** - fresh subagent per task (subagent tool), review between tasks, fast iteration
 
 **2. Inline** - execute the tasks in this session in batches, with checkpoint reviews
 
