@@ -40,9 +40,9 @@ digraph when_to_use {
 - Faster iteration, no human-in-loop between tasks
 - Subagents can ask questions before and during work
 
-## Working Branch
+## Working Branch & Worktrees
 
-Work in place on a feature branch from a clean tree. Create the branch if none exists. No worktrees. Never develop on master or main without explicit user consent; master advances only via PR merge (the land skill handles that).
+Work on a feature branch from a clean tree - either in the current checkout or inside a dedicated git worktree (such as a T3 Code worktree thread or one created via `tools.opencode.worktree_create` + `tools.opencode.session_move`). If the working tree is on `master` or `main`, create a feature branch or worktree before dispatching. Never develop on `master` or `main` without explicit user consent; `master`/`main` advances only via PR merge (the `land` skill handles that).
 
 ## The Process
 
@@ -183,7 +183,7 @@ Spec reviewer: PASS - all requirements met, nothing extra
 [Get git SHAs, dispatch code quality reviewer]
 Quality reviewer: Strengths: good test coverage, clean. Findings: none. Verdict: PASS.
 
-[Mark Task 1 complete, run in place on the feature branch]
+[Mark Task 1 complete on the feature branch]
 
 Task 2: Recovery modes
 
@@ -288,7 +288,7 @@ Task: "Fix agent-tool-abort.test.ts failures"
 Task: "Fix batch-completion-behavior.test.ts failures"
 Task: "Fix tool-approval-race-conditions.test.ts failures"
 All three run concurrently as fresh subagents.
-Parallel mode: pass `Parallel: true` in each brief; implementer Seats then leave their work staged instead of committing, and the main session commits each returned seat serially to avoid index contention.
+Parallel mode: when subagents share the same working tree/worktree, pass `Parallel: true` in each brief; implementer seats then leave their work staged instead of committing, and the main session commits each returned seat serially to avoid index contention. (If each parallel task runs in its own isolated worktree, `Parallel: false` is safe within that worktree.)
 ```
 
 **4. Review and integrate.** When agents return:
