@@ -8,7 +8,7 @@ description: Use when doing any creative work - creating features, building comp
 Turn ideas into validated specs through collaborative dialogue. Understand the project, ask questions one at a time, present the design, get approval, then hand off to planning.
 
 <HARD-GATE>
-Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action until a design has been presented and the user has approved it. This applies to EVERY project regardless of perceived simplicity.
+Do NOT invoke any implementation skill, write any code, scaffold any project, or take any implementation action until a design has been presented and the user has approved it. This applies to EVERY project regardless of perceived simplicity. Exception: when auto-approve is set, the design is recorded as auto-approved and the gate is satisfied.
 </HARD-GATE>
 
 ## Auto-approve
@@ -24,13 +24,13 @@ Every project runs this process: todo lists, single-function utilities, config c
 You MUST create a task for each of these items and complete them in order:
 
 1. **Explore project context** - check files, docs, recent commits
-2. **Offer the visual companion** (only if the topic will involve visual questions) - its own message, nothing else in it. See the Visual Companion section below.
+2. **Offer the visual companion** (only if the topic will involve visual questions, and skipped under auto-approve) - its own message, nothing else in it. See the Visual Companion section below.
 3. **Ask clarifying questions** - one at a time: purpose, constraints, success criteria
 4. **Propose 2-3 approaches** - with trade-offs and your recommendation
 5. **Present the design** - in sections scaled to complexity, user approval after each section
 6. **Write the design doc** - save to `docs/specs/YYYY-MM-DD-<topic>-design.md`, commit it
 7. **Spec self-review** - inline check for placeholders, contradictions, ambiguity, scope (below)
-8. **User reviews the written spec** - wait for explicit approval before proceeding
+8. **User reviews the written spec** - wait for explicit approval before proceeding (skipped under auto-approve; note auto-approved in the spec)
 9. **Transition to implementation** - invoke the plan skill via the skill tool
 
 ## Process Flow
