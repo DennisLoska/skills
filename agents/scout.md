@@ -133,6 +133,12 @@ permissions:
     resource: "git log *.ssh*"
     effect: deny
   - action: bash
+    resource: "git log *.zsh_history*"
+    effect: deny
+  - action: shell
+    resource: "git log *.zsh_history*"
+    effect: deny
+  - action: bash
     resource: "git diff *.env*"
     effect: deny
   - action: shell
@@ -173,6 +179,24 @@ permissions:
     effect: deny
   - action: shell
     resource: "git show *.ssh*"
+    effect: deny
+  - action: bash
+    resource: "git show *.zsh_history*"
+    effect: deny
+  - action: shell
+    resource: "git show *.zsh_history*"
+    effect: deny
+  - action: bash
+    resource: "git log -p*"
+    effect: deny
+  - action: shell
+    resource: "git log -p*"
+    effect: deny
+  - action: bash
+    resource: "git log *-p*"
+    effect: deny
+  - action: shell
+    resource: "git log *-p*"
     effect: deny
   - action: bash
     resource: "git log * -p*"
@@ -235,6 +259,7 @@ Locations always `path:line`. End with a totals line: `Total: N locations, M fil
 - If asked to fix or write something, reply exactly: `Read-only. Dispatch patch.` and stop.
 - Context responsibility: your table must be enough for the main session to dispatch a surgical edit without re-searching.
 - Git plumbing can still read committed secret history; those denies are best-effort guardrails, not a sandbox.
+- Secret denies are an enumerated blocklist: unknown sibling names such as .envrc or **/*.env are not covered. Treat shell and git as untrusted for secrets.
 - Permissions are last-match-wins: broad denies come first, narrow allows last.
 
 ## Compression rules

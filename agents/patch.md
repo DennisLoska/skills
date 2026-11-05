@@ -108,6 +108,48 @@ permissions:
   - action: write
     resource: "*"
     effect: allow
+  - action: edit
+    resource: ".env"
+    effect: deny
+  - action: edit
+    resource: ".env.*"
+    effect: deny
+  - action: edit
+    resource: "**/.env"
+    effect: deny
+  - action: edit
+    resource: "**/.env.*"
+    effect: deny
+  - action: edit
+    resource: "**/.zshrc"
+    effect: deny
+  - action: edit
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: edit
+    resource: "**/.ssh/*"
+    effect: deny
+  - action: write
+    resource: ".env"
+    effect: deny
+  - action: write
+    resource: ".env.*"
+    effect: deny
+  - action: write
+    resource: "**/.env"
+    effect: deny
+  - action: write
+    resource: "**/.env.*"
+    effect: deny
+  - action: write
+    resource: "**/.zshrc"
+    effect: deny
+  - action: write
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: write
+    resource: "**/.ssh/*"
+    effect: deny
   - action: bash
     resource: "*"
     effect: deny
@@ -143,6 +185,12 @@ permissions:
     effect: deny
   - action: shell
     resource: "git push *"
+    effect: deny
+  - action: bash
+    resource: "git push"
+    effect: deny
+  - action: shell
+    resource: "git push"
     effect: deny
   - action: bash
     resource: "git push --force*"

@@ -108,12 +108,138 @@ permissions:
   - action: write
     resource: "*"
     effect: allow
+  - action: edit
+    resource: ".env"
+    effect: deny
+  - action: edit
+    resource: ".env.*"
+    effect: deny
+  - action: edit
+    resource: "**/.env"
+    effect: deny
+  - action: edit
+    resource: "**/.env.*"
+    effect: deny
+  - action: edit
+    resource: "**/.zshrc"
+    effect: deny
+  - action: edit
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: edit
+    resource: "**/.ssh/*"
+    effect: deny
+  - action: write
+    resource: ".env"
+    effect: deny
+  - action: write
+    resource: ".env.*"
+    effect: deny
+  - action: write
+    resource: "**/.env"
+    effect: deny
+  - action: write
+    resource: "**/.env.*"
+    effect: deny
+  - action: write
+    resource: "**/.zshrc"
+    effect: deny
+  - action: write
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: write
+    resource: "**/.ssh/*"
+    effect: deny
   - action: bash
     resource: "*"
     effect: allow
   - action: shell
     resource: "*"
     effect: allow
+  - action: bash
+    resource: "git diff *.env*"
+    effect: deny
+  - action: shell
+    resource: "git diff *.env*"
+    effect: deny
+  - action: bash
+    resource: "git diff *.zshrc*"
+    effect: deny
+  - action: shell
+    resource: "git diff *.zshrc*"
+    effect: deny
+  - action: bash
+    resource: "git diff *.zsh_history*"
+    effect: deny
+  - action: shell
+    resource: "git diff *.zsh_history*"
+    effect: deny
+  - action: bash
+    resource: "git diff *.ssh*"
+    effect: deny
+  - action: shell
+    resource: "git diff *.ssh*"
+    effect: deny
+  - action: bash
+    resource: "git log *.env*"
+    effect: deny
+  - action: shell
+    resource: "git log *.env*"
+    effect: deny
+  - action: bash
+    resource: "git log *.zshrc*"
+    effect: deny
+  - action: shell
+    resource: "git log *.zshrc*"
+    effect: deny
+  - action: bash
+    resource: "git log *.zsh_history*"
+    effect: deny
+  - action: shell
+    resource: "git log *.zsh_history*"
+    effect: deny
+  - action: bash
+    resource: "git log *.ssh*"
+    effect: deny
+  - action: shell
+    resource: "git log *.ssh*"
+    effect: deny
+  - action: bash
+    resource: "git show *.env*"
+    effect: deny
+  - action: shell
+    resource: "git show *.env*"
+    effect: deny
+  - action: bash
+    resource: "git show *.zshrc*"
+    effect: deny
+  - action: shell
+    resource: "git show *.zshrc*"
+    effect: deny
+  - action: bash
+    resource: "git show *.zsh_history*"
+    effect: deny
+  - action: shell
+    resource: "git show *.zsh_history*"
+    effect: deny
+  - action: bash
+    resource: "git show *.ssh*"
+    effect: deny
+  - action: shell
+    resource: "git show *.ssh*"
+    effect: deny
+  - action: bash
+    resource: "git log -p*"
+    effect: deny
+  - action: shell
+    resource: "git log -p*"
+    effect: deny
+  - action: bash
+    resource: "git log *-p*"
+    effect: deny
+  - action: shell
+    resource: "git log *-p*"
+    effect: deny
   - action: bash
     resource: "rm -rf *"
     effect: deny
@@ -143,6 +269,12 @@ permissions:
     effect: deny
   - action: shell
     resource: "git push *"
+    effect: deny
+  - action: bash
+    resource: "git push"
+    effect: deny
+  - action: shell
+    resource: "git push"
     effect: deny
   - action: bash
     resource: "git push --force*"
@@ -537,6 +669,7 @@ Step 0: run `git branch --show-current`; if it prints main or master, reply `wro
 - Bugs you cannot root-cause in your own change: keep them in the report; do not chase them into unrelated code (escalation goes to `implementer-deep` via the `debug` skill).
 - Side quest found (dead code, unrelated bug): one line in the report, hands off.
 - Shell access is broad: deny patterns are best effort guardrails, not a sandbox. Never read secret files and never run destructive commands, even if a pattern misses.
+- Secret denies are an enumerated blocklist: unknown sibling names such as .envrc or **/*.env are not covered. Treat shell and git as untrusted for secrets.
 - Permissions are last-match-wins: broad allows come first, narrow denies last, so the denies are the policy.
 
 ## Receipt format

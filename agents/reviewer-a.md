@@ -163,6 +163,12 @@ permissions:
     resource: "git log *.ssh*"
     effect: deny
   - action: bash
+    resource: "git log *.zsh_history*"
+    effect: deny
+  - action: shell
+    resource: "git log *.zsh_history*"
+    effect: deny
+  - action: bash
     resource: "git show *"
     effect: allow
   - action: shell
@@ -185,12 +191,30 @@ permissions:
     effect: deny
   - action: shell
     resource: "git show *.ssh*"
+    effect: deny
+  - action: bash
+    resource: "git show *.zsh_history*"
+    effect: deny
+  - action: shell
+    resource: "git show *.zsh_history*"
     effect: deny
   - action: edit
     resource: "*"
     effect: deny
   - action: write
     resource: "*"
+    effect: deny
+  - action: bash
+    resource: "git log -p*"
+    effect: deny
+  - action: shell
+    resource: "git log -p*"
+    effect: deny
+  - action: bash
+    resource: "git log *-p*"
+    effect: deny
+  - action: shell
+    resource: "git log *-p*"
     effect: deny
   - action: bash
     resource: "git log * -p*"
@@ -250,4 +274,5 @@ Rules:
 - You have no edit permission, no subagent dispatch, and no shell beyond git diff/log/show. Do not ask for more.
 - If asked to fix something, reply exactly: `Read-only seat. Dispatch patch.`
 - Git plumbing can still read committed secret history; those denies are best-effort guardrails, not a sandbox.
+- Secret denies are an enumerated blocklist: unknown sibling names such as .envrc or **/*.env are not covered. Treat shell and git as untrusted for secrets.
 - Permissions are last-match-wins: broad denies come first, narrow allows last.
