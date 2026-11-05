@@ -158,22 +158,24 @@ cd skills
 ./install.sh
 ```
 
-`./install.sh` copies `agents/` and `skills/` into `${OPENCODE_CONFIG:-$HOME/.config/opencode}` and writes [`AGENTS.md`](./AGENTS.md) to `<dest>/HARNESS.md` so any existing `AGENTS.md` is never overwritten.
+`./install.sh` copies `agents/` and `skills/` into `${OPENCODE_CONFIG:-$HOME/.config/opencode}` and writes [`AGENTS.md`](./AGENTS.md) to `<dest>/HARNESS.md` so any existing `AGENTS.md` is never overwritten. It also records every path it installed in `<dest>/.harness-manifest`, one relative path per line.
 
 The copy is collision-safe. Before touching anything, the installer checks every target path; if any already exists it prints one `collision: <dest path>` line per conflict plus `refusing to overwrite; rerun with --force`, then exits 1 having copied nothing. Content is not compared, so a second run always needs `--force`, even when nothing changed.
 
 | Flag | Effect |
 | --- | --- |
 | `--force` | overwrite files that already exist in the destination |
-| `--prune` | after copying, remove files under `<dest>/agents` and `<dest>/skills` that no longer exist in this repository, then print `pruned N stale file(s)`. Nothing else under the destination is touched |
+| `--prune` | after copying, remove files that the previous `<dest>/.harness-manifest` records as installed but this run no longer produces, then print `pruned N stale file(s)`. Files the installer never wrote are never removed, so personal agents and skills in the same directory survive. With no previous manifest it prints `no previous manifest; prune skipped` and removes nothing |
 | `-h`, `--help` | print usage and exit 0 without copying |
 
 Reinstall after pulling changes:
 
 ```sh
 ./install.sh --force              # refresh the harness files
-./install.sh --force --prune      # also drop skills or agents removed upstream
+./install.sh --force --prune      # also drop harness files removed upstream
 ```
+
+`--prune` is scoped to `<dest>/.harness-manifest`, so it only removes files this installer previously wrote. Anything else under the destination, including your own agents and skills, is left alone, and `--force` replaces a destination symlink instead of writing through it to a file outside the destination.
 
 Set `OPENCODE_CONFIG` to install anywhere other than `~/.config/opencode`:
 

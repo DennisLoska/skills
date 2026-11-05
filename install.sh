@@ -1,22 +1,29 @@
 #!/usr/bin/env bash
 # install.sh - install agents/, skills/, and HARNESS.md into ${OPENCODE_CONFIG:-$HOME/.config/opencode}
 # Collision-safe: preflights every target path and refuses to overwrite without --force.
+# Prune is manifest-scoped: it only removes files this installer recorded writing,
+# so personal agents and skills sharing the destination are never touched.
 set -euo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST="${OPENCODE_CONFIG:-$HOME/.config/opencode}"
+MANIFEST="$DEST/.harness-manifest"
+TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
+trap 'rm -f -- "$TMP_MANIFEST"' EXIT HUP INT TERM
 
 usage() {
   cat <<'EOF'
 usage: install.sh [--force] [--prune]
 
 Installs agents/, skills/, and AGENTS.md (as HARNESS.md) into
-${OPENCODE_CONFIG:-$HOME/.config/opencode}.
+${OPENCODE_CONFIG:-$HOME/.config/opencode}, and records every installed
+path in <dest>/.harness-manifest.
 
 options:
   --force      overwrite files that already exist in the destination
-  --prune      after copying, remove files under <dest>/agents and
-               <dest>/skills that no longer exist in this repository
+  --prune      remove files recorded in a previous .harness-manifest that
+               this run no longer produces; files the installer never wrote
+               are never touched
   -h, --help   show this help and exit
 
 Without --force, any existing target file aborts the install with exit 1
@@ -42,8 +49,8 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-if [ ! -d "$SRC/agents" ] || [ ! -d "$SRC/skills" ]; then
-  printf 'install.sh: expected agents/ and skills/ under %s\n' "$SRC" >&2
+if [ ! -d "$SRC/agents" ] || [ ! -d "$SRC/skills" ] || [ ! -f "$SRC/AGENTS.md" ]; then
+  printf 'install.sh: expected agents/, skills/, and AGENTS.md under %s\n' "$SRC" >&2
   exit 1
 fi
 
@@ -73,32 +80,58 @@ if [ "${#collisions[@]}" -gt 0 ] && [ "$force" -eq 0 ]; then
   exit 1
 fi
 
+# owned <rel>: true when this run installs <rel>.
+owned() {
+  local want="$1"
+  local r
+  for r in "${rels[@]}"; do
+    if [ "$r" = "$want" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 installed=0
 for i in "${!rels[@]}"; do
   target="$DEST/${rels[$i]}"
   mkdir -p "$(dirname "$target")"
+  # cp -p follows a destination symlink and would write outside DEST; unlink first.
+  if [ -e "$target" ] || [ -L "$target" ]; then
+    rm -f -- "$target"
+  fi
   cp -p "${srcs[$i]}" "$target"
   installed=$((installed + 1))
 done
 
 if [ "$prune" -eq 1 ]; then
-  pruned=0
-  for sub in agents skills; do
-    subdir="$DEST/$sub"
-    [ -d "$subdir" ] || continue
-    while IFS= read -r -d '' target; do
-      rel="${target#"$DEST"/}"
+  if [ ! -f "$MANIFEST" ]; then
+    printf 'no previous manifest; prune skipped\n'
+  else
+    pruned=0
+    while IFS= read -r rel || [ -n "$rel" ]; do
+      [ -n "$rel" ] || continue
       case "$rel" in
-        agents/*|skills/*) ;;
-        *) continue ;;
+        /*|..|../*|*/..|*/../*)
+          printf 'install.sh: ignoring unsafe manifest entry: %s\n' "$rel" >&2
+          continue
+          ;;
       esac
-      if [ ! -f "$SRC/$rel" ]; then
-        rm -- "$target"
+      owned "$rel" && continue
+      target="$DEST/$rel"
+      if [ -e "$target" ] || [ -L "$target" ]; then
+        rm -f -- "$target"
         pruned=$((pruned + 1))
       fi
-    done < <(find "$subdir" -type f -print0)
-  done
-  printf 'pruned %d stale file(s)\n' "$pruned"
+    done <"$MANIFEST"
+    printf 'pruned %d stale file(s)\n' "$pruned"
+  fi
 fi
+
+: >"$TMP_MANIFEST"
+for rel in "${rels[@]}"; do
+  printf '%s\n' "$rel" >>"$TMP_MANIFEST"
+done
+mv -f -- "$TMP_MANIFEST" "$MANIFEST"
 
 printf 'installed %d files into %s (harness instructions at %s)\n' "$installed" "$DEST" "$DEST/HARNESS.md"
