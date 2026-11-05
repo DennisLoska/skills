@@ -54,6 +54,27 @@ permissions:
   - action: glob
     resource: "*"
     effect: allow
+  - action: glob
+    resource: ".env"
+    effect: deny
+  - action: glob
+    resource: ".env.*"
+    effect: deny
+  - action: glob
+    resource: "**/.env"
+    effect: deny
+  - action: glob
+    resource: "**/.env.*"
+    effect: deny
+  - action: glob
+    resource: "**/.zshrc"
+    effect: deny
+  - action: glob
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: glob
+    resource: "**/.ssh/*"
+    effect: deny
   - action: bash
     resource: "*"
     effect: deny
@@ -67,17 +88,77 @@ permissions:
     resource: "git diff *"
     effect: allow
   - action: bash
+    resource: "git diff *.env*"
+    effect: deny
+  - action: shell
+    resource: "git diff *.env*"
+    effect: deny
+  - action: bash
+    resource: "git diff *.zshrc*"
+    effect: deny
+  - action: shell
+    resource: "git diff *.zshrc*"
+    effect: deny
+  - action: bash
+    resource: "git diff *.zsh_history*"
+    effect: deny
+  - action: shell
+    resource: "git diff *.zsh_history*"
+    effect: deny
+  - action: bash
+    resource: "git diff *.ssh*"
+    effect: deny
+  - action: shell
+    resource: "git diff *.ssh*"
+    effect: deny
+  - action: bash
     resource: "git log *"
     effect: allow
   - action: shell
     resource: "git log *"
     effect: allow
   - action: bash
+    resource: "git log *.env*"
+    effect: deny
+  - action: shell
+    resource: "git log *.env*"
+    effect: deny
+  - action: bash
+    resource: "git log *.zshrc*"
+    effect: deny
+  - action: shell
+    resource: "git log *.zshrc*"
+    effect: deny
+  - action: bash
+    resource: "git log *.ssh*"
+    effect: deny
+  - action: shell
+    resource: "git log *.ssh*"
+    effect: deny
+  - action: bash
     resource: "git show *"
     effect: allow
   - action: shell
     resource: "git show *"
     effect: allow
+  - action: bash
+    resource: "git show *.env*"
+    effect: deny
+  - action: shell
+    resource: "git show *.env*"
+    effect: deny
+  - action: bash
+    resource: "git show *.zshrc*"
+    effect: deny
+  - action: shell
+    resource: "git show *.zshrc*"
+    effect: deny
+  - action: bash
+    resource: "git show *.ssh*"
+    effect: deny
+  - action: shell
+    resource: "git show *.ssh*"
+    effect: deny
   - action: edit
     resource: "*"
     effect: deny

@@ -27,6 +27,15 @@ permissions:
   - action: read
     resource: "**/.ssh/*"
     effect: deny
+  - action: read
+    resource: ".zshrc"
+    effect: deny
+  - action: read
+    resource: ".zsh_history"
+    effect: deny
+  - action: read
+    resource: ".ssh/*"
+    effect: deny
   - action: edit
     resource: "*"
     effect: allow
@@ -88,18 +97,6 @@ permissions:
     resource: "git clean *"
     effect: deny
   - action: bash
-    resource: "git commit *main*"
-    effect: deny
-  - action: shell
-    resource: "git commit *main*"
-    effect: deny
-  - action: bash
-    resource: "git commit *master*"
-    effect: deny
-  - action: shell
-    resource: "git commit *master*"
-    effect: deny
-  - action: bash
     resource: "pkill *"
     effect: deny
   - action: shell
@@ -110,6 +107,78 @@ permissions:
     effect: deny
   - action: shell
     resource: "killall *"
+    effect: deny
+  - action: bash
+    resource: "cat *.env*"
+    effect: deny
+  - action: shell
+    resource: "cat *.env*"
+    effect: deny
+  - action: bash
+    resource: "cat *.zshrc*"
+    effect: deny
+  - action: shell
+    resource: "cat *.zshrc*"
+    effect: deny
+  - action: bash
+    resource: "cat *.zsh_history*"
+    effect: deny
+  - action: shell
+    resource: "cat *.zsh_history*"
+    effect: deny
+  - action: bash
+    resource: "cat *.ssh*"
+    effect: deny
+  - action: shell
+    resource: "cat *.ssh*"
+    effect: deny
+  - action: bash
+    resource: "printenv"
+    effect: deny
+  - action: shell
+    resource: "printenv"
+    effect: deny
+  - action: bash
+    resource: "printenv *"
+    effect: deny
+  - action: shell
+    resource: "printenv *"
+    effect: deny
+  - action: bash
+    resource: "env"
+    effect: deny
+  - action: shell
+    resource: "env"
+    effect: deny
+  - action: bash
+    resource: "less *.env*"
+    effect: deny
+  - action: shell
+    resource: "less *.env*"
+    effect: deny
+  - action: bash
+    resource: "head *.env*"
+    effect: deny
+  - action: shell
+    resource: "head *.env*"
+    effect: deny
+  - action: bash
+    resource: "tail *.env*"
+    effect: deny
+  - action: shell
+    resource: "tail *.env*"
+    effect: deny
+  - action: bash
+    resource: "strings *.env*"
+    effect: deny
+  - action: shell
+    resource: "strings *.env*"
+    effect: deny
+  - action: bash
+    resource: "xxd *.env*"
+    effect: deny
+  - action: shell
+    resource: "xxd *.env*"
     effect: deny
   - action: webfetch
     resource: "*"
@@ -155,4 +224,5 @@ One receipt per file changed. Nothing else in the final response.
 - Preserve surrounding style: imports, indent, quoting, comment tone.
 - If the change touches a gitignored or env-like file, refuse: `out-of-bounds.`
 - Errors have a terminal receipt, no retries beyond re-reading the file once.
-- Permissions are last-match-wins: broad denies come first, narrow allows last.
+- Shell is denied entirely here, and deny patterns are best effort guardrails, not a sandbox. Never read secret files.
+- Permissions are last-match-wins: broad allows come first, narrow denies last, so the denies are the policy.

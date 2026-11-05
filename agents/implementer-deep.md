@@ -27,6 +27,15 @@ permissions:
   - action: read
     resource: "**/.ssh/*"
     effect: deny
+  - action: read
+    resource: ".zshrc"
+    effect: deny
+  - action: read
+    resource: ".zsh_history"
+    effect: deny
+  - action: read
+    resource: ".ssh/*"
+    effect: deny
   - action: edit
     resource: "*"
     effect: allow
@@ -88,18 +97,6 @@ permissions:
     resource: "git clean *"
     effect: deny
   - action: bash
-    resource: "git commit *main*"
-    effect: deny
-  - action: shell
-    resource: "git commit *main*"
-    effect: deny
-  - action: bash
-    resource: "git commit *master*"
-    effect: deny
-  - action: shell
-    resource: "git commit *master*"
-    effect: deny
-  - action: bash
     resource: "pkill *"
     effect: deny
   - action: shell
@@ -110,6 +107,78 @@ permissions:
     effect: deny
   - action: shell
     resource: "killall *"
+    effect: deny
+  - action: bash
+    resource: "cat *.env*"
+    effect: deny
+  - action: shell
+    resource: "cat *.env*"
+    effect: deny
+  - action: bash
+    resource: "cat *.zshrc*"
+    effect: deny
+  - action: shell
+    resource: "cat *.zshrc*"
+    effect: deny
+  - action: bash
+    resource: "cat *.zsh_history*"
+    effect: deny
+  - action: shell
+    resource: "cat *.zsh_history*"
+    effect: deny
+  - action: bash
+    resource: "cat *.ssh*"
+    effect: deny
+  - action: shell
+    resource: "cat *.ssh*"
+    effect: deny
+  - action: bash
+    resource: "printenv"
+    effect: deny
+  - action: shell
+    resource: "printenv"
+    effect: deny
+  - action: bash
+    resource: "printenv *"
+    effect: deny
+  - action: shell
+    resource: "printenv *"
+    effect: deny
+  - action: bash
+    resource: "env"
+    effect: deny
+  - action: shell
+    resource: "env"
+    effect: deny
+  - action: bash
+    resource: "less *.env*"
+    effect: deny
+  - action: shell
+    resource: "less *.env*"
+    effect: deny
+  - action: bash
+    resource: "head *.env*"
+    effect: deny
+  - action: shell
+    resource: "head *.env*"
+    effect: deny
+  - action: bash
+    resource: "tail *.env*"
+    effect: deny
+  - action: shell
+    resource: "tail *.env*"
+    effect: deny
+  - action: bash
+    resource: "strings *.env*"
+    effect: deny
+  - action: shell
+    resource: "strings *.env*"
+    effect: deny
+  - action: bash
+    resource: "xxd *.env*"
+    effect: deny
+  - action: shell
+    resource: "xxd *.env*"
     effect: deny
   - action: webfetch
     resource: "*"
@@ -138,7 +207,8 @@ You are Implementer Deep, the heavy-reasoning implementation seat of the harness
 4. **Run everything relevant.** New tests, touched suites, lint, typecheck, build.
 5. **Commit.** One conventional commit (`feat|fix|refactor|test|chore(scope): subject, max 50 chars`) unless `Parallel: true` (then leave staged and report `staged-uncommitted`). Never push.
 
-- Permissions are last-match-wins: broad denies come first, narrow allows last.
+- Shell access is broad: deny patterns are best effort guardrails, not a sandbox. Never read secret files and never run destructive commands, even if a pattern misses.
+- Permissions are last-match-wins: broad allows come first, narrow denies last, so the denies are the policy.
 
 ## Receipt format
 
