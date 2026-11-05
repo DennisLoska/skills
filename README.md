@@ -1,61 +1,198 @@
-# skills
+<h1 align="center">Cybernetic SDLC Harness</h1>
 
-A cybernetic SDLC harness for OpenCode V2. One gated controller (`oneshot`), four closed feedback loops, nine model-pinned agent seats on OpenCode Go, and twelve flat-named pipeline skills.
+<p align="center">
+  <em>Sense, act, verify, reach consensus, and land.</em><br/>
+  A self-owned cybernetic SDLC control system for OpenCode V2 - one gated controller (<code>oneshot</code>), four closed feedback loops, nine model-pinned agent seats on OpenCode Go, and twelve pipeline skills.
+</p>
 
-## Cybernetic Architecture
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/OpenCode-V2-111111?style=flat-square" alt="OpenCode V2" />
+  <img src="https://img.shields.io/badge/Provider-OpenCode%20Go-00A67E?style=flat-square" alt="OpenCode Go" />
+  <img src="https://img.shields.io/badge/Agents-9%20Model--Pinned%20Seats-6A5ACD?style=flat-square" alt="9 Model-Pinned Seats" />
+  <img src="https://img.shields.io/badge/Skills-12%20Pipeline%20Units-1AD1A5?style=flat-square" alt="12 Pipeline Skills" />
+  <img src="https://img.shields.io/badge/Council-3%20Independent%20Families-FF6B35?style=flat-square" alt="3-Family Council" />
+  <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
+  <img src="https://img.shields.io/badge/Tests-40%2F40%20Passing-2ECC71?style=flat-square" alt="40/40 Tests Passing" />
+</p>
 
-```
-                        USER  (3 gates only)
-                 G1 design OK | G2 plan OK | G3 finish OK
-                                   |
-                                   v
-+-------------------------------------------------------------------------+
-|                        ONESHOT = CONTROLLER                             |
-|                                                                         |
-|  [1 SHAPE]-->[2 PLAN]-->[3 DISPATCH]-->[4 VERIFY]-->[5 LAND + PR]       |
-|     |          |             |              |             |             |
-|     +--spec    +--plan       |              |             v             |
-|                              |              |    [6.5 MAKE-CI-GREEN]    |
-|                              |              |             |             |
-|                              |              |             v             |
-|                              |              +------> [6 COUNCIL] <--+   |
-|                              |                         | PASS       |   |
-|                              |                         v            |   |
-|                              +------------------> [7 LAND]          |   |
-+-------------------------------------------------------------------------+
+<p align="center">
+  <a href="#-cybernetic-architecture">Architecture</a> •
+  <a href="#-all-12-skills-by-role">Skills Map</a> •
+  <a href="#-usage--example-prompts">Usage & Prompts</a> •
+  <a href="#-model-tank-opencode-go">Model Tank</a> •
+  <a href="#-structure">Structure</a> •
+  <a href="#️-installation-for-agents-and-humans">Installation</a> •
+  <a href="#-testing">Testing</a>
+</p>
 
-+------------------------- L1  TASK LOOP (per task) ----------------------+
-|  [SCOUT] ----path:line----> [IMPLEMENTER / IMPLEMENTER-B]               |
-|  (mimo-v2.6-flash)          (deepseek-v4.1-flash#high /                 |
-|                              muse-spark-1.3-contributor#medium)         |
-|       ^                              |                                  |
-|       |                     complex / 3x fail                           |
-|       |                              v                                  |
-|       +---- [DEBUG] ------> [IMPLEMENTER-DEEP] ----> [TDD + VERIFY]     |
-|                             (gemini-4-argon#high)                       |
-+-------------------------------------------------------------------------+
+---
 
-+------------------------- L2  BRANCH LOOP (max 3 rounds) ----------------+
-|  reviewer-a: muse-spark-1.3-contributor#xhigh (45.3k req/5h)  -+        |
-|  reviewer-b: deepseek-v4.1-flash#max          (43.3k req/5h)  -+-> PASS |
-|  reviewer-c: glm-5.3-flash#high               ( 6.3k req/5h)  -+    or  |
-|                                                                    FAIL |
-|  FAIL (rounds 1-2) -> implementation fixer (tests) -> re-review         |
-|  Rounds exhausted  -> [REVIEWER-ESC] kimi-k3.1-pro#high -> STOP         |
-+-------------------------------------------------------------------------+
+> **License:** MIT - see [LICENSE](LICENSE) and [NOTICE](NOTICE) (upstream MIT attribution for `domain-modeling` and `codebase-design` adapted from `mattpocock/skills`).
 
-+------------------------- L3  CI LOOP -----------------------------------+
-|  [MAKE-CI-GREEN] watches checks + review bots -> implementation fixers  |
-|  No blind reruns; flakes require log-line evidence before a single retry|
-+-------------------------------------------------------------------------+
+Autonomous software delivery for **OpenCode V2**. Orchestrates **12 composable pipeline skills** and **9 model-pinned subagent seats** across four closed feedback loops (**L1 Task**, **L2 Branch Council**, **L3 CI**, **L4 Meta**). Every seat pins its model and effort tier in its own agent file and enforces last-match-wins permission guardrails so subagents never inherit the main session context or leak secrets.
 
-+------------------------- L4  META LOOP ---------------------------------+
-|  OpenCode token telemetry + session memory record outcomes and burn;    |
-|  routing re-tunes happen deliberately between sessions with the user    |
-+-------------------------------------------------------------------------+
+---
+
+## 🧭 Cybernetic Architecture
+
+```mermaid
+flowchart LR
+  U([User: 3 Gates or Auto-Approve]) --> C[oneshot<br/>Master Controller]
+  C --> P1[1. shape<br/>+ domain-modeling<br/>+ codebase-design]
+  P1 -- spec + GLOSSARY/ADR --> P2[2. plan<br/>via scout]
+  P2 -- TDD task plan --> P3[3. dispatch + tdd<br/>L1 Task Loop]
+  P3 <-- root cause --> D[debug]
+  P3 --> P4[4. verify<br/>Evidence Gate]
+  P4 --> P5[5. land<br/>File PR]
+  P5 --> P65[6.5 make-ci-green<br/>L3 CI Loop]
+  P65 --> P6[6. council<br/>L2 3-Family Loop]
+  P6 -- fix pushed --> P65
+  P6 -- PASS + green --> P7[7. land<br/>Gate 3 & Handoff]
 ```
 
-## Usage & Example Prompts
+### Full Pipeline & Seat Wiring (ASCII)
+
+```text
++======================================================================================+
+|                           [1. oneshot] (Master Controller)                           |
+|       State: .git/info/oneshot-state.md  |  Bypass: auto-approve: true               |
++======================================================================================+
+        |
+        v
++--------------------------------------------------------------------------------------+
+| PHASE 1: DESIGN & ARCHITECTURE                                                       |
+|                                                                                      |
+|   [2. shape]  <--- explores context via ---> (scout: mimo-v2.6-flash)                |
+|       |                                                                              |
+|       +---> [3. domain-modeling]  (if domain terms/decisions change)                 |
+|       |         writes/updates GLOSSARY.md, GLOSSARY-MAP.md, docs/adr/NNNN-slug.md   |
+|       |                                                                              |
+|       +---> [4. codebase-design]  (if module interfaces or seams change)             |
+|       |         applies deep-module vocabulary, DEEPENING.md, DESIGN-IT-TWICE.md     |
+|       |                                                                              |
+|       +---> writes & commits docs/specs/YYYY-MM-DD-<topic>-design.md (+ glossary/adr)|
+|       +---> Gate 1 (user approval, or skipped under auto-approve)                    |
++--------------------------------------------------------------------------------------+
+        |
+        v
++--------------------------------------------------------------------------------------+
+| PHASE 2: TASK DECOMPOSITION                                                          |
+|                                                                                      |
+|   [5. plan]   <--- maps exact file:line via ---> (scout: mimo-v2.6-flash)            |
+|       |                                                                              |
+|       +---> decomposes spec into bite-size TDD tasks + glossary/seam invariants      |
+|       +---> writes & commits docs/plans/YYYY-MM-DD-<feature>.md                      |
+|       +---> Gate 2 (user approval, or auto-satisfied under auto-approve)             |
++--------------------------------------------------------------------------------------+
+        |
+        v
++--------------------------------------------------------------------------------------+
+| PHASE 3: L1 TASK FEEDBACK LOOP (Per-Task Actuation & Sensing)                        |
+|                                                                                      |
+|   [6. dispatch]  (orchestrates sequential or parallel task fan-out)                  |
+|       |                                                                              |
+|       +---> Step 0 branch check (`git branch --show-current` != main/master)         |
+|       |                                                                              |
+|       +---> Actuators (execute task via [7. tdd] red -> green -> refactor):          |
+|       |       - (implementer:      deepseek-v4.1-flash#high)        default A        |
+|       |       - (implementer-b:    muse-spark-1.3-contributor#med)  default B        |
+|       |       - (implementer-deep: gemini-4-argon#high)             complex/hard     |
+|       |       - (patch:            deepseek-v4.1-flash#high)        1-2 file no-test |
+|       |                                                                              |
+|       +---> On task failure / test red (up to 3 fix attempts -> 2 debug rotations):  |
+|       |       routes to [8. debug] (root-cause tracing, defense-in-depth, polluter)  |
+|       |       then re-dispatches (escalating to implementer-deep if needed)          |
+|       |                                                                              |
+|       +---> Per-Task Sensors (ad-hoc `glm-5.3-flash#high`):                          |
+|               Stage 1: spec-reviewer-prompt.md (checks spec + GLOSSARY.md drift)     |
+|               Stage 2: quality-reviewer-prompt.md (council rules on task diff)       |
++--------------------------------------------------------------------------------------+
+        |
+        v
++--------------------------------------------------------------------------------------+
+| PHASE 4: COMPLETION GATE                                                             |
+|                                                                                      |
+|   [9. verify]                                                                        |
+|       +---> runs full test suite, typecheck, linter, and build                       |
+|       +---> confirms fresh command output for every spec requirement before Phase 5  |
+|       +---> if anything fails: routes back to [8. debug] / [6. dispatch]             |
++--------------------------------------------------------------------------------------+
+        |
+        v
++--------------------------------------------------------------------------------------+
+| PHASE 5: PR FILING                                                                   |
+|                                                                                      |
+|   [10. land] (Part 1)                                                                |
+|       +---> pushes `feat/<topic>` and opens PR (`## Summary`, `## Changes`,          |
+|             `## Test plan`)                                                          |
++--------------------------------------------------------------------------------------+
+        |
+        v
++--------------------------------------------------------------------------------------+
+| PHASE 6.5: L3 CI & BOT FEEDBACK LOOP                                                 |
+|                                                                                      |
+|   [11. make-ci-green]                                                                |
+|       +---> bounded poll of `gh pr checks` and `gh pr view --json reviews,labels`    |
+|       +---> real failure (max 3 fix_rounds):                                         |
+|               - test-running fix -> (implementer / implementer-b) + [9. verify]      |
+|               - no-test 1-2 file -> (patch)                                          |
+|       +---> suspected flake: requires concrete log-line comment, reruns once max     |
++--------------------------------------------------------------------------------------+
+        |
+        v
++--------------------------------------------------------------------------------------+
+| PHASE 6: L2 BRANCH CONSENSUS LOOP (Max 3 Rounds, Cap 14 Dispatches)                  |
+|                                                                                      |
+|   [12. council]                                                                      |
+|       +---> 3 independent adversarial reviewer families in parallel:                 |
+|       |       - Seat A:   (reviewer-a:   muse-spark-1.3-contributor#xhigh, 45.3k/5h) |
+|       |       - Seat B:   (reviewer-b:   deepseek-v4.1-flash#max,          43.3k/5h) |
+|       |       - Seat C:   (reviewer-c:   glm-5.3-flash#high,                6.3k/5h) |
+|       |       - Last-res: (reviewer-esc: kimi-k3.1-pro#high,                 147/5h) |
+|       |                                                                              |
+|       +---> checks diff vs spec/plan, security, edge cases, and GLOSSARY.md drift    |
+|       +---> on FAIL: dispatches (implementer / implementer-b) or no-test (patch),    |
+|             runs [9. verify], pushes, and re-enters [11. make-ci-green] if commits   |
+|             were pushed after last green CI receipt                                  |
++--------------------------------------------------------------------------------------+
+        |
+        | (PASS: >=2/3 seats PASS + 0 confirmed reds + green tests)
+        v
++--------------------------------------------------------------------------------------+
+| PHASE 7: FINISH & NEXT-FEATURE HANDOFF                                               |
+|                                                                                      |
+|   [10. land] (Parts 2 & 3 - Gate 3)                                                  |
+|       +---> Interactive: 1. Merge PR  2. Keep PR open  3. Keep branch  4. Discard    |
+|       +---> Auto-approve: skips menu, defaults to Keep PR open                       |
+|       +---> On Merge: squash-merges PR, checks out default branch, pulls `--ff-only`,|
+|             prunes merged local branch, removes `.git/info/oneshot-state.md`,        |
+|             and records completion in memory (L4 Meta Loop)                          |
++--------------------------------------------------------------------------------------+
+```
+
+---
+
+## 🧩 All 12 Skills by Role
+
+| Role in Cybernetic Loop | Skill | When It Runs |
+| --- | --- | --- |
+| **Master Controller** | [`oneshot`](./skills/oneshot/SKILL.md) | Orchestrates Phases 1 -> 7 end-to-end |
+| **Spec & Planning** | [`shape`](./skills/shape/SKILL.md) | Phase 1: Socratic design exploration & spec commit |
+| **Spec & Planning** | [`domain-modeling`](./skills/domain-modeling/SKILL.md) | Phase 1 (or standalone): builds/sharpens `GLOSSARY.md` & `docs/adr/` |
+| **Spec & Planning** | [`codebase-design`](./skills/codebase-design/SKILL.md) | Phase 1 (or standalone): deep modules, seams, `DESIGN-IT-TWICE.md` |
+| **Spec & Planning** | [`plan`](./skills/plan/SKILL.md) | Phase 2: bite-size TDD task decomposition |
+| **L1 Task Loop (Actuation)** | [`dispatch`](./skills/dispatch/SKILL.md) | Phase 3: per-task subagent execution + 2-stage review |
+| **L1 Task Loop (Discipline)** | [`tdd`](./skills/tdd/SKILL.md) | Phase 3: failing test first -> minimal code -> refactor |
+| **L1 Task Loop (Repair)** | [`debug`](./skills/debug/SKILL.md) | Phase 3 & 4: 4-phase root-cause investigation on failures |
+| **Gate Sensor** | [`verify`](./skills/verify/SKILL.md) | Phase 4 (and post-fix in L1/L2/L3): fresh command evidence check |
+| **L2 Branch Sensor/Loop** | [`council`](./skills/council/SKILL.md) | Phase 6: 3-family adversarial review + fixer loop |
+| **L3 CI Sensor/Loop** | [`make-ci-green`](./skills/make-ci-green/SKILL.md) | Phase 6.5: watches PR checks & bots, repairs real failures |
+| **PR & Handoff Actuator** | [`land`](./skills/land/SKILL.md) | Phase 5 (files PR) & Phase 7 (Gate 3 merge / next-feature handoff) |
+
+---
+
+## 🚀 Usage & Example Prompts
 
 ### 1. Full Autonomous Pipeline (`oneshot` - 3 Human Gates)
 
@@ -67,8 +204,8 @@ oneshot build a rate-limited webhook delivery worker with exponential backoff, d
 
 What happens across the 7 numbered phases plus 6.5:
 
-1. **Phase 1 - `shape` (Design & Spec):** creates branch `feat/webhook-delivery-worker`, explores constraints and trade-offs, and writes `docs/specs/YYYY-MM-DD-webhook-delivery-worker-design.md`. **Pauses at Gate 1 for design approval.**
-2. **Phase 2 - `plan` (Task Decomposition):** breaks the approved spec into bite-size TDD tasks with exact file paths and verification commands in `docs/plans/YYYY-MM-DD-webhook-delivery-worker.md`. **Pauses at Gate 2 for plan approval.**
+1. **Phase 1 - `shape` + `domain-modeling` + `codebase-design` (Design & Spec):** creates branch `feat/webhook-delivery-worker`, explores context via `scout`, invokes `domain-modeling` (when domain terms or ADRs change) and `codebase-design` (when module interfaces or seams change), and writes and commits `docs/specs/YYYY-MM-DD-webhook-delivery-worker-design.md` alongside any created or modified `GLOSSARY.md` / `docs/adr/` files. **Pauses at Gate 1 for design approval.**
+2. **Phase 2 - `plan` (Task Decomposition):** maps exact `path:line` targets via `scout` and breaks the approved spec into bite-size TDD tasks with exact file paths, glossary/seam invariants, and verification commands in `docs/plans/YYYY-MM-DD-webhook-delivery-worker.md`. **Pauses at Gate 2 for plan approval.**
 3. **Phase 3 - `dispatch` + `tdd` (L1 Task Loop):**
    - Dispatches `scout` (`mimo-v2.6-flash`) for compressed `path:line` discovery without polluting main-session context.
    - Dispatches fresh per-task `implementer` (`deepseek-v4.1-flash#high`) or `implementer-b` (`muse-spark-1.3-contributor#medium`) subagents following strict red-green-refactor TDD.
@@ -118,27 +255,37 @@ Every pipeline skill and seat agent can also be triggered directly outside a ful
 | `"deepen this module's interface"` | `codebase-design` | Applies deep-module vocabulary, seams, and deepening moves to an existing codebase |
 | `"land it"` / `"next feature"` | `land` | Files or merges the PR, checks out default branch, pulls latest, and reports ready |
 
-## Model Tank (OpenCode Go)
+---
+
+## 🧠 Model Tank (OpenCode Go)
 
 All seats use `opencode-go/*` exclusively. Most seats sit on high-allowance tiers (6,320 to 45,300 req/5h), so everyday work never hits rate limits; `implementer-deep` (440 req/5h) and `reviewer-esc` (147 req/5h) are scarce and reserved for complex work, hard bugs, and escalation only. [`AGENTS.md`](./AGENTS.md) is the single source for seat models, fallback ladders, effort tiers, and review contracts (`deepseek-v4.1-flash` exposes `low|high|max` in the Go catalog; `mimo-v2.6-flash` exposes a single default tier; a fixer that must run tests is an implementation seat, never `patch`).
 
 *Privacy note:* `muse-spark-*` trains on request data and is skipped automatically when the confidential flag is set; `claude-haiku-5-5` and `gpt-6-luna` carry 30-day retention (not used for training), while `glm-5.3-flash`, `kimi-k3.1-pro`, `gemini-4-argon`, and `mimo-v2.6-flash` via Go have 0-day retention and are not used for training. Compaction and summary never route to a training family; see [`AGENTS.md`](./AGENTS.md) Privacy Footnotes for the full table.
 
-## Structure
+---
 
-```
-agents/      9 model-pinned seats:        implementer, implementer-b,
-             implementer-deep,            scout, patch,
-             reviewer-a, reviewer-b,      reviewer-c, reviewer-esc
-skills/      12 pipeline skills:          oneshot, shape, plan, dispatch,
-                                          tdd, debug, verify, council, land,
-                                          make-ci-green, domain-modeling,
-                                          codebase-design
-AGENTS.md    harness routing instructions (installed as ~/.config/opencode/HARNESS.md)
-install.sh   installer for ~/.config/opencode/
+## 📂 Structure
+
+```text
+agents/           9 model-pinned seats:        implementer, implementer-b,
+                  implementer-deep,            scout, patch,
+                  reviewer-a, reviewer-b,      reviewer-c, reviewer-esc
+skills/           12 pipeline skills:          oneshot, shape, plan, dispatch,
+                                               tdd, debug, verify, council, land,
+                                               make-ci-green, domain-modeling,
+                                               codebase-design
+docs/             design specs and plans:      docs/specs/, docs/plans/
+test/install.sh   40-assertion contract suite  (runs in throwaway HOME on Bash >=3.2)
+AGENTS.md         harness routing instructions (installed as ~/.config/opencode/HARNESS.md)
+install.sh        collision-safe installer     (manifest-scoped prune, symlink guards)
+NOTICE            upstream MIT attribution     (mattpocock/skills)
+LICENSE           MIT license
 ```
 
-## Installation (For Agents and Humans)
+---
+
+## 🛠️ Installation (For Agents and Humans)
 
 Requires OpenCode V2 with a connected OpenCode Go provider (`/connect`). Config reloads automatically without a restart.
 
@@ -175,12 +322,6 @@ Set `OPENCODE_CONFIG` to install anywhere other than `~/.config/opencode`:
 OPENCODE_CONFIG="$HOME/.config/opencode-v2" ./install.sh
 ```
 
-Run the installer contract tests (they use a throwaway `HOME` and never touch your real config):
-
-```sh
-bash test/install.sh
-```
-
 ### 2. Register `HARNESS.md` in `~/.config/opencode/opencode.json`
 
 OpenCode V2 loads `~/.config/opencode/AGENTS.md` automatically and then concatenates every file listed in `"instructions"`. Add `"~/.config/opencode/HARNESS.md"` to `"instructions"` in `~/.config/opencode/opencode.json`:
@@ -207,6 +348,20 @@ test -f ~/.config/opencode/HARNESS.md &&
   echo "installed ok"
 ```
 
-## License
+---
 
-MIT.
+## 🧪 Testing
+
+Run the 40-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
+
+```sh
+bash -n install.sh && bash -n test/install.sh
+bash test/install.sh
+/bin/bash test/install.sh   # macOS Bash 3.2 compatibility check
+```
+
+---
+
+## 📄 License
+
+MIT. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
