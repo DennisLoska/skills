@@ -30,6 +30,27 @@ permissions:
   - action: grep
     resource: "*"
     effect: allow
+  - action: grep
+    resource: ".env"
+    effect: deny
+  - action: grep
+    resource: ".env.*"
+    effect: deny
+  - action: grep
+    resource: "**/.env"
+    effect: deny
+  - action: grep
+    resource: "**/.env.*"
+    effect: deny
+  - action: grep
+    resource: "**/.zshrc"
+    effect: deny
+  - action: grep
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: grep
+    resource: "**/.ssh/*"
+    effect: deny
   - action: glob
     resource: "*"
     effect: allow

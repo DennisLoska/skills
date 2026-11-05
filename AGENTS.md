@@ -10,7 +10,7 @@ Instructions for the `oneshot` cybernetic control system. Skills and ad-hoc disp
 
 ## Model Tank
 
-Provider: exclusively OpenCode Go (`opencode-go/*`, $10/mo tier). No local or non-Go providers are used in this harness. Primary seats sit on high-allowance request tiers (6,320 to 45,300 req/5h) so everyday work never hits usage limits; scarce frontier models live only in complex escalation or last-resort slots.
+Provider: exclusively OpenCode Go (`opencode-go/*`, $10/mo tier). No local or non-Go providers are used in this harness. Most seats sit on high-allowance request tiers (6,320 to 45,300 req/5h). Two are scarce and reserved: `implementer-deep` (440) for complex tasks and hard bugs, and `reviewer-esc` (147) for escalation only.
 
 Effort defaults:
 - **Implementers:** each seat pins its own effort variant (`implementer` `#high`, `implementer-b` `#medium`, `implementer-deep` `#high`; `patch` also pins `#high`). `deepseek-v4.1-flash` exposes `low|high|max` only, so `#high` is its middle tier, while `reviewer-b` pins `#max`.
