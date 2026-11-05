@@ -1,0 +1,5 @@
+!docs/
+!docs/plans/
+!docs/plans/*.md
+!docs/specs/
+!docs/specs/*.md
