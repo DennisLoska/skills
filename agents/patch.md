@@ -6,19 +6,310 @@ permissions:
   - action: read
     resource: "*"
     effect: allow
+  - action: read
+    resource: ".env"
+    effect: deny
+  - action: read
+    resource: ".env.*"
+    effect: deny
+  - action: read
+    resource: "**/.env"
+    effect: deny
+  - action: read
+    resource: "**/.env.*"
+    effect: deny
+  - action: read
+    resource: "**/.zshrc"
+    effect: deny
+  - action: read
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: read
+    resource: "**/.ssh/*"
+    effect: deny
+  - action: read
+    resource: ".zshrc"
+    effect: deny
+  - action: read
+    resource: ".zsh_history"
+    effect: deny
+  - action: read
+    resource: ".ssh/*"
+    effect: deny
+  - action: grep
+    resource: "*"
+    effect: allow
+  - action: grep
+    resource: ".env"
+    effect: deny
+  - action: grep
+    resource: ".env.*"
+    effect: deny
+  - action: grep
+    resource: ".zshrc"
+    effect: deny
+  - action: grep
+    resource: ".zsh_history"
+    effect: deny
+  - action: grep
+    resource: ".ssh/*"
+    effect: deny
+  - action: grep
+    resource: "**/.env"
+    effect: deny
+  - action: grep
+    resource: "**/.env.*"
+    effect: deny
+  - action: grep
+    resource: "**/.zshrc"
+    effect: deny
+  - action: grep
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: grep
+    resource: "**/.ssh/*"
+    effect: deny
+  - action: glob
+    resource: "*"
+    effect: allow
+  - action: glob
+    resource: ".env"
+    effect: deny
+  - action: glob
+    resource: ".env.*"
+    effect: deny
+  - action: glob
+    resource: ".zshrc"
+    effect: deny
+  - action: glob
+    resource: ".zsh_history"
+    effect: deny
+  - action: glob
+    resource: ".ssh/*"
+    effect: deny
+  - action: glob
+    resource: "**/.env"
+    effect: deny
+  - action: glob
+    resource: "**/.env.*"
+    effect: deny
+  - action: glob
+    resource: "**/.zshrc"
+    effect: deny
+  - action: glob
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: glob
+    resource: "**/.ssh/*"
+    effect: deny
   - action: edit
     resource: "*"
     effect: allow
   - action: write
     resource: "*"
     effect: allow
+  - action: edit
+    resource: ".env"
+    effect: deny
+  - action: edit
+    resource: ".env.*"
+    effect: deny
+  - action: edit
+    resource: "**/.env"
+    effect: deny
+  - action: edit
+    resource: "**/.env.*"
+    effect: deny
+  - action: edit
+    resource: "**/.zshrc"
+    effect: deny
+  - action: edit
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: edit
+    resource: "**/.ssh/*"
+    effect: deny
+  - action: edit
+    resource: ".zshrc"
+    effect: deny
+  - action: edit
+    resource: ".zsh_history"
+    effect: deny
+  - action: edit
+    resource: ".ssh/*"
+    effect: deny
+  - action: write
+    resource: ".env"
+    effect: deny
+  - action: write
+    resource: ".env.*"
+    effect: deny
+  - action: write
+    resource: "**/.env"
+    effect: deny
+  - action: write
+    resource: "**/.env.*"
+    effect: deny
+  - action: write
+    resource: "**/.zshrc"
+    effect: deny
+  - action: write
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: write
+    resource: "**/.ssh/*"
+    effect: deny
+  - action: write
+    resource: ".zshrc"
+    effect: deny
+  - action: write
+    resource: ".zsh_history"
+    effect: deny
+  - action: write
+    resource: ".ssh/*"
+    effect: deny
   - action: bash
     resource: "*"
     effect: deny
   - action: shell
     resource: "*"
     effect: deny
+  - action: bash
+    resource: "rm -rf *"
+    effect: deny
+  - action: shell
+    resource: "rm -rf *"
+    effect: deny
+  - action: bash
+    resource: "rm -rf /*"
+    effect: deny
+  - action: shell
+    resource: "rm -rf /*"
+    effect: deny
+  - action: bash
+    resource: "rm -fr *"
+    effect: deny
+  - action: shell
+    resource: "rm -fr *"
+    effect: deny
+  - action: bash
+    resource: "rm -r *"
+    effect: deny
+  - action: shell
+    resource: "rm -r *"
+    effect: deny
+  - action: bash
+    resource: "git push *"
+    effect: deny
+  - action: shell
+    resource: "git push *"
+    effect: deny
+  - action: bash
+    resource: "git push"
+    effect: deny
+  - action: shell
+    resource: "git push"
+    effect: deny
+  - action: bash
+    resource: "git push --force*"
+    effect: deny
+  - action: shell
+    resource: "git push --force*"
+    effect: deny
+  - action: bash
+    resource: "git clean *"
+    effect: deny
+  - action: shell
+    resource: "git clean *"
+    effect: deny
+  - action: bash
+    resource: "pkill *"
+    effect: deny
+  - action: shell
+    resource: "pkill *"
+    effect: deny
+  - action: bash
+    resource: "killall *"
+    effect: deny
+  - action: shell
+    resource: "killall *"
+    effect: deny
+  - action: bash
+    resource: "cat *.env*"
+    effect: deny
+  - action: shell
+    resource: "cat *.env*"
+    effect: deny
+  - action: bash
+    resource: "cat *.zshrc*"
+    effect: deny
+  - action: shell
+    resource: "cat *.zshrc*"
+    effect: deny
+  - action: bash
+    resource: "cat *.zsh_history*"
+    effect: deny
+  - action: shell
+    resource: "cat *.zsh_history*"
+    effect: deny
+  - action: bash
+    resource: "cat *.ssh*"
+    effect: deny
+  - action: shell
+    resource: "cat *.ssh*"
+    effect: deny
+  - action: bash
+    resource: "printenv"
+    effect: deny
+  - action: shell
+    resource: "printenv"
+    effect: deny
+  - action: bash
+    resource: "printenv *"
+    effect: deny
+  - action: shell
+    resource: "printenv *"
+    effect: deny
+  - action: bash
+    resource: "env"
+    effect: deny
+  - action: shell
+    resource: "env"
+    effect: deny
+  - action: bash
+    resource: "less *.env*"
+    effect: deny
+  - action: shell
+    resource: "less *.env*"
+    effect: deny
+  - action: bash
+    resource: "head *.env*"
+    effect: deny
+  - action: shell
+    resource: "head *.env*"
+    effect: deny
+  - action: bash
+    resource: "tail *.env*"
+    effect: deny
+  - action: shell
+    resource: "tail *.env*"
+    effect: deny
+  - action: bash
+    resource: "strings *.env*"
+    effect: deny
+  - action: shell
+    resource: "strings *.env*"
+    effect: deny
+  - action: bash
+    resource: "xxd *.env*"
+    effect: deny
+  - action: shell
+    resource: "xxd *.env*"
+    effect: deny
   - action: webfetch
+    resource: "*"
+    effect: deny
+  - action: websearch
     resource: "*"
     effect: deny
   - action: task
@@ -62,3 +353,5 @@ One receipt per file changed. Nothing else in the final response.
 - Preserve surrounding style: imports, indent, quoting, comment tone.
 - If the change touches a gitignored or env-like file, refuse: `out-of-bounds.`
 - Errors have a terminal receipt, no retries beyond re-reading the file once.
+- Shell is denied entirely here, and deny patterns are best effort guardrails, not a sandbox. Never read secret files.
+- Permissions are last-match-wins: broad allows come first, narrow denies last, so the denies are the policy.

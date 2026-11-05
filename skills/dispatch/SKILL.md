@@ -104,23 +104,18 @@ Standalone (no oneshot): after final review PASS, run the verify skill yourself,
 Skills never hardcode model IDs. Route every subagent through the AGENTS.md ladder ("Model Tank"), by role. Named seat agents pin their primary in the agent file; ad-hoc dispatches must always pass an explicit `model` field so nothing inherits the main session model by accident.
 
 **Three implementation seats exist** (models and effort levels pinned in their agent files; ladders in AGENTS.md "Model Tank"):
-- `implementer` and `implementer-b` - the two default high-allowance implementation seats (medium effort class). Alternate or pick either for standard and mechanical tasks (`implementer` for confidential briefs).
+- `implementer` and `implementer-b` - the two default high-allowance implementation seats (pinned variant in their agent files). Alternate or pick either for standard and mechanical tasks (`implementer` for confidential briefs).
 - `implementer-deep` - the heavy-reasoning seat (`#high` effort) reserved for complex multi-file architecture tasks and difficult bugs escalated by `debug`.
 
-Per-task dispatch = one of the three seats + the brief from `implementer-prompt.md`. On a usage-limit/429 error from a seat: re-dispatch the same seat agent id with an explicit `model` override along its AGENTS.md ladder, announce the demotion, and continue.
+Per-task dispatch = one of the three seats + the brief from `implementer-prompt.md`, via the `subagent` tool (some builds register this tool as `task`; use whichever the session exposes). On a usage-limit/429 error from a seat: re-dispatch the same seat agent id with an explicit `model` override along its AGENTS.md ladder, announce the demotion, and continue.
 
-**Stage reviewers dispatch ad-hoc:** spec-reviewer and quality-reviewer subagents always carry an explicit `model` from the AGENTS.md "task-stage reviewers" rung, chosen after the task complexity call below. They are not seat agents; fresh context each time, model override each time.
+**Stage reviewers dispatch ad-hoc:** spec-reviewer and quality-reviewer subagents always carry an explicit `model` from the AGENTS.md "task-stage reviewers" rung, chosen after the seat matrix call above. They are not seat agents; fresh context each time, model override each time.
 
-**Mechanical implementation tasks** (isolated functions, clear specs, 1-2 files): cheapest rung on the implementation ladder. Most implementation tasks are mechanical when the plan is well-specified.
-
-**Integration and judgment tasks** (multi-file coordination, pattern matching, debugging): a stronger rung.
-
-**Architecture, design, and review tasks:** the strongest rung available. Reviews that need the council run on the AGENTS.md council rows.
-
-**Task complexity signals:**
-- Touches 1-2 files with a complete spec: cheapest rung
-- Touches multiple files with integration concerns: mid rung
-- Requires design judgment or broad codebase understanding: strongest rung
+**Seat matrix (route every implementation through a named seat agent; models and effort levels are pinned in the agent files):**
+- Default single-task work -> `implementer`.
+- Second parallel track or lower-risk mechanical work -> `implementer-b`.
+- Multi-file architecture, concurrency, or a bug that resisted one standard attempt -> `implementer-deep`.
+- 1-2 file surgical edits with no test run -> `patch`.
 
 Confidential briefs: when a task brief is marked confidential, any rung marked as training on request data in AGENTS.md Privacy Footnotes auto-skips; demote straight to the next privacy-safe rung per the AGENTS.md ladder and announce.
 
@@ -144,7 +139,7 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 
 ## Review Stages
 
-Both review stages dispatch fresh reviewer subagents that follow the council skill contract. Invoke the council skill via the skill tool for the reviewer instruction block, the one-line finding format (`path:line: severity: problem. fix.`), and receiving-side rigor (confirm every finding against real code before dispatching fixes).
+Both review stages dispatch fresh reviewer subagents that follow the council review contract. One owner: use the reviewer instruction block from `skills/council/SKILL.md` verbatim for each single reviewer (never invoke the council skill via the skill tool, which would start the full 3-seat branch loop), with the one-line finding format (`path:line: severity: problem. fix.`), and receiving-side rigor (confirm every finding against real code before dispatching fixes).
 
 - **Stage 1, spec compliance:** verify the implementer built what was requested, nothing more, nothing less.
 - **Stage 2, code quality:** verify the implementation is well-built. Order is fixed. Never start quality review before spec compliance passes.
@@ -226,7 +221,7 @@ Quality reviewer: PASS
 ...
 
 [After all tasks]
-[Dispatch final reviewer for entire implementation]
+[Dispatch final reviewer for entire implementation (explicit `model` from the `Task-stage reviewers` row in `AGENTS.md`)]
 Final reviewer: All requirements met, ready to merge
 
 [Return to the controller with the final review verdict]

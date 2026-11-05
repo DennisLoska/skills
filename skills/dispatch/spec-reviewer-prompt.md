@@ -53,6 +53,9 @@ subagent dispatch (ad-hoc, NOT a seat): type general, ALWAYS pass an explicit `m
     - Did they solve the wrong problem?
     - Did they implement the right feature but wrong way?
 
+    **Glossary:**
+    - Does the change use the project glossary terms, and does it flag any new term that the glossary does not define?
+
     **Verify by reading code, not by trusting report.**
 
     Report (council finding format: one line per finding):

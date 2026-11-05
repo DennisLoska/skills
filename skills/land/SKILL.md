@@ -17,13 +17,15 @@ Finish a development branch: PR body that leads with the problem, then the merge
    - `## Summary` - 1-2 sentences. The problem it solves first, not an inventory of files touched
    - `## Changes` - bullets grouped by area, `path` in backticks
    - `## Test plan` - `[x]`/`[ ]` checklist, exact commands run and their results
-   - No emdash anywhere. No the word "delete" inside gh command text (use remove/trim/drop, applies to body strings on the same command line); use `gh pr remove` style alternatives or quote around it, and for branch removal on merge use `gh pr merge` without such a flag, cleanup happens after
+   - No emdash anywhere. No the word "delete" inside gh command text (use remove/trim/drop, applies to body strings on the same command line); if the body must mention the word, rephrase it; if a PR body edit is needed use `gh pr edit <number> --body-file <file>`, and for branch removal on merge use `gh pr merge` without such a flag, cleanup happens after
    - Local-only spec/plan (gitignored)? Reference them by path as local files
 4. Save PR URL, announce it.
 
 ## Part 2 - Finish options (oneshot Phase 7, Gate 3)
 
-Present exactly these, get user choice:
+When `auto-approve: true` is present (read from the spec header, or from the dispatch prompt when oneshot passes it), skip the menu: default to Keep PR open, report the URL, and continue to the handoff without waiting.
+
+Otherwise present exactly these, get user choice:
 
 1. **Merge PR** - `gh pr merge --squash -t "<subject>"` then handoff (Part 3)
 2. **Keep PR open** - done, report URL
@@ -36,7 +38,7 @@ Same menu as the standalone flow, reusable any time a PR is merged:
 
 1. Checkout default branch: `git checkout master` (or repo default if different)
 2. Pull: `git pull --ff-only`
-3. Prune merged local branches only if user asked
+3. Prune merged local branches only if user asked: `git branch -d <branch>` per branch, never a wildcard, never `git branch -D` without explicit user instruction.
 4. Report: "Ready for next task on `<default branch>` at `<short-sha>`"
 
 ## Rules
@@ -46,3 +48,4 @@ Same menu as the standalone flow, reusable any time a PR is merged:
 - Never commit to master directly; master advances only via PR merge
 - Merge decisions respect the AGENTS.md PR format rules verbatim
 - Discard requires explicit user instruction in the current turn
+- Every `gh` command in this skill must be a real subcommand; verify with `gh <cmd> --help` before using a new one.
