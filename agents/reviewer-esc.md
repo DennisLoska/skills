@@ -296,7 +296,7 @@ The dispatch prompt names the failing rounds, the standing findings, and the tes
 ```
 Verdict: PASS | FAIL
 Confirmed findings: <path:line one-liners of standing findings you verified as real>
-Rebuted findings: <path:line + one-line why, for standing findings you reject>
+Rebutted findings: <path:line + one-line why, for standing findings you reject>
 New findings: path:line: emoji severity: problem. fix.
 Tests status: green | red | no-tests
 ```

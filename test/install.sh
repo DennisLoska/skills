@@ -557,4 +557,18 @@ HOME="$HOME_DIR" "$INSTALL" --force >"$TMPROOT/case36b.out" 2>&1 || rc36b=$?
 [ "$rc36b" -eq 0 ] || { cat "$TMPROOT/case36b.out" >&2; fail "restore after manifest directory case exits 0"; }
 pass "a directory at .harness-manifest exits 1 before copying anything"
 
+# 37. ./, .///, and <symlink-to-src>/missing/./sub are refused with exit 1 and create nothing
+DOT_SCRATCH="$TMPROOT/dot-scratch"
+DOT_HOME="$TMPROOT/home-dot"
+mkdir -p "$DOT_SCRATCH" "$DOT_HOME"
+ln -sfn "$ROOT" "$TMPROOT/src-link"
+check_unsafe dot-slash "$DOT_SCRATCH" "./" "$DOT_HOME"
+check_unsafe dot-multislash "$DOT_SCRATCH" ".///" "$DOT_HOME"
+check_unsafe link-interior-dot "$DOT_SCRATCH" "$TMPROOT/src-link/missing/./sub" "$DOT_HOME"
+grep -q 'inside the source checkout' "$TMPROOT/case28.link-interior-dot.out" || fail "symlinked source path with interior /./ names inside the source checkout"
+[ ! -e "$ROOT/missing" ] || fail "symlinked source path with interior /./ creates nothing in source checkout"
+[ -z "$(ls -A "$DOT_SCRATCH")" ] || fail "./ and interior /./ destinations create nothing in the working directory"
+[ -z "$(ls -A "$DOT_HOME")" ] || fail "./ and interior /./ destinations create nothing in HOME"
+pass "./ and <symlink-to-src>/missing/./sub exit 1 and create nothing"
+
 printf 'all install tests passed\n'

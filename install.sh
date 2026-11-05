@@ -71,10 +71,16 @@ refuse_dest() {
   exit 1
 }
 
+DEST_STRIPPED="$DEST_RAW"
+while [ "${DEST_STRIPPED%/}" != "$DEST_STRIPPED" ]; do
+  DEST_STRIPPED="${DEST_STRIPPED%/}"
+done
+[ -n "$DEST_STRIPPED" ] || DEST_STRIPPED="/"
+
 # A bare self reference or any parent-traversal component is refused before
 # resolution, so relative paths such as nonexistent/../evil cannot slip past
 # canonical_dest when the leading component does not exist yet.
-case "$DEST_RAW" in
+case "$DEST_STRIPPED" in
   .|..|../*|*/..|*/../*) refuse_dest "a relative self or parent reference" ;;
 esac
 
@@ -83,8 +89,6 @@ HOME_PHYS="${HOME:-}"
 if [ -n "$HOME_PHYS" ] && [ -d "$HOME_PHYS" ]; then
   HOME_PHYS="$(cd "$HOME_PHYS" && pwd -P)"
 fi
-DEST_STRIPPED="${DEST_RAW%/}"
-[ -n "$DEST_STRIPPED" ] || DEST_STRIPPED="/"
 
 # A dangling destination symlink cannot hold anything: mkdir -p follows it and
 # creates the link target, so refuse before any directory is made.
@@ -102,8 +106,9 @@ fi
 # resolved with pwd -P so every symlink is followed; a path that does not exist
 # yet is resolved through its deepest existing ancestor with the remaining
 # components appended, so "$PWD/agents" and a relative "../skills" compare
-# against $SRC_PHYS before they exist. A "." or ".." component is returned
-# as-is and handled by the literal checks above.
+# against $SRC_PHYS before they exist. Interior "." segments are stripped while
+# walking up; a ".." component is returned as-is and handled by the literal
+# checks above.
 canonical_dest() {
   local p="$1"
   local suffix=""
@@ -112,7 +117,8 @@ canonical_dest() {
   while [ ! -d "$p" ]; do
     base="$(basename -- "$p")"
     case "$base" in
-      ''|.|..|/) printf '%s%s' "$p" "$suffix"; return 0 ;;
+      .) p="$(dirname -- "$p")"; continue ;;
+      ''|..|/) printf '%s%s' "$p" "$suffix"; return 0 ;;
     esac
     suffix="/$base$suffix"
     p="$(dirname -- "$p")"
@@ -158,7 +164,7 @@ if [ -L "$MANIFEST" ] || { [ -e "$MANIFEST" ] && [ ! -f "$MANIFEST" ]; }; then
   exit 1
 fi
 TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
-trap 'rm -f -- "$TMP_MANIFEST"' EXIT HUP INT TERM
+trap 'rm -f -- "$TMP_MANIFEST"' EXIT
 
 if [ ! -d "$SRC/agents" ] || [ ! -d "$SRC/skills" ] || [ ! -f "$SRC/AGENTS.md" ] ||
    [ ! -f "$SRC/NOTICE" ] || [ ! -f "$SRC/LICENSE" ]; then
