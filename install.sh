@@ -6,20 +6,12 @@
 set -euo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-DEST="${OPENCODE_CONFIG:-$HOME/.config/opencode}"
-DEST="${DEST%/}"
-if [ -d "$DEST" ]; then
-  DEST="$(cd "$DEST" && pwd -P)"
-fi
-MANIFEST="$DEST/.harness-manifest"
-TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
-trap 'rm -f -- "$TMP_MANIFEST"' EXIT HUP INT TERM
 
 usage() {
   cat <<'EOF'
 usage: install.sh [--force] [--prune]
 
-Installs agents/, skills/, and AGENTS.md (as HARNESS.md) into
+Installs agents/, skills/, AGENTS.md (as HARNESS.md), NOTICE, and LICENSE into
 ${OPENCODE_CONFIG:-$HOME/.config/opencode}, and records every installed
 path in <dest>/.harness-manifest.
 
@@ -53,8 +45,64 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-if [ ! -d "$SRC/agents" ] || [ ! -d "$SRC/skills" ] || [ ! -f "$SRC/AGENTS.md" ]; then
-  printf 'install.sh: expected agents/, skills/, and AGENTS.md under %s\n' "$SRC" >&2
+# Destination validation. Runs before any path is created or removed, and
+# before the trailing slash is stripped, so a hostile or degenerate
+# OPENCODE_CONFIG never reaches the install or prune loops: "/" strips to the
+# empty string and hangs the parent walk, "." under --force can unlink files
+# out of the source tree, and a whitespace value silently installs into a
+# relative directory. Only an unset variable falls back to the default, so an
+# explicitly empty value is caught instead of being replaced.
+DEST_RAW="${OPENCODE_CONFIG-$HOME/.config/opencode}"
+if [ -z "${DEST_RAW//[[:space:]]/}" ]; then
+  printf 'install.sh: destination is empty\n' >&2
+  exit 1
+fi
+
+SRC_PHYS="$(cd "$SRC" && pwd -P)"
+HOME_PHYS="${HOME:-}"
+if [ -n "$HOME_PHYS" ] && [ -d "$HOME_PHYS" ]; then
+  HOME_PHYS="$(cd "$HOME_PHYS" && pwd -P)"
+fi
+DEST_STRIPPED="${DEST_RAW%/}"
+[ -n "$DEST_STRIPPED" ] || DEST_STRIPPED="/"
+
+unsafe_dest=0
+case "$DEST_RAW" in
+  /|.|..) unsafe_dest=1 ;;
+esac
+if [ "$DEST_RAW" = "${HOME:-}" ] || [ "$DEST_STRIPPED" = "${HOME:-}" ]; then
+  unsafe_dest=1
+fi
+if [ "$DEST_STRIPPED" = "$SRC" ] || [ "$DEST_STRIPPED" = "$SRC_PHYS" ]; then
+  unsafe_dest=1
+fi
+if [ -d "$DEST_STRIPPED" ]; then
+  dest_phys="$(cd "$DEST_STRIPPED" && pwd -P)"
+  if [ "$dest_phys" = "$SRC_PHYS" ] || [ "$dest_phys" = "$HOME_PHYS" ]; then
+    unsafe_dest=1
+  fi
+fi
+if [ "$unsafe_dest" -eq 1 ]; then
+  printf 'install.sh: refusing unsafe destination: %s\n' "$DEST_RAW" >&2
+  exit 1
+fi
+
+if [ -e "$DEST_STRIPPED" ] && [ ! -d "$DEST_STRIPPED" ]; then
+  printf 'install.sh: destination is not a directory: %s\n' "$DEST_RAW" >&2
+  exit 1
+fi
+
+DEST="$DEST_STRIPPED"
+if [ -d "$DEST" ]; then
+  DEST="$(cd "$DEST" && pwd -P)"
+fi
+MANIFEST="$DEST/.harness-manifest"
+TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
+trap 'rm -f -- "$TMP_MANIFEST"' EXIT HUP INT TERM
+
+if [ ! -d "$SRC/agents" ] || [ ! -d "$SRC/skills" ] || [ ! -f "$SRC/AGENTS.md" ] ||
+   [ ! -f "$SRC/NOTICE" ] || [ ! -f "$SRC/LICENSE" ]; then
+  printf 'install.sh: expected agents/, skills/, AGENTS.md, NOTICE, and LICENSE under %s\n' "$SRC" >&2
   exit 1
 fi
 
@@ -66,6 +114,10 @@ while IFS= read -r -d '' f; do
 done < <(find "$SRC/agents" "$SRC/skills" -type f -print0)
 srcs+=("$SRC/AGENTS.md")
 rels+=("HARNESS.md")
+srcs+=("$SRC/NOTICE")
+rels+=("NOTICE")
+srcs+=("$SRC/LICENSE")
+rels+=("LICENSE")
 
 # Preflight: collect every target that already exists, before any mkdir or copy.
 collisions=()
@@ -86,7 +138,13 @@ parent_blocks=()
 for i in "${!rels[@]}"; do
   target="$DEST/${rels[$i]}"
   parent="$(dirname "$target")"
+  walk=0
   while [ "$parent" != "$DEST" ]; do
+    walk=$((walk + 1))
+    if [ "$walk" -gt 64 ]; then
+      printf 'install.sh: parent walk did not converge: %s\n' "$parent" >&2
+      exit 1
+    fi
     case "$parent" in
       "$DEST"/*) ;;
       *) break ;;
@@ -161,11 +219,39 @@ if [ "${#dir_targets[@]}" -gt 0 ] && [ "$force" -eq 1 ]; then
   exit 1
 fi
 
-# owned <rel>: true when this run installs <rel>.
+# normalize_rel <entry>: canonical relative form used for both the ownership
+# comparison and the unsafe-entry check. Strips a leading "./", collapses
+# repeated slashes, and strips trailing slashes so that a manifest entry such
+# as "./skills/oneshot/SKILL.md" is recognised as the file this run writes.
+normalize_rel() {
+  local r="$1"
+  while case "$r" in ./*) true ;; *) false ;; esac; do
+    r="${r#./}"
+  done
+  while case "$r" in *//*) true ;; *) false ;; esac; do
+    r="${r//\/\//\/}"
+  done
+  while case "$r" in */) true ;; *) false ;; esac; do
+    r="${r%/}"
+  done
+  printf '%s' "$r"
+}
+
+lower_rel() {
+  printf '%s' "$1" | tr '[:upper:]' '[:lower:]'
+}
+
+# owned <rel>: true when this run installs <rel>. Comparison is normalized and
+# case-insensitive; when in doubt the file is treated as owned so prune skips
+# the deletion rather than removing a file this run just wrote.
+norm_rels=()
+for r in "${rels[@]}"; do
+  norm_rels+=("$(lower_rel "$(normalize_rel "$r")")")
+done
 owned() {
-  local want="$1"
-  local r
-  for r in "${rels[@]}"; do
+  local want r
+  want="$(lower_rel "$(normalize_rel "$1")")"
+  for r in "${norm_rels[@]}"; do
     if [ "$r" = "$want" ]; then
       return 0
     fi
@@ -210,6 +296,8 @@ if [ "$prune" -eq 1 ]; then
       case "$rel" in
         '#'*) continue ;;
       esac
+      rel="$(normalize_rel "$rel")"
+      [ -n "$rel" ] || continue
       case "$rel" in
         /*|..|../*|*/..|*/../*)
           printf 'install.sh: ignoring unsafe manifest entry: %s\n' "$rel" >&2

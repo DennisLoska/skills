@@ -41,7 +41,7 @@ pass "HARNESS.md is byte-identical to AGENTS.md"
 # 4. manifest records exactly the installed set, no more and no less
 [ -f "$MANIFEST" ] || fail "install writes .harness-manifest"
 (cd "$ROOT" && find agents skills -type f -print | sort >"$TMPROOT/case4.expected")
-printf 'HARNESS.md\n' >>"$TMPROOT/case4.expected"
+printf 'HARNESS.md\nNOTICE\nLICENSE\n' >>"$TMPROOT/case4.expected"
 sort -o "$TMPROOT/case4.expected" "$TMPROOT/case4.expected"
 grep -v '^#' "$MANIFEST" | sort >"$TMPROOT/case4.actual"
 cmp -s "$TMPROOT/case4.expected" "$TMPROOT/case4.actual" || fail "manifest matches the installed file set exactly"
@@ -255,7 +255,7 @@ mkdir -p "$REAL_DEST"
 LINK_DEST="$TMPROOT/link-dest"
 ln -s "$REAL_DEST" "$LINK_DEST"
 rc21=0
-OPENCODE_CONFIG="$LINK_DEST" "$INSTALL" >"$TMPROOT/case21.out" 2>&1 || rc21=$?
+HOME="$TMPROOT/home21" OPENCODE_CONFIG="$LINK_DEST" "$INSTALL" >"$TMPROOT/case21.out" 2>&1 || rc21=$?
 [ "$rc21" -eq 0 ] || { cat "$TMPROOT/case21.out" >&2; fail "symlinked OPENCODE_CONFIG install exits 0"; }
 [ -f "$REAL_DEST/skills/oneshot/SKILL.md" ] || fail "symlinked destination lands in the real directory"
 cmp -s "$ROOT/skills/oneshot/SKILL.md" "$REAL_DEST/skills/oneshot/SKILL.md" || fail "symlinked destination content is byte-identical"
@@ -392,5 +392,80 @@ HOME="$HOME_DIR" "$INSTALL" --force >"$TMPROOT/case26.out" 2>&1 || rc26=$?
 grep -q "harness updated: oldsha0 -> $CUR_SHA" "$TMPROOT/case26.out" || fail "install reports the harness drift"
 [ "$(head -n 1 "$MANIFEST")" = "# harness $CUR_SHA" ] || fail "install refreshes the harness sha"
 pass "manifest records the harness sha and install reports drift"
+
+# 27. an empty or whitespace-only OPENCODE_CONFIG is refused and creates nothing
+EMPTY_SCRATCH="$TMPROOT/empty-scratch"
+EMPTY_HOME="$TMPROOT/home-empty-dest"
+mkdir -p "$EMPTY_SCRATCH"
+empty_idx=0
+for empty_val in "" "   " "	"; do
+  empty_idx=$((empty_idx + 1))
+  rc27=0
+  ( cd "$EMPTY_SCRATCH" && HOME="$EMPTY_HOME" OPENCODE_CONFIG="$empty_val" "$INSTALL" ) >"$TMPROOT/case27.$empty_idx.out" 2>&1 || rc27=$?
+  [ "$rc27" -eq 1 ] || { cat "$TMPROOT/case27.$empty_idx.out" >&2; fail "empty destination value $empty_idx exits 1"; }
+  grep -q 'install.sh: destination is empty' "$TMPROOT/case27.$empty_idx.out" || fail "empty destination value $empty_idx is named"
+  [ -z "$(ls -A "$EMPTY_SCRATCH")" ] || fail "empty destination value $empty_idx creates nothing in the working directory"
+  [ ! -e "$EMPTY_HOME" ] || fail "empty destination value $empty_idx creates nothing in HOME"
+done
+pass "empty and whitespace OPENCODE_CONFIG values exit 1 and create nothing"
+
+# 28. hostile and degenerate destinations are refused before any write
+SRC_CK_BEFORE="$(cksum <"$ROOT/skills/oneshot/SKILL.md")"
+UNSAFE_SCRATCH="$TMPROOT/unsafe-cwd"
+UNSAFE_HOME="$TMPROOT/home-unsafe"
+mkdir -p "$UNSAFE_SCRATCH" "$UNSAFE_HOME"
+ln -sfn "$ROOT" "$TMPROOT/repo-link"
+check_unsafe() {
+  local label="$1" cwd="$2" val="$3" home="$4"
+  shift 4
+  local rc=0 out="$TMPROOT/case28.$label.out"
+  ( cd "$cwd" && HOME="$home" OPENCODE_CONFIG="$val" "$INSTALL" "$@" ) >"$out" 2>&1 || rc=$?
+  [ "$rc" -eq 1 ] || { cat "$out" >&2; fail "unsafe destination ($label) exits 1"; }
+  grep -q 'install.sh: refusing unsafe destination' "$out" || { cat "$out" >&2; fail "unsafe destination ($label) is named"; }
+}
+check_unsafe slash "$UNSAFE_SCRATCH" "/" "$UNSAFE_HOME"
+check_unsafe dot "$ROOT" "." "$UNSAFE_HOME" --force
+UNSAFE_PARENT="$TMPROOT/unsafe-parent"
+mkdir -p "$UNSAFE_PARENT/child"
+check_unsafe dotdot "$UNSAFE_PARENT/child" ".." "$UNSAFE_HOME"
+check_unsafe home "$UNSAFE_SCRATCH" "$UNSAFE_HOME" "$UNSAFE_HOME"
+check_unsafe home-slash "$UNSAFE_SCRATCH" "$UNSAFE_HOME/" "$UNSAFE_HOME"
+check_unsafe repo-root "$UNSAFE_SCRATCH" "$ROOT" "$UNSAFE_HOME" --force
+check_unsafe repo-link "$UNSAFE_SCRATCH" "$TMPROOT/repo-link" "$UNSAFE_HOME"
+[ -z "$(ls -A "$UNSAFE_SCRATCH")" ] || fail "unsafe destinations create nothing in the working directory"
+[ "$SRC_CK_BEFORE" = "$(cksum <"$ROOT/skills/oneshot/SKILL.md")" ] || fail "unsafe destinations leave the source tree untouched"
+[ -f "$ROOT/agents/scout.md" ] || fail "unsafe destinations leave the source agents intact"
+pass "absolute, dotted, HOME, and repo-root destinations exit 1 and leave sources untouched"
+
+# 29. a destination that exists as a regular file is refused
+FILE_DEST="$TMPROOT/dest-file"
+printf 'not-a-dir\n' >"$FILE_DEST"
+rc29=0
+HOME="$TMPROOT/home-filedest" OPENCODE_CONFIG="$FILE_DEST" "$INSTALL" >"$TMPROOT/case29.out" 2>&1 || rc29=$?
+[ "$rc29" -eq 1 ] || { cat "$TMPROOT/case29.out" >&2; fail "file destination exits 1"; }
+grep -q 'install.sh: destination is not a directory' "$TMPROOT/case29.out" || fail "file destination is named"
+[ -f "$FILE_DEST" ] || fail "file destination is left in place"
+[ "$(cat "$FILE_DEST")" = "not-a-dir" ] || fail "file destination content is untouched"
+pass "destination pointing at a regular file exits 1"
+
+# 30. a ./-prefixed manifest entry still counts as owned and is not pruned
+[ -f "$DEST/skills/oneshot/SKILL.md" ] || fail "case30 starts from an installed SKILL.md"
+printf './skills/oneshot/SKILL.md\n' >>"$MANIFEST"
+rc30=0
+HOME="$HOME_DIR" "$INSTALL" --force --prune >"$TMPROOT/case30.out" 2>&1 || rc30=$?
+[ "$rc30" -eq 0 ] || { cat "$TMPROOT/case30.out" >&2; fail "prune with a ./-prefixed entry exits 0"; }
+[ -f "$DEST/skills/oneshot/SKILL.md" ] || fail "./-prefixed manifest entry does not prune the just-installed file"
+cmp -s "$ROOT/skills/oneshot/SKILL.md" "$DEST/skills/oneshot/SKILL.md" || fail "./-prefixed manifest entry leaves the installed file byte-identical"
+grep -q 'pruned 0 stale file(s)' "$TMPROOT/case30.out" || fail "./-prefixed manifest entry prunes nothing"
+pass "a ./-prefixed manifest entry does not prune the file this run installs"
+
+# 31. NOTICE and LICENSE are installed with their own names preserved
+[ -f "$DEST/NOTICE" ] || fail "NOTICE is installed"
+[ -f "$DEST/LICENSE" ] || fail "LICENSE is installed"
+cmp -s "$ROOT/NOTICE" "$DEST/NOTICE" || fail "NOTICE is byte-identical to the source"
+cmp -s "$ROOT/LICENSE" "$DEST/LICENSE" || fail "LICENSE is byte-identical to the source"
+grep -qx 'NOTICE' "$MANIFEST" || fail "manifest records NOTICE"
+grep -qx 'LICENSE' "$MANIFEST" || fail "manifest records LICENSE"
+pass "NOTICE and LICENSE are installed alongside the harness"
 
 printf 'all install tests passed\n'
