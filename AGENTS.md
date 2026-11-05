@@ -47,16 +47,17 @@ Rules:
 ### Permission rules
 
 - Agent `permissions:` lists are evaluated last-match-wins, so order is the policy.
-- Read-only seats (`scout`, reviewers, escalation) deny `bash`/`shell` broadly first, then allow the narrow `git diff|log|show` commands they need.
+- Read-only seats deny `bash`/`shell` broadly first, then allow only the narrow git commands each seat has: `scout` allows `git log` only; reviewers (`reviewer-a`, `reviewer-b`, `reviewer-c`) and escalation (`reviewer-esc`) allow `git diff`, `git log`, and `git show`.
 - Implementation seats (`implementer`, `implementer-b`, `implementer-deep`) allow `bash`/`shell` broadly, then deny specific destructive patterns (`rm -r*`, `git clean`, `git push`, `pkill`, `killall`) and secret-reading commands (`cat`, `head`, `tail`, `strings`, `xxd`, `printenv`).
 - `patch` denies `bash` and `shell` broadly and edits files only.
 - In both allow/deny layouts the last matching rule is the policy.
-- Every seat denies reads of `.env`, `.env.*`, `.zshrc`, `.zsh_history`, and `.ssh/*` after its broad read allow.
-- A seat may not commit or push on `main`/`master`: branch protection is enforced by the `git branch --show-current` check in the implementer brief, and shell pattern denies are best-effort guardrails, not a sandbox.
+- Every seat denies reads of `.env`, `.env.*`, `.zshrc`, `.zsh_history`, and `.ssh/*` in both bare and nested forms after its broad read allow.
+- A seat may not commit or push on `main`/`master`: every implementer seat runs `git branch --show-current` as Step 0 and refuses on `main`/`master`, and council and CI fixer dispatches must use the implementer seats so the check always applies. Shell pattern denies are best-effort guardrails, not a sandbox.
 
 ### Review contracts
 
 - A `no-tests` review pass is provisional and labelled `provisional: no-tests`; it does not satisfy a pipeline gate that requires green tests.
+- A repo with no test suite may proceed only on a `provisional: no-tests` PASS plus build and lint green, with `no-tests decision: proceed` recorded in the state artifact. That is the only exception to the green-tests gate.
 - A degraded council stops with `yellow: degraded council` and never reports a provisional PASS.
 - A fixer that must run tests is an implementation seat, never `patch`.
 
@@ -76,7 +77,7 @@ Compaction and summary never route to a training family.
 ## Council Contract
 
 - Seats are named agents: `implementer` and `implementer-b` (default planned tasks), `implementer-deep` (complex tasks / difficult bugs), `scout`, `patch`, `reviewer-a`, `reviewer-b`, `reviewer-c`, escalation `reviewer-esc`; each file pins its seat model and `#variant` effort level, so subagents never inherit the main session model.
-- Seat briefs carry the project glossary terms when a `GLOSSARY.md` exists; reviewers flag drift between code vocabulary and the glossary.
+- When a GLOSSARY.md exists, the task brief carries the terms the change must honor; spec review flags new undefined terms.
 - Three reviewers, three independent model families, fresh subagent each.
 - One line per finding: `path:line: emoji severity: problem. fix.`
 - Severity only: red bug, yellow risk, blue nit (nits only on request).
@@ -94,7 +95,9 @@ Compaction and summary never route to a training family.
 | domain-modeling | domain modeling discipline (glossary and ADRs) |
 | codebase-design | deep module and seam vocabulary |
 | dispatch | subagent-driven execution |
-| tdd, debug, verify | discipline skills |
+| tdd | red-green-refactor discipline skill |
+| debug | root-cause investigation discipline skill |
+| verify | evidence-before-assertions completion gate |
 | council | consensus review (skill) |
 | land | finish branch, PR options |
 | make-ci-green | CI babysitting loop |

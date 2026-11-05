@@ -16,9 +16,9 @@
 
 - [ ] 1. In `scout`, `reviewer-a`, `reviewer-b`, `reviewer-c`, `reviewer-esc`: move the broad `bash: "*"` and `shell: "*"` deny rules ABOVE the narrow `git diff|log|show` allows. Delete the duplicated narrow allows that are not needed.
 - [ ] 2. In all five read-only seats add, after the broad `read: "*"` allow, deny rules for `read` on `.env`, `.env.*`, `**/.env`, `**/.env.*`, `**/.zshrc`, `**/.zsh_history`, `**/.ssh/*`.
-- [ ] 3. In `implementer*` and `patch`: add the same `read` deny block after the broad allow, and add deny rules for `bash`/`shell` on `rm -fr *`, `rm -r *`, `rm -rf /*`, `git clean *`, `git push *`, `git push --force*`, `git commit *main*`, `git commit *master*`, `pkill *`, `killall *`.
+- [ ] 3. In `implementer*` and `patch`: add the same `read` deny block after the broad allow; in `implementer*` add deny rules for `bash`/`shell` on `rm -fr *`, `rm -r *`, `rm -rf /*`, `git clean *`, `git push *`, `git push --force*`, `pkill *`, `killall *`, and enforce default-branch protection with the Step 0 `git branch --show-current` check in every implementer seat.
 - [ ] 4. Add a short body line to every agent: "Permissions are last-match-wins; the broad deny comes first."
-- [ ] 5. Verify: `python3 - <<'PY'`-free check is not needed; run `rg -n 'action: (read|bash|shell)' -A2 agents/` and confirm visually that no allow follows a broader deny in the read-only seats.
+- [ ] 5. Verify: `python3 - <<'PY'`-free check is not needed; run `rg -n 'action: (read|bash|shell)' -A2 agents/` and confirm visually that no broad allow appears after a narrow deny that must win, and read-only seats put the narrow allow last.
 
 ### Task 2: Installer and its test
 
@@ -60,7 +60,7 @@
 - [ ] 1. `AGENTS.md`: add the canonical permission-order rule, the secrets deny list, the no-tests provisional PASS rule, the degraded-council rule, and the fixer-must-run-tests rule.
 - [ ] 2. `AGENTS.md`: recalculate the council budget to a number that is arithmetically possible (3 rounds x 3 seats + 3 demotions + 1 escalation = 13, so the cap is 14 including one escalation demotion) or restate what counts. Route compaction off the training family or add it to the privacy gate.
 - [ ] 3. `README.md`: fix "7 phases" to "7 numbered phases plus 6.5", fix the primary-seat allowance claim to exclude the 440 and 147 tiers, and make the auto-approve claim match Task 3.
-- [ ] 4. `docs/plans/2026-11-04-great-refactor.md`: replace the file-structure map with the real tree (9 agents, 10 skills, no commands, no craft), and mark the superseded validation gates as historical in a Revision 7 note.
+- [ ] 4. `docs/plans/2026-11-04-great-refactor.md`: replace the file-structure map with the real tree (9 agents, 12 skills including `domain-modeling` and `codebase-design`, no commands, no craft), and mark the superseded validation gates as historical in a Revision 7 note.
 - [ ] 5. Verify: `rg -n 'commands/|skills/craft' README.md AGENTS.md` returns nothing; the historical plan `docs/plans/2026-11-04-great-refactor.md` keeps those strings by design under its new historical banner.
 
 ---

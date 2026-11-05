@@ -28,7 +28,7 @@ Every one of the three council seats returns at least 9/10 with zero confirmed r
 - `bash -n install.sh` and `bash -n test/install.sh` pass.
 - Frontmatter loop passes for all 9 agents and 12 skills (including `domain-modeling` and `codebase-design`).
 - No emdash characters anywhere in the tree.
-- No `bash|shell` allow appears after a broader deny in any read-only seat.
+- No broad allow appears after a narrow deny that must win; read-only seats put the narrow allow last.
 - Every `gh ` command in the skills is a real `gh` subcommand.
 - `shape` and `plan` both honor `auto-approve: true`.
 - Council round 2: three seats, all 9/10 or higher, zero red findings.
@@ -43,7 +43,7 @@ Every one of the three council seats returns at least 9/10 with zero confirmed r
 
 - Permission order is stated once in `AGENTS.md` as last-match-wins, and every seat lists the broad deny first.
 - Secrets protection moves from prose to permission rules: explicit `read` deny for `.env*`, `.zshrc`, `.zsh_history`, and `.ssh/*` placed after the broad read allow.
-- Main-branch protection stays prose plus a `bash` deny for `git commit` and `git push` when invoked with the default branch. Exact-pattern denies are best effort; the dispatch brief still carries the branch check.
+- Main-branch protection is enforced by the Step 0 `git branch --show-current` check in every implementer seat (and council and CI fixer dispatches must use implementer seats so the check always applies), plus a `bash`/`shell` deny for `git push *`. Shell pattern denies are best-effort guardrails, not a sandbox.
 - `install.sh` gains `--force` and `--prune`; collision preflight exits 1 before any copy.
 - Auto-approve is a header flag in the spec, read by both `shape` and `plan`, which suppress their approval waits and the inline option.
 - No-tests PASS is a provisional PASS, explicitly labelled, and never satisfies the standard green-tests gate.

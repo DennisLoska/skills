@@ -14,7 +14,7 @@
 
 **Tech Stack:** OpenCode V2 markdown agents, skills, and commands; Bash installer; Git and GitHub CLI `gh`; MIT license. Skills use `skills/name/SKILL.md` with `name` and trigger-rich `description` frontmatter, agents use `agents/name.md` with `description`, `mode`, no-op `model: inherit`, and ordered `permissions` rules, and commands use `commands/name.md`; configuration reloads without restart.
 
-## File structure
+## File structure (9 agents, 12 skills)
 
 ```text
 skills/                              repository root at ~/work/skills
@@ -42,6 +42,8 @@ skills/                              repository root at ~/work/skills
   skills/council/SKILL.md            independent three-reviewer consensus and finding triage
   skills/land/SKILL.md               problem-led PR, merge, and next-feature finish flow
   skills/make-ci-green/SKILL.md      CI and review-bot repair loop
+  skills/domain-modeling/SKILL.md    domain glossary and ADR discipline
+  skills/codebase-design/SKILL.md    deep module and seam design vocabulary
   docs/plans/2026-11-04-great-refactor.md  this executable plan and migration-history footnote
 ```
 
@@ -307,11 +309,11 @@ Revision 6 (same branch, before merge), user model/effort and request-limit alig
 
 Revision 7 (harness hardening branch `fix/harness-hardening`):
 
-17. Permission ordering corrected: agent `permissions:` lists are last-match-wins, so the broad `bash`/`shell` deny comes first and narrow allows come last. Every seat denies reads of `.env`, `.env.*`, `.zshrc`, `.zsh_history`, and `.ssh/*` after its broad read allow, and no seat may commit or push on `main`/`master`. `AGENTS.md` carries this in a `Permission rules` block.
-18. The installer is collision-safe with a real test: it preflights every target, prints one `collision:` line per conflict, refuses without `--force`, and `test/install.sh` exercises clean install, refusal, `--force`, and `--prune` under a throwaway `HOME`.
-19. Auto-approve is now actually unattended: the flag is recorded at the top of the spec as `auto-approve: true (trigger: "<phrase>")` and travels into the shape and plan dispatch prompts, which suppress their own approval waits instead of pausing.
+17. Permission ordering corrected: agent `permissions:` lists are last-match-wins, so read-only seats put the broad `bash`/`shell` deny first and only their narrow git allows last (`scout`: `git log`; reviewers and escalation: `git diff`, `git log`, `git show`). Every seat denies reads of `.env`, `.env.*`, `.zshrc`, `.zsh_history`, and `.ssh/*` in both bare and nested forms after its broad read allow, and every implementer seat runs `git branch --show-current` as Step 0 to refuse commits or pushes on `main`/`master`. `AGENTS.md` carries this in a `Permission rules` block.
+18. The installer is collision-safe with a real test: it preflights every target and parent symlink, prints one `collision:` line per conflict, refuses atomically without `--force`, and `test/install.sh` exercises clean install, refusal, `--force`, and `--prune` under a throwaway `HOME`.
+19. Auto-approve is now actually unattended: `shape` writes `auto-approve: true` into the spec header before committing the spec, and the flag travels into the shape and plan dispatch prompts, which suppress their own approval waits instead of pausing.
 20. Invalid `gh` commands in the skills were replaced with documented, valid invocations.
-21. The stale `## File structure` block was replaced with the real tree: 9 agents, 10 skills, `AGENTS.md`, `README.md`, `install.sh`, `test/install.sh`, `LICENSE`, and `docs/`.
+21. The stale `## File structure` block was replaced with the real tree: 9 agents, 12 skills (including `domain-modeling` and `codebase-design`), `AGENTS.md`, `README.md`, `install.sh`, `test/install.sh`, `LICENSE`, and `docs/`.
 
 Superseded history, not current claims: the Task 2 validation gate asserting zero provider-qualified ids in agents, and the Task 12 validation asserting collision refusal by the old installer. Agents now pin `model:` per seat by design, and the installer's refusal behavior is verified by `test/install.sh`.
 

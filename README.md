@@ -88,7 +88,7 @@ Include an explicit bypass phrase (`auto-approve`, `skip all approvals`, `no app
 oneshot auto-approve: fix the race condition in session token refresh when concurrent requests hit an expired JWT
 ```
 
-The controller records the flag at the top of the spec as `auto-approve: true (trigger: "<phrase>")`. That flag travels into the `shape` and `plan` dispatch prompts, and both skills suppress their own approval waits; the rest of the pipeline then runs autonomously through CI verification and council consensus.
+The controller passes `auto-approve: true` (plus the trigger phrase) into `shape` and `plan`, and `shape` writes the exact literal `auto-approve: true` into the spec header before committing the spec. Both `shape` and `plan` read `auto-approve: true` and suppress their own approval waits; the rest of the pipeline then runs autonomously through CI verification and council consensus.
 
 ### 3. Confidential Mode (Privacy Gate)
 
@@ -109,7 +109,9 @@ Every pipeline skill and seat agent can also be triggered directly outside a ful
 | `"shape a plugin hook system for custom tool permissions"` | `shape` | Socratic design exploration; writes spec to `docs/specs/` |
 | `"write a plan for docs/specs/2026-11-04-plugin-hooks-design.md"` | `plan` | Produces a bite-size TDD task plan in `docs/plans/` |
 | `"dispatch docs/plans/2026-11-04-plugin-hooks.md"` | `dispatch` | Runs the L1 per-task subagent loop + two-stage review on an existing plan |
+| `"implement this feature with tdd"` | `tdd` | Enforces red-green-refactor with a failing behavioral test before production code |
 | `"debug why test/webhook-retry.test.ts fails intermittently"` | `debug` | 4-phase root-cause investigation before any fix is proposed |
+| `"verify this branch is ready"` | `verify` | Runs test, lint, typecheck, and build commands and confirms output before any completion claim |
 | `"council review this branch"` | `council` | Runs the 3-family adversarial review loop (`reviewer-a`, `reviewer-b`, `reviewer-c`) + implementation-seat fixes |
 | `"make ci green on this PR"` | `make-ci-green` | Watches PR checks and review bots until green; fixes real bugs through implementation seats |
 | `"model the domain for the billing module"` | `domain-modeling` | Builds and sharpens `GLOSSARY.md` and ADRs so code vocabulary matches the domain |
@@ -163,11 +165,11 @@ cd skills
 
 `./install.sh` copies `agents/` and `skills/` into `${OPENCODE_CONFIG:-$HOME/.config/opencode}` and writes [`AGENTS.md`](./AGENTS.md) to `<dest>/HARNESS.md` so any existing `AGENTS.md` is never overwritten. It also records every path it installed in `<dest>/.harness-manifest`, one relative path per line.
 
-The copy is collision-safe. Before touching anything, the installer checks every target path; if any already exists it prints one `collision: <dest path>` line per conflict plus `refusing to overwrite; rerun with --force`, then exits 1 having copied nothing. Content is not compared, so a second run always needs `--force`, even when nothing changed.
+The copy is collision-safe. Before touching anything, the installer checks every target path and every parent directory under the destination; if any target already exists it prints one `collision: <dest path>` line per conflict plus `refusing to overwrite; rerun with --force` (and refuses on any symlinked parent directory under the destination), then exits 1 before copying. Preflight refusal is atomic; a mid-copy failure can leave a partial tree, which rerunning the installer repairs. Content is not compared, so a second run always needs `--force`, even when nothing changed.
 
 | Flag | Effect |
 | --- | --- |
-| `--force` | overwrite files that already exist in the destination |
+| `--force` | overwrite files that already exist in the destination, and repair any symlinked parent directory under the destination by replacing the link with a real directory (warning: this removes the link) |
 | `--prune` | after copying, remove files that the previous `<dest>/.harness-manifest` records as installed but this run no longer produces, then print `pruned N stale file(s)`. Files the installer never wrote are never removed, so personal agents and skills in the same directory survive. With no previous manifest it prints `no previous manifest; prune skipped` and removes nothing |
 | `-h`, `--help` | print usage and exit 0 without copying |
 
@@ -178,7 +180,7 @@ Reinstall after pulling changes:
 ./install.sh --force --prune      # also drop harness files removed upstream
 ```
 
-`--prune` is scoped to `<dest>/.harness-manifest`, so it only removes files this installer previously wrote. Anything else under the destination, including your own agents and skills, is left alone, and `--force` replaces a destination symlink instead of writing through it to a file outside the destination.
+`--prune` is scoped to `<dest>/.harness-manifest`, so it only removes files this installer previously wrote. Anything else under the destination, including your own agents and skills, is left alone. `--force` replaces a destination file symlink instead of writing through it to a file outside the destination, and also repairs a symlinked parent directory under the destination by replacing the link with a real directory (warning: this removes the link).
 
 Set `OPENCODE_CONFIG` to install anywhere other than `~/.config/opencode`:
 
