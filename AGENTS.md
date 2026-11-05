@@ -48,7 +48,7 @@ Rules:
 
 - Agent `permissions:` lists are evaluated last-match-wins, so order is the policy.
 - Read-only seats deny `bash`/`shell` broadly first, then allow only the narrow git commands each seat has: `scout` allows `git log` only; reviewers (`reviewer-a`, `reviewer-b`, `reviewer-c`) and escalation (`reviewer-esc`) allow `git diff`, `git log`, and `git show`.
-- Implementation seats (`implementer`, `implementer-b`, `implementer-deep`) allow `bash`/`shell` broadly, then deny specific destructive patterns (`rm -r*`, `git clean`, `git push`, `pkill`, `killall`) and secret-reading commands (`cat`, `head`, `tail`, `strings`, `xxd`, `printenv`).
+- Implementation seats (`implementer`, `implementer-b`, `implementer-deep`) allow `bash`/`shell` broadly, then deny specific destructive patterns (`rm -r*`, `git clean`, `git push`, `pkill`, `killall`) and secret-reading commands (`cat`, `head`, `tail`, `less`, `strings`, `xxd`, `sed`, `awk`, `base64`, `od`, `paste`, `printenv`, `env`).
 - `patch` denies `bash` and `shell` broadly and edits files only.
 - In both allow/deny layouts the last matching rule is the policy.
 - Every seat denies reads of `.env`, `.env.*`, `.zshrc`, `.zsh_history`, and `.ssh/*` in both bare and nested forms after its broad read allow.
@@ -56,7 +56,7 @@ Rules:
 
 ### Review contracts
 
-- A `no-tests` review pass is provisional and labelled `provisional: no-tests`; it does not satisfy a pipeline gate that requires green tests.
+- A `no-tests` review pass is provisional and labelled `provisional: no-tests`, and it does not satisfy a gate that requires green tests except through the single exception below.
 - A repo with no test suite may proceed only on a `provisional: no-tests` PASS plus build and lint green, with `no-tests decision: proceed` recorded in the state artifact. That is the only exception to the green-tests gate.
 - A degraded council stops with `yellow: degraded council` and never reports a provisional PASS.
 - A fixer that must run tests is an implementation seat, never `patch`.
