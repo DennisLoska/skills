@@ -56,7 +56,7 @@ flowchart LR
 ```text
 +======================================================================================+
 |                           [1. oneshot] (Master Controller)                           |
-|       State: .git/info/oneshot-state.md  |  Bypass: auto-approve: true               |
+|       State: $(git rev-parse --git-dir)/info/oneshot-state.md  |  auto-approve: true |
 +======================================================================================+
         |
         v
@@ -165,8 +165,8 @@ flowchart LR
 |   [10. land] (Parts 2 & 3 - Gate 3)                                                  |
 |       +---> Interactive: 1. Merge PR  2. Keep PR open  3. Keep branch  4. Discard    |
 |       +---> Auto-approve: skips menu, defaults to Keep PR open                       |
-|       +---> On Merge: squash-merges PR, checks out default branch, pulls `--ff-only`,|
-|             prunes merged local branch, removes `.git/info/oneshot-state.md`,        |
+|       +---> On Merge: squash-merges PR, syncs default branch (worktree-aware),       |
+|             prunes merged local branch, removes oneshot-state.md,                    |
 |             and records completion in memory (L4 Meta Loop)                          |
 +--------------------------------------------------------------------------------------+
 ```

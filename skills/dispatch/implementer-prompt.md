@@ -42,7 +42,7 @@ subagent dispatch: agent `implementer` or `implementer-b` for standard tasks, `i
     6. Self-review (see below)
     7. Report back
 
-    Work from: [directory], in place on the feature branch
+    Work from: [directory] (current checkout or worktree on the feature branch)
 
     **While you work:** If you encounter something unexpected or unclear, **ask questions**.
     It's always OK to pause and clarify. Don't guess or make assumptions.

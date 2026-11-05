@@ -13,7 +13,7 @@ Assume a skilled developer who knows almost nothing about the toolset or problem
 
 **Announce at start:** "I'm using the plan skill to create the implementation plan."
 
-**Context:** work happens in place on the current branch. No isolation setup is part of this skill.
+**Context:** work happens on the active feature branch in the current checkout or git worktree.
 
 **Save plans to:** `docs/plans/YYYY-MM-DD-<feature-name>.md`
 - (User preferences for plan location override this default)
