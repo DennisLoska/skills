@@ -239,4 +239,59 @@ if ! HOME="$HOME_DIR" "$INSTALL" --force >"$TMPROOT/case18b.out" 2>&1; then
   fail "restore after directory case exits 0"
 fi
 
+# 19. unknown flag exits 2, prints usage to stderr, and touches nothing
+find "$DEST" -type f -exec cksum {} + | sort >"$TMPROOT/case19.snap"
+MANIFEST19_CKSUM="$(cksum <"$MANIFEST")"
+rc19=0
+HOME="$HOME_DIR" "$INSTALL" --bogus >"$TMPROOT/case19.out" 2>"$TMPROOT/case19.err" || rc19=$?
+[ "$rc19" -eq 2 ] || fail "unknown flag exits 2"
+grep -q 'usage:' "$TMPROOT/case19.err" || fail "unknown flag prints usage to stderr"
+find "$DEST" -type f -exec cksum {} + | sort >"$TMPROOT/case19.after"
+cmp -s "$TMPROOT/case19.snap" "$TMPROOT/case19.after" || fail "unknown flag leaves destination untouched"
+[ "$MANIFEST19_CKSUM" = "$(cksum <"$MANIFEST")" ] || fail "unknown flag leaves the manifest untouched"
+pass "unknown flag exits 2 with usage and touches nothing"
+
+# 20. --help exits 0, prints usage, and copies nothing
+HELP_HOME="$TMPROOT/help-home"
+HELP_DEST="$HELP_HOME/.config/opencode"
+rc20=0
+HOME="$HELP_HOME" "$INSTALL" --help >"$TMPROOT/case20.out" 2>"$TMPROOT/case20.err" || rc20=$?
+[ "$rc20" -eq 0 ] || fail "--help exits 0"
+grep -q 'usage:' "$TMPROOT/case20.out" || fail "--help prints usage"
+[ ! -e "$HELP_DEST" ] || fail "--help copies nothing"
+pass "--help exits 0 with usage and copies nothing"
+
+# 21. OPENCODE_CONFIG pointing at a symlink installs into the real directory
+REAL_DEST="$TMPROOT/real-dest"
+mkdir -p "$REAL_DEST"
+LINK_DEST="$TMPROOT/link-dest"
+ln -s "$REAL_DEST" "$LINK_DEST"
+if ! OPENCODE_CONFIG="$LINK_DEST" "$INSTALL" >"$TMPROOT/case21.out" 2>&1; then
+  cat "$TMPROOT/case21.out" >&2
+  fail "symlinked OPENCODE_CONFIG install exits 0"
+fi
+[ -f "$REAL_DEST/skills/oneshot/SKILL.md" ] || fail "symlinked destination lands in the real directory"
+cmp -s "$ROOT/skills/oneshot/SKILL.md" "$REAL_DEST/skills/oneshot/SKILL.md" || fail "symlinked destination content is byte-identical"
+[ -L "$LINK_DEST" ] || fail "symlinked destination is still a symlink afterwards"
+pass "symlinked OPENCODE_CONFIG installs into the real directory"
+
+# 22. prune skips a manifest-listed directory instead of aborting
+STALE_DIR="$DEST/skills/oneshot/OLDDIR.md"
+rm -rf "$STALE_DIR"
+mkdir -p "$STALE_DIR"
+printf 'inner\n' >"$STALE_DIR/inner.md"
+printf 'skills/oneshot/OLDDIR.md\n' >>"$MANIFEST"
+rc22=0
+HOME="$HOME_DIR" "$INSTALL" --force --prune >"$TMPROOT/case22.out" 2>"$TMPROOT/case22.err" || rc22=$?
+[ "$rc22" -eq 0 ] || { cat "$TMPROOT/case22.out" "$TMPROOT/case22.err" >&2; fail "prune with a directory target exits 0"; }
+[ -d "$STALE_DIR" ] || fail "prune skips a directory target instead of removing it"
+[ -f "$STALE_DIR/inner.md" ] || fail "prune leaves the skipped directory contents untouched"
+grep -q 'skipping non-file prune target' "$TMPROOT/case22.err" || fail "prune reports the skipped directory target"
+rm -rf "$STALE_DIR"
+if ! HOME="$HOME_DIR" "$INSTALL" --force >"$TMPROOT/case22b.out" 2>&1; then
+  cat "$TMPROOT/case22b.out" >&2
+  fail "restore after directory prune case exits 0"
+fi
+pass "prune skips a manifest-listed directory instead of aborting"
+
 printf 'all install tests passed\n'

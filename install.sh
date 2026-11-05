@@ -7,6 +7,10 @@ set -euo pipefail
 
 SRC="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEST="${OPENCODE_CONFIG:-$HOME/.config/opencode}"
+DEST="${DEST%/}"
+if [ -d "$DEST" ]; then
+  DEST="$(cd "$DEST" && pwd -P)"
+fi
 MANIFEST="$DEST/.harness-manifest"
 TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
 trap 'rm -f -- "$TMP_MANIFEST"' EXIT HUP INT TERM
@@ -201,6 +205,10 @@ if [ "$prune" -eq 1 ]; then
         continue
       fi
       if [ -e "$target" ] || [ -L "$target" ]; then
+        if [ ! -f "$target" ] && [ ! -L "$target" ]; then
+          printf 'install.sh: skipping non-file prune target: %s\n' "$target" >&2
+          continue
+        fi
         rm -f -- "$target"
         pruned=$((pruned + 1))
       fi
