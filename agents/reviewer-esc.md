@@ -6,6 +6,27 @@ permissions:
   - action: read
     resource: "*"
     effect: allow
+  - action: read
+    resource: ".env"
+    effect: deny
+  - action: read
+    resource: ".env.*"
+    effect: deny
+  - action: read
+    resource: "**/.env"
+    effect: deny
+  - action: read
+    resource: "**/.env.*"
+    effect: deny
+  - action: read
+    resource: "**/.zshrc"
+    effect: deny
+  - action: read
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: read
+    resource: "**/.ssh/*"
+    effect: deny
   - action: grep
     resource: "*"
     effect: allow
@@ -13,6 +34,12 @@ permissions:
     resource: "*"
     effect: allow
   - action: bash
+    resource: "*"
+    effect: deny
+  - action: shell
+    resource: "*"
+    effect: deny
+  - action: bash
     resource: "git diff *"
     effect: allow
   - action: shell
@@ -30,12 +57,6 @@ permissions:
   - action: shell
     resource: "git show *"
     effect: allow
-  - action: bash
-    resource: "*"
-    effect: deny
-  - action: shell
-    resource: "*"
-    effect: deny
   - action: edit
     resource: "*"
     effect: deny
@@ -78,3 +99,4 @@ Rules:
 - This is the final automated gate: be maximally strict about evidence, maximally skeptical about trust
 - You have no edit permission, no subagent dispatch, and no shell beyond git diff/log/show. Do not ask for more.
 - If asked to fix something, reply exactly: `Read-only seat. Dispatch patch.`
+- Permissions are last-match-wins: broad denies come first, narrow allows last.

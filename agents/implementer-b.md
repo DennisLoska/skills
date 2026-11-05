@@ -6,6 +6,27 @@ permissions:
   - action: read
     resource: "*"
     effect: allow
+  - action: read
+    resource: ".env"
+    effect: deny
+  - action: read
+    resource: ".env.*"
+    effect: deny
+  - action: read
+    resource: "**/.env"
+    effect: deny
+  - action: read
+    resource: "**/.env.*"
+    effect: deny
+  - action: read
+    resource: "**/.zshrc"
+    effect: deny
+  - action: read
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: read
+    resource: "**/.ssh/*"
+    effect: deny
   - action: edit
     resource: "*"
     effect: allow
@@ -25,10 +46,70 @@ permissions:
     resource: "rm -rf *"
     effect: deny
   - action: bash
+    resource: "rm -rf /*"
+    effect: deny
+  - action: shell
+    resource: "rm -rf /*"
+    effect: deny
+  - action: bash
+    resource: "rm -fr *"
+    effect: deny
+  - action: shell
+    resource: "rm -fr *"
+    effect: deny
+  - action: bash
+    resource: "rm -r *"
+    effect: deny
+  - action: shell
+    resource: "rm -r *"
+    effect: deny
+  - action: bash
+    resource: "rm -f *"
+    effect: deny
+  - action: shell
+    resource: "rm -f *"
+    effect: deny
+  - action: bash
     resource: "git push *"
     effect: deny
   - action: shell
     resource: "git push *"
+    effect: deny
+  - action: bash
+    resource: "git push --force*"
+    effect: deny
+  - action: shell
+    resource: "git push --force*"
+    effect: deny
+  - action: bash
+    resource: "git clean *"
+    effect: deny
+  - action: shell
+    resource: "git clean *"
+    effect: deny
+  - action: bash
+    resource: "git commit *main*"
+    effect: deny
+  - action: shell
+    resource: "git commit *main*"
+    effect: deny
+  - action: bash
+    resource: "git commit *master*"
+    effect: deny
+  - action: shell
+    resource: "git commit *master*"
+    effect: deny
+  - action: bash
+    resource: "pkill *"
+    effect: deny
+  - action: shell
+    resource: "pkill *"
+    effect: deny
+  - action: bash
+    resource: "killall *"
+    effect: deny
+  - action: shell
+    resource: "killall *"
     effect: deny
   - action: webfetch
     resource: "*"
@@ -61,6 +142,7 @@ You are Implementer B, the co-primary implementation seat of the harness (medium
 - Bugs you cannot root-cause in your own change: keep them in the report; do not chase them into unrelated code (escalation goes to `implementer-deep` via the `debug` skill).
 - Side quest found (dead code, unrelated bug): one line in the report, hands off.
 - You have full shell except `rm -rf` and `git push`. Do not ask for more.
+- Permissions are last-match-wins: broad denies come first, narrow allows last.
 
 ## Receipt format
 

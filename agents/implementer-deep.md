@@ -6,6 +6,27 @@ permissions:
   - action: read
     resource: "*"
     effect: allow
+  - action: read
+    resource: ".env"
+    effect: deny
+  - action: read
+    resource: ".env.*"
+    effect: deny
+  - action: read
+    resource: "**/.env"
+    effect: deny
+  - action: read
+    resource: "**/.env.*"
+    effect: deny
+  - action: read
+    resource: "**/.zshrc"
+    effect: deny
+  - action: read
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: read
+    resource: "**/.ssh/*"
+    effect: deny
   - action: edit
     resource: "*"
     effect: allow
@@ -25,10 +46,70 @@ permissions:
     resource: "rm -rf *"
     effect: deny
   - action: bash
+    resource: "rm -rf /*"
+    effect: deny
+  - action: shell
+    resource: "rm -rf /*"
+    effect: deny
+  - action: bash
+    resource: "rm -fr *"
+    effect: deny
+  - action: shell
+    resource: "rm -fr *"
+    effect: deny
+  - action: bash
+    resource: "rm -r *"
+    effect: deny
+  - action: shell
+    resource: "rm -r *"
+    effect: deny
+  - action: bash
+    resource: "rm -f *"
+    effect: deny
+  - action: shell
+    resource: "rm -f *"
+    effect: deny
+  - action: bash
     resource: "git push *"
     effect: deny
   - action: shell
     resource: "git push *"
+    effect: deny
+  - action: bash
+    resource: "git push --force*"
+    effect: deny
+  - action: shell
+    resource: "git push --force*"
+    effect: deny
+  - action: bash
+    resource: "git clean *"
+    effect: deny
+  - action: shell
+    resource: "git clean *"
+    effect: deny
+  - action: bash
+    resource: "git commit *main*"
+    effect: deny
+  - action: shell
+    resource: "git commit *main*"
+    effect: deny
+  - action: bash
+    resource: "git commit *master*"
+    effect: deny
+  - action: shell
+    resource: "git commit *master*"
+    effect: deny
+  - action: bash
+    resource: "pkill *"
+    effect: deny
+  - action: shell
+    resource: "pkill *"
+    effect: deny
+  - action: bash
+    resource: "killall *"
+    effect: deny
+  - action: shell
+    resource: "killall *"
     effect: deny
   - action: webfetch
     resource: "*"
@@ -56,6 +137,8 @@ You are Implementer Deep, the heavy-reasoning implementation seat of the harness
 3. **Minimal, cohesive implementation.** Fix the root cause or implement the spec without unrelated refactors.
 4. **Run everything relevant.** New tests, touched suites, lint, typecheck, build.
 5. **Commit.** One conventional commit (`feat|fix|refactor|test|chore(scope): subject, max 50 chars`) unless `Parallel: true` (then leave staged and report `staged-uncommitted`). Never push.
+
+- Permissions are last-match-wins: broad denies come first, narrow allows last.
 
 ## Receipt format
 

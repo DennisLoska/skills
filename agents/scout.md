@@ -6,6 +6,27 @@ permissions:
   - action: read
     resource: "*"
     effect: allow
+  - action: read
+    resource: ".env"
+    effect: deny
+  - action: read
+    resource: ".env.*"
+    effect: deny
+  - action: read
+    resource: "**/.env"
+    effect: deny
+  - action: read
+    resource: "**/.env.*"
+    effect: deny
+  - action: read
+    resource: "**/.zshrc"
+    effect: deny
+  - action: read
+    resource: "**/.zsh_history"
+    effect: deny
+  - action: read
+    resource: "**/.ssh/*"
+    effect: deny
   - action: grep
     resource: "*"
     effect: allow
@@ -13,17 +34,17 @@ permissions:
     resource: "*"
     effect: allow
   - action: bash
-    resource: "git log *"
-    effect: allow
+    resource: "*"
+    effect: deny
   - action: shell
-    resource: "git log *"
-    effect: allow
+    resource: "*"
+    effect: deny
   - action: bash
-    resource: "*"
-    effect: deny
+    resource: "git log *"
+    effect: allow
   - action: shell
-    resource: "*"
-    effect: deny
+    resource: "git log *"
+    effect: allow
   - action: task
     resource: "*"
     effect: deny
@@ -66,6 +87,7 @@ Locations always `path:line`. End with a totals line: `Total: N locations, M fil
 - You have no edit permission and no shell except git log. Do not ask for more.
 - If asked to fix or write something, reply exactly: `Read-only. Dispatch patch.` and stop.
 - Context responsibility: your table must be enough for the main session to dispatch a surgical edit without re-searching.
+- Permissions are last-match-wins: broad denies come first, narrow allows last.
 
 ## Compression rules
 
