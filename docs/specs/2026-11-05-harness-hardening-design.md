@@ -45,6 +45,6 @@ Every one of the three council seats returns at least 9/10 with zero confirmed r
 - Secrets protection moves from prose to permission rules: explicit `read` deny for `.env*`, `.zshrc`, `.zsh_history`, and `.ssh/*` placed after the broad read allow.
 - Main-branch protection is enforced by the Step 0 `git branch --show-current` check in every implementer seat (and council and CI fixer dispatches must use implementer seats so the check always applies), plus a `bash`/`shell` deny for `git push *`. Shell pattern denies are best-effort guardrails, not a sandbox.
 - `install.sh` gains `--force` and `--prune`; collision preflight exits 1 before any copy.
-- Auto-approve is a header flag in the spec, read by both `shape` and `plan`, which suppress their approval waits and the inline option.
+- Auto-approve is recorded as `auto-approve: true` in the spec header, with the trigger phrase on the following line, and read by both `shape` and `plan`, which suppress their approval waits and the inline option.
 - No-tests PASS is a provisional PASS, explicitly labelled, and never satisfies the standard green-tests gate.
 - `patch` stays shell-free; loops that need tests route fixers to `implementer`.

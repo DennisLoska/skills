@@ -53,7 +53,7 @@ Run phases sequentially 1 -> 7 in the main session. No skipping. Validate the pr
 1. Create the feature branch `feat/<topic>` if the tree sits on the default branch (master/main). This is the FIRST step, before the shape skill runs: shape writes and commits the spec, so the branch must exist before it runs. All pipeline commits after this point happen on a feature branch.
 2. Invoke the `shape` skill via the `skill` tool. Follow its Socratic design checklist: purpose, constraints, success criteria, 2-3 approaches with trade-offs, user-approved design. Shape invokes `domain-modeling` when the design introduces or renames domain concepts, and `codebase-design` when it changes a module interface. The shape skill writes and commits the spec onto that branch.
 3. The spec commit is owned by shape (step 2). Oneshot only verifies the spec artifact exists at `docs/specs/YYYY-MM-DD-<topic>-design.md` and proceeds. Do not run `git add` or `git commit` here.
-4. Gate 1: user approves the design (skip under bypass; verify the `auto-approve: true` header line shape wrote before committing, do not edit the spec here).
+4. Gate 1: user approves the design (skip under bypass; verify the `auto-approve: true` header line shape wrote before committing, do not edit the spec here). One owner for plan handoff: shape returns control to the controller at the end of Phase 1, and the controller will invoke plan exactly once in Phase 2. Shape never invokes plan when running under oneshot, and plan is invoked only by the controller.
 
 ---
 
@@ -62,7 +62,7 @@ Run phases sequentially 1 -> 7 in the main session. No skipping. Validate the pr
 **Skill:** `plan`
 **Output:** `docs/plans/YYYY-MM-DD-<feature>.md` (implementation plan)
 
-1. Invoke the `plan` skill via the `skill` tool. Decompose the spec into bite-size tasks with exact file paths, commands, and commit points. No placeholders.
+1. At the end of Phase 1, shape returns control to the controller, and oneshot will invoke plan exactly once in Phase 2 (shape never invokes plan when running under oneshot, and plan is invoked only by the controller). Invoke the `plan` skill via the `skill` tool. Decompose the spec into bite-size tasks with exact file paths, commands, and commit points. No placeholders.
 2. Save to `docs/plans/YYYY-MM-DD-<feature>.md`. Shape owns the spec commit, oneshot owns the plan commit. Commit the plan with this explicit form:
 ```
 if ! git check-ignore -q docs/plans/YYYY-MM-DD-<feature>.md; then
@@ -131,12 +131,12 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 2. Dispatch three fresh reviewer subagents on three independent model families (`reviewer-a`, `reviewer-b`, `reviewer-c` agents, seat models pinned in their files). Each assumes the code is broken, hunts for bugs: spec compliance, edges, error handling, security, diff-vs-plan, regressions.
 3. Findings merge into one line per item: `path:line: emoji severity: problem. fix.`
 4. Round loop (max 3 rounds, never stops mid-loop):
-   - FAIL -> dispatch fresh fixer subagents: `implementer` or `implementer-b` for fixes that run tests (one per problem cluster, max 2 files each); `patch` only for a 1 to 2 file edit with no test run -> push -> re-review next round.
+   - FAIL -> dispatch fresh implementation-seat fixer subagents (`implementer` or `implementer-b`, one per problem cluster, max 2 files each; see `AGENTS.md` Review contracts for fixer seat routing) -> push -> re-review next round.
    - PASS + green -> break, proceed to Phase 7.
    - CI freshness gate: if any council fix round pushed commits after the last green `make-ci-green` receipt, re-enter Phase 6.5 on the final HEAD before Phase 7. A stale green receipt never satisfies the gate.
    - If that 6.5 re-entry itself pushes further CI-repair commits, the final HEAD needs one delta council round on the changed files (counted against the 3-round budget); when the round budget is exhausted alongside red CI, STOP and escalate instead of landing unreviewed.
 5. Rounds exhausted -> one escalation review with the AGENTS.md escalation row -> still failing -> STOP, escalate to user with round count, findings, test output. Do not proceed.
-6. No test suite: a reviewer PASS is labelled `provisional: no-tests` in the verdict. A `provisional: no-tests` PASS plus build and lint green satisfies the gate only when `no-tests decision: proceed` is recorded in the state artifact. Without that recorded decision, it never satisfies a gate that requires green tests. Reviewer flags `no tests` as yellow.
+6. No test suite: see `AGENTS.md` Review contracts for the `no-tests` gate rule. Label a `no-tests` PASS `provisional: no-tests` in the verdict, and have the reviewer flag `no tests` as yellow. Record any `no-tests decision: proceed` in the state artifact; for a standalone council run the state artifact is `.git/info/oneshot-state.md` in the target repo, created if missing.
 
 **Rules:** Reviewer never fixes, fixer never reviews. Fresh subagents every round. Rounds 1-2 never pause for user input; stream results in passing. Verify every finding against real code before acting.
 
@@ -146,7 +146,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 
 **Skill:** `land` (Gate 3)
 
-1. Verify tests pass on final state. A `provisional: no-tests` PASS plus build and lint green satisfies this gate only when `no-tests decision: proceed` is recorded in the state artifact.
+1. Verify tests pass on final state (or satisfy the `no-tests` gate rule in `AGENTS.md` Review contracts).
 2. Landed options: merge PR and clean up, keep PR open, keep branch, discard. Present options (skip under bypass: default keep PR open).
 3. `land` executes the user choice. It reuses the standard flow: create-PR-if-none, merge open PR, checkout default, pull (the "next feature" handoff).
 4. Record it with the memory tool: mode "add", content "oneshot completed: [task] on [branch]". Remove the state artifact at the end of the run.

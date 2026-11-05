@@ -49,7 +49,7 @@ announce: "seat <seat> demoted to <model>"
 ## Verdict phase
 
 - PASS = at least 2 of 3 seats vote PASS AND zero unresolved confirmed red findings from any seat. A confirmed red from a single FAIL seat blocks PASS just the same, until it is fixed or rebutted with evidence.
-- Fewer than 2 families healthy: STOP with `yellow: degraded council`; never report a provisional PASS.
+- Fewer than 2 families healthy: STOP with `yellow: degraded council` (see `AGENTS.md` Review contracts for the degraded-council rule).
 - Merge findings into one list, severity sorted red -> yellow -> blue. Dedupe identical findings, keep the sharpest wording.
 - Escalation seat independence spans the whole PR: `reviewer-esc` never runs on a model family another seat already used this PR (check AGENTS.md family map per ladder rung). On conflict, demote along the `reviewer-esc` ladder in AGENTS.md until an unused Go family is found, else stop and surface `yellow: degraded council`.
 
@@ -66,7 +66,7 @@ round 1 = the initial three-seat review from the Request phase (no extra batches
 total review batches = 3, counted out loud:
   round 1 = the initial three-seat review from the Request phase (no extra batch)
   verdict of round N FAIL, N < 3:
-    dispatch fresh fixer subagents from `implementer` (one per finding cluster, max 2 files each; `patch` is for edits that need no test execution)
+    dispatch fresh implementation-seat fixer subagents from `implementer` (one per finding cluster, max 2 files each; see `AGENTS.md` Review contracts for fixer seat routing)
     implementer fixers run tests before declaring done
     re-run verify skill checks (tests, lint, typecheck, build)
     round N+1 review = 3 fresh reviewer seats
@@ -80,7 +80,7 @@ total review batches = 3, counted out loud:
 
 ## No test suite
 
-A `no-tests` PASS is a PROVISIONAL pass: label it `provisional: no-tests` in the verdict. A `provisional: no-tests` PASS plus build and lint green satisfies the gate only when `no-tests decision: proceed` is recorded in the state artifact. Without that recorded decision, it never satisfies a gate that requires green tests. Reviewer must flag `no tests: yellow` in findings. Council never invents a test suite; that belongs to tdd in the task loop.
+See `AGENTS.md` Review contracts for the canonical `no-tests` gate rule. Operational steps: label a `no-tests` PASS `provisional: no-tests` in the verdict, have the reviewer flag `no tests: yellow` in findings, and never invent a test suite in council (that belongs to `tdd` in the task loop).
 
 ## Output format
 

@@ -53,6 +53,8 @@ Rules:
 - In both allow/deny layouts the last matching rule is the policy.
 - Every seat denies reads of `.env`, `.env.*`, `.zshrc`, `.zsh_history`, and `.ssh/*` in both bare and nested forms after its broad read allow.
 - A seat may not commit or push on `main`/`master`: every implementer seat runs `git branch --show-current` as Step 0 and refuses on `main`/`master`, and council and CI fixer dispatches must use the implementer seats so the check always applies. Shell pattern denies are best-effort guardrails, not a sandbox.
+- Shell and git denies are an enumerated blocklist and best-effort guardrails, not a sandbox. Sibling names such as .envrc are not covered. Never treat a shell command as secret-safe.
+- The canonical statements of the no-tests rule, the degraded-council rule, and fixer seat routing live in this file under Review contracts; skills reference them and do not restate them in different words.
 
 ### Review contracts
 

@@ -33,7 +33,7 @@ You MUST create a task for each of these items and complete them in order:
 6. **Write the design doc** - save to `docs/specs/YYYY-MM-DD-<topic>-design.md`, commit it
 7. **Spec self-review** - inline check for placeholders, contradictions, ambiguity, scope (below)
 8. **User reviews the written spec** - wait for explicit approval before proceeding (skipped under auto-approve; note auto-approved in the spec)
-9. **Transition to implementation** - invoke the plan skill via the skill tool
+9. **Transition to implementation** - under oneshot, end the skill and return control to the controller; standalone, invoke the plan skill via the skill tool
 
 - During context exploration and design, invoke the `domain-modeling` skill when the work introduces or renames domain concepts.
 - During context exploration and design, invoke the `codebase-design` skill when the work changes a module interface or seam.

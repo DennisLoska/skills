@@ -135,7 +135,7 @@ All seats use `opencode-go/*` exclusively. Most seats sit on high-allowance tier
 | Council escalation | `reviewer-esc` | `kimi-k3.1-pro#high` (147) | `gemini-4-argon#high` (440) | `gpt-6-luna#high` (4,230) |
 | Compaction / summary / memory | built-in agent config | `claude-haiku-5-5#low` (3,850) | `gpt-6-luna#low` (4,230) | - |
 
-*Note:* `deepseek-v4.1-flash` exposes `low|high|max` in the Go catalog (`#high` is its middle tier, `#max` its top tier), while `mimo-v2.6-flash` exposes a single default reasoning tier (no `#variant` suffix). Full routing rules and privacy gates live in [`AGENTS.md`](./AGENTS.md).
+*Note:* `deepseek-v4.1-flash` exposes `low|high|max` in the Go catalog (`#high` is its middle tier, `#max` its top tier), while `mimo-v2.6-flash` exposes a single default reasoning tier (no `#variant` suffix). A fixer that must run tests is an implementation seat, never `patch`. Full routing rules, review contracts, and privacy gates live in [`AGENTS.md`](./AGENTS.md).
 
 ## Structure
 
