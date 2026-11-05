@@ -48,7 +48,7 @@ Rules:
 
 - Agent `permissions:` lists are evaluated last-match-wins, so order is the policy.
 - Read-only seats (`scout`, reviewers, escalation) deny `bash`/`shell` broadly first, then allow the narrow `git diff|log|show` commands they need.
-- Implementation seats (`implementer`, `implementer-b`, `implementer-deep`) allow `bash`/`shell` broadly, then deny specific destructive patterns (`rm -r*`, `git clean`, `git push`, `pkill`, `killall`, commits on `main`/`master`).
+- Implementation seats (`implementer`, `implementer-b`, `implementer-deep`) allow `bash`/`shell` broadly, then deny specific destructive patterns (`rm -r*`, `git clean`, `git push`, `pkill`, `killall`) and secret-reading commands (`cat`, `head`, `tail`, `strings`, `xxd`, `printenv`).
 - `patch` denies `bash` and `shell` broadly and edits files only.
 - In both allow/deny layouts the last matching rule is the policy.
 - Every seat denies reads of `.env`, `.env.*`, `.zshrc`, `.zsh_history`, and `.ssh/*` after its broad read allow.
