@@ -129,6 +129,15 @@ permissions:
   - action: edit
     resource: "**/.ssh/*"
     effect: deny
+  - action: edit
+    resource: ".zshrc"
+    effect: deny
+  - action: edit
+    resource: ".zsh_history"
+    effect: deny
+  - action: edit
+    resource: ".ssh/*"
+    effect: deny
   - action: write
     resource: ".env"
     effect: deny
@@ -149,6 +158,15 @@ permissions:
     effect: deny
   - action: write
     resource: "**/.ssh/*"
+    effect: deny
+  - action: write
+    resource: ".zshrc"
+    effect: deny
+  - action: write
+    resource: ".zsh_history"
+    effect: deny
+  - action: write
+    resource: ".ssh/*"
     effect: deny
   - action: bash
     resource: "*"

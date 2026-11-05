@@ -109,6 +109,12 @@ permissions:
     resource: "*"
     effect: deny
   - action: bash
+    resource: "git log"
+    effect: allow
+  - action: shell
+    resource: "git log"
+    effect: allow
+  - action: bash
     resource: "git log *"
     effect: allow
   - action: shell
@@ -215,6 +221,18 @@ permissions:
     effect: deny
   - action: shell
     resource: "git show *--patch*"
+    effect: deny
+  - action: bash
+    resource: "git show -p*"
+    effect: deny
+  - action: shell
+    resource: "git show -p*"
+    effect: deny
+  - action: bash
+    resource: "git show *-p*"
+    effect: deny
+  - action: shell
+    resource: "git show *-p*"
     effect: deny
   - action: task
     resource: "*"

@@ -129,6 +129,15 @@ permissions:
   - action: edit
     resource: "**/.ssh/*"
     effect: deny
+  - action: edit
+    resource: ".zshrc"
+    effect: deny
+  - action: edit
+    resource: ".zsh_history"
+    effect: deny
+  - action: edit
+    resource: ".ssh/*"
+    effect: deny
   - action: write
     resource: ".env"
     effect: deny
@@ -150,6 +159,15 @@ permissions:
   - action: write
     resource: "**/.ssh/*"
     effect: deny
+  - action: write
+    resource: ".zshrc"
+    effect: deny
+  - action: write
+    resource: ".zsh_history"
+    effect: deny
+  - action: write
+    resource: ".ssh/*"
+    effect: deny
   - action: bash
     resource: "*"
     effect: allow
@@ -287,6 +305,12 @@ permissions:
     effect: deny
   - action: shell
     resource: "git clean *"
+    effect: deny
+  - action: bash
+    resource: "git clean"
+    effect: deny
+  - action: shell
+    resource: "git clean"
     effect: deny
   - action: bash
     resource: "pkill *"

@@ -129,6 +129,15 @@ permissions:
   - action: edit
     resource: "**/.ssh/*"
     effect: deny
+  - action: edit
+    resource: ".zshrc"
+    effect: deny
+  - action: edit
+    resource: ".zsh_history"
+    effect: deny
+  - action: edit
+    resource: ".ssh/*"
+    effect: deny
   - action: write
     resource: ".env"
     effect: deny
@@ -150,6 +159,15 @@ permissions:
   - action: write
     resource: "**/.ssh/*"
     effect: deny
+  - action: write
+    resource: ".zshrc"
+    effect: deny
+  - action: write
+    resource: ".zsh_history"
+    effect: deny
+  - action: write
+    resource: ".ssh/*"
+    effect: deny
   - action: bash
     resource: "*"
     effect: allow
@@ -287,6 +305,12 @@ permissions:
     effect: deny
   - action: shell
     resource: "git clean *"
+    effect: deny
+  - action: bash
+    resource: "git clean"
+    effect: deny
+  - action: shell
+    resource: "git clean"
     effect: deny
   - action: bash
     resource: "pkill *"
@@ -668,6 +692,8 @@ Step 0: run `git branch --show-current`; if it prints main or master, reply `wro
 - Shell access is broad: deny patterns are best effort guardrails, not a sandbox. Never read secret files and never run destructive commands, even if a pattern misses.
 - Secret denies are an enumerated blocklist: unknown sibling names such as .envrc or **/*.env are not covered. Treat shell and git as untrusted for secrets.
 - Permissions are last-match-wins: broad allows come first, narrow denies last, so the denies are the policy.
+- `too-big.`: the task exceeds the brief (scope discovered mid-task); reply exactly that plus one line why.
+- `needs-confirm.`: a destructive or ambiguous action needs the controller's confirmation before proceeding.
 
 ## Receipt format
 
