@@ -117,6 +117,23 @@ if [ "${#collisions[@]}" -gt 0 ] && [ "$force" -eq 0 ]; then
   exit 1
 fi
 
+# Preflight: a target blocked by a directory can never be replaced by a file.
+# Without --force this already aborts as a collision above; with --force
+# refuse before anything is copied, leaving the manifest intact.
+dir_targets=()
+for i in "${!rels[@]}"; do
+  target="$DEST/${rels[$i]}"
+  if [ -d "$target" ] && [ ! -L "$target" ]; then
+    dir_targets+=("$target")
+  fi
+done
+if [ "${#dir_targets[@]}" -gt 0 ] && [ "$force" -eq 1 ]; then
+  for dt in "${dir_targets[@]}"; do
+    printf 'install.sh: directory at target cannot be replaced: %s\n' "$dt" >&2
+  done
+  exit 1
+fi
+
 # owned <rel>: true when this run installs <rel>.
 owned() {
   local want="$1"
@@ -164,6 +181,25 @@ if [ "$prune" -eq 1 ]; then
       esac
       owned "$rel" && continue
       target="$DEST/$rel"
+      # Prune confinement: refuse to unlink through a symlinked parent, which
+      # would delete a file outside $DEST. Skip the entry instead.
+      prune_parent="$(dirname "$target")"
+      prune_unsafe=""
+      while [ "$prune_parent" != "$DEST" ]; do
+        case "$prune_parent" in
+          "$DEST"/*) ;;
+          *) prune_unsafe="$prune_parent"; break ;;
+        esac
+        if [ -L "$prune_parent" ]; then
+          prune_unsafe="$prune_parent"
+          break
+        fi
+        prune_parent="$(dirname "$prune_parent")"
+      done
+      if [ -n "$prune_unsafe" ]; then
+        printf 'install.sh: refusing to prune through symlink: %s\n' "$target" >&2
+        continue
+      fi
       if [ -e "$target" ] || [ -L "$target" ]; then
         rm -f -- "$target"
         pruned=$((pruned + 1))

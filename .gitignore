@@ -7,5 +7,4 @@
 !docs/specs/*.md
 !docs/adr/
 !docs/adr/*.md
-# Controller state stays local.
-docs/oneshot-state.md
+# Controller state stays local (kept under .git/info, never tracked).

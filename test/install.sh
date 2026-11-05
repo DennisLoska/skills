@@ -39,12 +39,14 @@ pass "copied agent is byte-identical"
 cmp -s "$ROOT/AGENTS.md" "$DEST/HARNESS.md" || fail "HARNESS.md is byte-identical to AGENTS.md"
 pass "HARNESS.md is byte-identical to AGENTS.md"
 
-# 4. manifest records every installed path
+# 4. manifest records exactly the installed set, no more and no less
 [ -f "$MANIFEST" ] || fail "install writes .harness-manifest"
-grep -qx 'HARNESS.md' "$MANIFEST" || fail "manifest lists HARNESS.md"
-grep -qx 'agents/scout.md' "$MANIFEST" || fail "manifest lists agents/scout.md"
-grep -qx 'skills/oneshot/SKILL.md' "$MANIFEST" || fail "manifest lists skills/oneshot/SKILL.md"
-pass "manifest lists installed files"
+(cd "$ROOT" && find agents skills -type f -print | sort >"$TMPROOT/case4.expected")
+printf 'HARNESS.md\n' >>"$TMPROOT/case4.expected"
+sort -o "$TMPROOT/case4.expected" "$TMPROOT/case4.expected"
+sort "$MANIFEST" >"$TMPROOT/case4.actual"
+cmp -s "$TMPROOT/case4.expected" "$TMPROOT/case4.actual" || fail "manifest matches the installed file set exactly"
+pass "manifest matches the installed file set exactly"
 
 # 5. second run without --force refuses with a collision line
 before="$(cksum <"$DEST/agents/scout.md")"
@@ -187,5 +189,54 @@ cmp -s "$ROOT/skills/oneshot/SKILL.md" "$PDEST/skills/oneshot/SKILL.md" || fail 
 find "$POUTSIDE" -type f -exec cksum {} + | sort >"$TMPROOT/case15c.after"
 cmp -s "$TMPROOT/case15.snap" "$TMPROOT/case15c.after" || fail "--force leaves the outside directory unchanged"
 pass "--force repairs a symlinked parent without touching the outside"
+
+# 16. tampering then running without --force aborts and preserves the junk
+printf 'junk-tamper\n' >"$DEST/agents/scout.md"
+rc16=0
+HOME="$HOME_DIR" "$INSTALL" >"$TMPROOT/case16.out" 2>&1 || rc16=$?
+[ "$rc16" -eq 1 ] || fail "tampered run without --force exits 1"
+[ "$(cat "$DEST/agents/scout.md")" = "junk-tamper" ] || fail "aborted run leaves the tampered file untouched"
+pass "tampered run without --force aborts and keeps junk"
+
+# 17. prune never escapes DEST through unsafe manifest entries
+EVIL_OUTSIDE="$TMPROOT/evil-outside"
+mkdir -p "$EVIL_OUTSIDE"
+printf 'evil-keep\n' >"$EVIL_OUTSIDE/stale.md"
+printf 'escape-keep\n' >"$HOME_DIR/.config/escape.md"
+printf 'tmp-keep\n' >"$TMPROOT/tmp-escape.md"
+ln -s "$EVIL_OUTSIDE" "$DEST/skills/linkevil"
+printf '../escape.md\n%s\nskills/linkevil/stale.md\n' "$TMPROOT/tmp-escape.md" >>"$MANIFEST"
+rc17=0
+HOME="$HOME_DIR" "$INSTALL" --force --prune >"$TMPROOT/case17.out" 2>&1 || rc17=$?
+[ "$rc17" -eq 0 ] || { cat "$TMPROOT/case17.out" >&2; fail "prune with unsafe entries exits 0"; }
+[ "$(cat "$EVIL_OUTSIDE/stale.md")" = "evil-keep" ] || fail "prune through a symlinked parent removes nothing outside"
+[ "$(cat "$HOME_DIR/.config/escape.md")" = "escape-keep" ] || fail "prune ignores ../ manifest entries"
+[ "$(cat "$TMPROOT/tmp-escape.md")" = "tmp-keep" ] || fail "prune ignores absolute manifest entries"
+grep -q 'ignoring unsafe manifest entry' "$TMPROOT/case17.out" || fail "prune reports unsafe manifest entries"
+grep -q 'refusing to prune through symlink' "$TMPROOT/case17.out" || fail "prune reports the symlinked parent skip"
+rm -f -- "$DEST/skills/linkevil" "$HOME_DIR/.config/escape.md"
+pass "prune with hostile manifest entries stays inside DEST"
+
+# 18. --force refuses when a directory blocks a target path
+rm -f "$DEST/agents/scout.md"
+mkdir -p "$DEST/agents/scout.md"
+printf 'dir-marker\n' >"$DEST/agents/scout.md/marker.md"
+rm -f "$DEST/skills/oneshot/SKILL.md"
+MANIFEST_CKSUM="$(cksum <"$MANIFEST")"
+rc18=0
+HOME="$HOME_DIR" "$INSTALL" --force >"$TMPROOT/case18.out" 2>&1 || rc18=$?
+[ "$rc18" -eq 1 ] || fail "directory collision with --force exits 1"
+grep -q 'directory at target cannot be replaced' "$TMPROOT/case18.out" || fail "directory collision names the blocking path"
+[ -d "$DEST/agents/scout.md" ] && [ ! -L "$DEST/agents/scout.md" ] || fail "directory collision leaves the directory in place"
+[ "$(cat "$DEST/agents/scout.md/marker.md")" = "dir-marker" ] || fail "directory collision leaves the directory untouched"
+[ ! -e "$DEST/skills/oneshot/SKILL.md" ] || fail "aborted directory run copies nothing after the blockage"
+[ "$MANIFEST_CKSUM" = "$(cksum <"$MANIFEST")" ] || fail "aborted directory run leaves the manifest intact"
+pass "--force refuses a directory at a target path before copying anything"
+rm -f "$DEST/agents/scout.md/marker.md"
+rmdir "$DEST/agents/scout.md"
+if ! HOME="$HOME_DIR" "$INSTALL" --force >"$TMPROOT/case18b.out" 2>&1; then
+  cat "$TMPROOT/case18b.out" >&2
+  fail "restore after directory case exits 0"
+fi
 
 printf 'all install tests passed\n'
