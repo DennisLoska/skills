@@ -13,7 +13,7 @@ Instructions for the `oneshot` cybernetic control system. Skills and ad-hoc disp
 Provider: exclusively OpenCode Go (`opencode-go/*`, $10/mo tier). No local or non-Go providers are used in this harness. Primary seats sit on high-allowance request tiers (6,320 to 45,300 req/5h) so everyday work never hits usage limits; scarce frontier models live only in complex escalation or last-resort slots.
 
 Effort defaults:
-- **Implementers:** `medium` reasoning effort (`implementer-b` pins `#medium`; `deepseek-v4.1-flash` exposes `low|high|max` only so `implementer` and `patch` pin `#high`, its middle tier, while `reviewer-b` pins `#max` and `implementer-deep` pins `#high` for complex work).
+- **Implementers:** each seat pins its own effort variant (`implementer` `#high`, `implementer-b` `#medium`, `implementer-deep` `#high`; `patch` also pins `#high`). `deepseek-v4.1-flash` exposes `low|high|max` only, so `#high` is its middle tier, while `reviewer-b` pins `#max`.
 - **Reviewers:** `high` or higher reasoning effort (`#xhigh`, `#max`, `#high` on primaries; `#high` on every fallback and last resort).
 - **Scout:** `mimo-v2.6-flash` (catalog exposes a single default reasoning tier, no `#variant` suffix; fallbacks pin `#low`).
 
@@ -31,7 +31,7 @@ Skills reference the ROLE NAME or SEAT AGENT only. On a provider error mentionin
 | Council reviewer B | `reviewer-b` | `opencode-go/deepseek-v4.1-flash#max` (43,330) | `opencode-go/gpt-6-luna#high` (4,230) | `opencode-go/kimi-k3.1-pro#high` (147) |
 | Council reviewer C | `reviewer-c` | `opencode-go/glm-5.3-flash#high` (6,320) | `opencode-go/claude-haiku-5-5#high` (3,850) | `opencode-go/gpt-6-luna#high` (4,230) |
 | Council escalation (last resort) | `reviewer-esc` | `opencode-go/kimi-k3.1-pro#high` (147) | `opencode-go/gemini-4-argon#high` (440) | `opencode-go/gpt-6-luna#high` (4,230) |
-| Compaction / summary / memory | built-in agent config | `opencode-go/muse-spark-1.3-contributor#low` (45,300) | `opencode-go/claude-haiku-5-5#low` (3,850) | - |
+| Compaction / summary / memory | built-in agent config | `opencode-go/claude-haiku-5-5#low` (3,850) | `opencode-go/gpt-6-luna#low` (4,230) | - |
 
 Rules:
 
@@ -39,21 +39,36 @@ Rules:
 - Never run the council with fewer than 2 independent reviewer families. If only 1 healthy model remains, surface it as a yellow finding instead of pretending consensus.
 - Council runs at most 3 rounds per PR. Primary reviewers (`muse-spark-1.3-contributor#xhigh`, `deepseek-v4.1-flash#max`, `glm-5.3-flash#high`) have 6,320 to 45,300 req/5h so normal PRs never touch scarce limits; `kimi-k3.1-pro#high` (147 req/5h) is strictly last-resort / escalation.
 - Deepseek v4 models are cheapest off-peak: 01:00-04:00, 06:00-10:00 UTC Mon-Fri is peak.
-- Council budget guard: at most 12 reviewer dispatches per PR including escalation; a seat that demoted once holds its new rung for the rest of the day.
+- Council budget guard: at most 13 reviewer dispatches per PR including escalation (9 seat, 3 demotion, 1 escalation); a seat that demoted once holds its new rung for the rest of the day.
 - Family independence holds across the whole PR, not just one round: when two seats demote in the same round, skip any fallback whose family is already active on another seat that round (for example, if Seat A already demoted to `claude-haiku-5-5#high`, Seat C skips straight to `gpt-6-luna#high`). Escalation only runs on a family no seat used this PR; if `kimi-k3.1-pro#high` was already consumed as a seat last-resort, `reviewer-esc` demotes to `gemini-4-argon#high`.
 - Privacy gate: any rung marked as training on request data auto-skips when the task or diff carries a confidential flag; demote to the next privacy-safe rung and announce.
 - Action-name aliases: some OpenCode builds register permission actions as `bash`/`task`, some as `shell`/`subagent`; agent files carry both spellings so denies never go inert.
+
+### Permission rules
+
+- Agent `permissions:` lists are evaluated last-match-wins, so order is the policy.
+- The broad `bash`/`shell` deny comes first and narrow allows come last.
+- Every seat denies reads of `.env`, `.env.*`, `.zshrc`, `.zsh_history`, and `.ssh/*` after its broad read allow.
+- A seat may not commit or push on `main`/`master`.
+
+### Review contracts
+
+- A `no-tests` review pass is provisional and labelled `provisional: no-tests`; it does not satisfy a pipeline gate that requires green tests.
+- A degraded council stops with `yellow: degraded council` and never reports a provisional PASS.
+- A fixer that must run tests is an implementation seat, never `patch`.
 
 ## Privacy Footnotes
 
 | Model | Reads your code as | Note |
 | --- | --- | --- |
 | muse-spark-\* | trains on request data | High-allowance workhorse (45,300 req/5h). Skip on confidential diffs via the privacy gate |
-| claude-haiku-5-5 | 30-day retention on requests | Reviewer fallback and compaction backup |
+| claude-haiku-5-5 | 30-day retention on requests | Reviewer fallback and compaction primary |
 | deepseek v4 family | region-gated | Confirm Global region is enabled in Console Privacy |
 
 GPT Luna models: not used for training, 30-day abuse-monitor retention.
 GLM / Kimi / Gemini 4 Argon / MiMo via Go: not used for training, 0-day retention.
+
+Compaction and summary never route to a training family.
 
 ## Council Contract
 

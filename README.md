@@ -65,7 +65,7 @@ Trigger the end-to-end controller by prefixing a task with `oneshot`:
 oneshot build a rate-limited webhook delivery worker with exponential backoff, dead-letter queue, and SQLite persistence
 ```
 
-What happens across the 7 phases:
+What happens across the 7 numbered phases plus 6.5:
 
 1. **Phase 1 - `shape` (Design & Spec):** creates branch `feat/webhook-delivery-worker`, explores constraints and trade-offs, and writes `docs/specs/YYYY-MM-DD-webhook-delivery-worker-design.md`. **Pauses at Gate 1 for design approval.**
 2. **Phase 2 - `plan` (Task Decomposition):** breaks the approved spec into bite-size TDD tasks with exact file paths and verification commands in `docs/plans/YYYY-MM-DD-webhook-delivery-worker.md`. **Pauses at Gate 2 for plan approval.**
@@ -88,7 +88,7 @@ Include an explicit bypass phrase (`auto-approve`, `skip all approvals`, `no app
 oneshot auto-approve: fix the race condition in session token refresh when concurrent requests hit an expired JWT
 ```
 
-The controller records `auto-approve: true` with the quoted trigger phrase in the spec header and executes the entire pipeline through CI verification and council consensus autonomously.
+The controller records the flag at the top of the spec as `auto-approve: true (trigger: "<phrase>")`. That flag travels into the `shape` and `plan` dispatch prompts, and both skills suppress their own approval waits; the rest of the pipeline then runs autonomously through CI verification and council consensus.
 
 ### 3. Confidential Mode (Privacy Gate)
 
@@ -116,7 +116,7 @@ Every pipeline skill and seat agent can also be triggered directly outside a ful
 
 ## Model Tank (OpenCode Go)
 
-All seats use `opencode-go/*` exclusively. Primary seats sit on high-allowance tiers (6,320 to 45,300 req/5h) so everyday work never hits rate limits; scarce frontier capacity (`gemini-4-argon#high`, `kimi-k3.1-pro#high`) is reserved for complex tasks, difficult bugs, and last-resort escalation.
+All seats use `opencode-go/*` exclusively. Most seats sit on high-allowance tiers, so everyday work never hits rate limits; `implementer-deep` (440 req/5h) and `reviewer-esc` (147 req/5h) are scarce and reserved for complex work, hard bugs, and escalation only.
 
 | Role | Seat Agent | Pinned Primary (est. req / 5h) | Fallback | Last Resort |
 | --- | --- | --- | --- | --- |
@@ -129,6 +129,7 @@ All seats use `opencode-go/*` exclusively. Primary seats sit on high-allowance t
 | Council reviewer B | `reviewer-b` | `deepseek-v4.1-flash#max` (43,330) | `gpt-6-luna#high` (4,230) | `kimi-k3.1-pro#high` (147) |
 | Council reviewer C | `reviewer-c` | `glm-5.3-flash#high` (6,320) | `claude-haiku-5-5#high` (3,850) | `gpt-6-luna#high` (4,230) |
 | Council escalation | `reviewer-esc` | `kimi-k3.1-pro#high` (147) | `gemini-4-argon#high` (440) | `gpt-6-luna#high` (4,230) |
+| Compaction / summary / memory | built-in agent config | `claude-haiku-5-5#low` (3,850) | `gpt-6-luna#low` (4,230) | - |
 
 *Note:* `deepseek-v4.1-flash` exposes `low|high|max` in the Go catalog (`#high` is its middle tier, `#max` its top tier), while `mimo-v2.6-flash` exposes a single default reasoning tier (no `#variant` suffix). Full routing rules and privacy gates live in [`AGENTS.md`](./AGENTS.md).
 

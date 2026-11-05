@@ -20,9 +20,17 @@ skills/                              repository root at ~/work/skills
   README.md                          project introduction, cybernetic diagram, install and structure
   AGENTS.md                          sole model-id routing table, fallback and council rules
   install.sh                         collision-safe installer for ~/.config/opencode
+  test/install.sh                    installer contract tests
+  agents/implementer.md              task-scale TDD builder
+  agents/implementer-b.md            second default implementer
+  agents/implementer-deep.md         complex tasks and difficult bugs
   agents/scout.md                    read-only locator returning compressed path:line tables
   agents/patch.md                    surgical 1-2 file editor without shell access
-  skills/oneshot/SKILL.md            seven-phase controller plus Phase 6.5 CI loop
+  agents/reviewer-a.md               council seat A
+  agents/reviewer-b.md               council seat B
+  agents/reviewer-c.md               council seat C
+  agents/reviewer-esc.md             council escalation seat
+  skills/oneshot/SKILL.md            seven numbered phases plus Phase 6.5 CI loop
   skills/shape/SKILL.md              approved design and specification
   skills/plan/SKILL.md               executable task plan from approved specification
   skills/dispatch/SKILL.md           sequential and parallel subagent execution
@@ -32,24 +40,6 @@ skills/                              repository root at ~/work/skills
   skills/council/SKILL.md            independent three-reviewer consensus and finding triage
   skills/land/SKILL.md               problem-led PR, merge, and next-feature finish flow
   skills/make-ci-green/SKILL.md      CI and review-bot repair loop
-  skills/craft/SKILL.md              owned skill and agent authoring standard
-  commands/style.md                  /style lite|full|ultra|wenyan, synchronous and watch/mtg-free
-  commands/commit.md                 /commit terse conventional message generation
-  commands/review.md                 /review one-line findings using council rules
-  commands/compress.md               /compress memory compression with .original backup
-  commands/stats.md                  /stats measured session token usage
-  skills/backup-opencode/SKILL.md    copied verbatim domain skill
-  skills/cloudflare-tunnel/SKILL.md  copied verbatim domain skill
-  skills/copy-user-commands/SKILL.md copied verbatim user-command skill
-  skills/generate-comfy-image/SKILL.md copied verbatim domain skill
-  skills/generate-instrumental/SKILL.md copied verbatim domain skill
-  skills/generate-thumbnail/SKILL.md copied verbatim domain skill
-  skills/image-convert/SKILL.md      copied verbatim domain skill
-  skills/image-edit/SKILL.md         copied verbatim domain skill
-  skills/linear-issues/SKILL.md      copied verbatim domain skill
-  skills/silicon-seeds/SKILL.md      copied verbatim domain skill
-  skills/ssh-debug/SKILL.md          copied verbatim domain skill
-  skills/text-to-voice/SKILL.md      copied verbatim domain skill
   docs/plans/2026-11-04-great-refactor.md  this executable plan and migration-history footnote
 ```
 
@@ -312,5 +302,15 @@ Revision 6 (same branch, before merge), user model/effort and request-limit alig
     - `reviewer-c`: `opencode-go/glm-5.3-flash#high` (6,320 req/5h)
     - Reviewer fallbacks: `opencode-go/claude-haiku-5-5#high` (3,850 req/5h) and `opencode-go/gpt-6-luna#high` (4,230 req/5h)
     - Last resort / escalation (`reviewer-esc`): `opencode-go/kimi-k3.1-pro#high` (147 req/5h), fallback `opencode-go/gemini-4-argon#high` (440 req/5h).
+
+Revision 7 (harness hardening branch `fix/harness-hardening`):
+
+17. Permission ordering corrected: agent `permissions:` lists are last-match-wins, so the broad `bash`/`shell` deny comes first and narrow allows come last. Every seat denies reads of `.env`, `.env.*`, `.zshrc`, `.zsh_history`, and `.ssh/*` after its broad read allow, and no seat may commit or push on `main`/`master`. `AGENTS.md` carries this in a `Permission rules` block.
+18. The installer is collision-safe with a real test: it preflights every target, prints one `collision:` line per conflict, refuses without `--force`, and `test/install.sh` exercises clean install, refusal, `--force`, and `--prune` under a throwaway `HOME`.
+19. Auto-approve is now actually unattended: the flag is recorded at the top of the spec as `auto-approve: true (trigger: "<phrase>")` and travels into the shape and plan dispatch prompts, which suppress their own approval waits instead of pausing.
+20. Invalid `gh` commands in the skills were replaced with documented, valid invocations.
+21. The stale `## File structure` block was replaced with the real tree: 9 agents, 10 skills, `AGENTS.md`, `README.md`, `install.sh`, `test/install.sh`, `LICENSE`, and `docs/`.
+
+Superseded history, not current claims: the Task 2 validation gate asserting zero provider-qualified ids in agents, and the Task 12 validation asserting collision refusal by the old installer. Agents now pin `model:` per seat by design, and the installer's refusal behavior is verified by `test/install.sh`.
 
 *Migration history: The original process skills came from the community superpowers package; this repository now owns their clean replacements and has no runtime dependency on that package.*
