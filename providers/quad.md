@@ -87,7 +87,7 @@ No OpenAI model is routed through OpenCode Go in `quad`: all `gpt-*` models come
 
 The `driver` row stays advisory; the installer validates it when present, never requires it, and never renders it. Two setups are supported:
 
-1. **OpenCode host:** native seats (for seats with an `opencode` rung), plus `delegate_task` when OpenCode runs inside T3 Code. Under `quad`, `implementer-deep`, `reviewer-b`, and `reviewer-c` have no `opencode` rung, so they are installed with no `model:` pin and reached only through `delegate_task`.
+1. **OpenCode host:** native seats (for seats with an `opencode` rung), plus `delegate_task` when OpenCode runs inside T3 Code. Under `quad`, `implementer-deep`, `reviewer-b`, and `reviewer-c` have no `opencode` rung on their 3-rung ladder, so they are installed with no `model:` pin and never dispatched via Path 1 (they are reached via `delegate_task`, or via Path 3 with an explicit `model` override when falling back to an `opencode` backup rung).
 2. **Any T3 Code provider session** (for example Codex `gpt-6.1-sol`, Claude Code `claude-sonnet-5-5`, or Antigravity `gemini-4-argon`): tell the session to load `<dest>/HARNESS.md`, `<dest>/PROVIDERS.md`, and the skills from `<dest>/skills/`. It dispatches only via `delegate_task`, and permissions are self-enforced by the children.
 
 ## Privacy
