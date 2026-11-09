@@ -1,6 +1,6 @@
 # OpenCode Go provider profile
 
-Provider: exclusively OpenCode Go (`opencode-go/*`, $10/mo tier). No local or non-Go providers are used in this profile. Most seats sit on high-allowance request tiers (6,320 to 45,300 req/5h). Two are scarce and reserved: `implementer-deep` (440) for complex tasks and hard bugs, and `reviewer-esc` (147) for escalation only.
+Provider: exclusively OpenCode Go (`opencode-go/*`, sized for the $40/mo Go Plus tier; the $10 Go tier grants 2x-8x less per model). No local or non-Go providers are used in this profile. Most seats sit on high-allowance request tiers (15,000 to 90,000 req/5h). Two stay scarce and reserved: `implementer-deep` on `gemini-4-argon` (1,760) for complex tasks and hard bugs, and `reviewer-esc` on `kimi-k3.1-pro` (588) for escalation only.
 
 Effort defaults:
 - **Implementers and tester:** each seat pins its own effort variant (`implementer` `#high`, `implementer-deep` `#high`, `tester` `#high`; `patch` also pins `#high`). `deepseek-v4.1-flash` exposes `low|high|max` only, so `#high` is its middle tier, while `reviewer-b` pins `#max`.
@@ -62,18 +62,18 @@ Each OpenCode Go model has its own per-model monthly dollar limit and 5-hour cap
 
 ## Quotas and provider notes
 
-Estimated allowance per model (req/5h):
+Estimated allowance per model (req/5h, Go Plus $40/mo tier):
 
 | Model | req/5h |
 | --- | --- |
-| deepseek-v4.1-flash | 43,330 |
-| muse-spark-1.3-contributor | 45,300 |
-| gpt-6-luna | 4,230 |
-| gemini-4-argon | 440 |
-| glm-5.3-flash | 6,320 |
-| claude-haiku-5-5 | 3,850 |
-| mimo-v2.6-flash | 30,100 |
-| kimi-k3.1-pro | 147 |
+| deepseek-v4.1-flash | 86,670 |
+| muse-spark-1.3-contributor | 90,600 |
+| gpt-6-luna | 16,920 |
+| gemini-4-argon | 1,760 |
+| glm-5.3-flash | 18,960 |
+| claude-haiku-5-5 | 15,380 |
+| mimo-v2.6-flash | 60,200 |
+| kimi-k3.1-pro | 588 |
 
 Driver is advisory and uses the host default. Compaction is advisory and configured by the host.
 

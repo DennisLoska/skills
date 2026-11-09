@@ -1,6 +1,10 @@
 <h1 align="center">Cybernetic SDLC Harness</h1>
 
 <p align="center">
+  <img src="docs/assets/logo.svg" alt="Cybernetic SDLC Harness logo" width="104" height="104" />
+</p>
+
+<p align="center">
   <em>Sense, act, verify, reach consensus, and land.</em><br/>
   A self-owned cybernetic SDLC control system for T3 Code, OpenCode V2, Codex, Antigravity, and Claude Code - one gated controller (<code>oneshot</code>), four closed feedback loops, nine role-contract agent seats routed through a swappable provider profile, and twelve pipeline skills.
 </p>
@@ -14,6 +18,7 @@
   <img src="https://img.shields.io/badge/Council-3%20Independent%20Families-FF6B35?style=flat-square" alt="3-Family Council" />
   <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
   <img src="https://img.shields.io/badge/Tests-117%2F117%20Passing-2ECC71?style=flat-square" alt="117/117 Tests Passing" />
+  <img src="https://img.shields.io/badge/Profiles-tri%20%7C%20quad%20%7C%20opencode--go%20%7C%20codex%20%7C%20antigravity%20%7C%20claude-8B5CF6?style=flat-square" alt="Profiles: tri, quad, opencode-go, codex, antigravity, claude" />
 </p>
 
 <p align="center">
@@ -22,6 +27,7 @@
   <a href="#-usage--example-prompts">Usage & Prompts</a> •
   <a href="#-provider-layer">Provider Layer</a> •
   <a href="#️-configure-models">Configure Models</a> •
+  <a href="#-agent-quickstart">Agent Quickstart</a> •
   <a href="#-structure">Structure</a> •
   <a href="#️-installation-for-agents-and-humans">Installation</a> •
   <a href="#-testing">Testing</a>
@@ -36,6 +42,20 @@ Autonomous software delivery for **T3 Code** and standalone **OpenCode V2**, **C
 ---
 
 ## 🧭 Cybernetic Architecture
+
+<p align="center">
+  <img src="docs/assets/architecture.svg" alt="Three-layer routing architecture. Layer 1 harness roles and twelve skills, layer 2 the provider profile ladder with quota pools and the quota ledger, layer 3 the provider instances, wired by a dispatch adapter with four closed feedback loops" width="100%" />
+</p>
+
+**At a glance**
+
+| Question | Answer |
+| --- | --- |
+| What is it? | A gated SDLC controller (`oneshot`) plus 12 pipeline skills and 9 role-contract subagent seats, wired by four closed feedback loops. |
+| What runs where? | Every role resolves to a *rung* (`primary` -> `fallback` -> `last-resort`) in a swappable provider profile, then to a provider instance, model, and effort. No harness file names a model. |
+| What does it guarantee? | Tests-first task loops, evidence-before-claims verification, three independent council families, author-independent PASS, and hard budget stops instead of silent model downgrades. |
+| Where does it install? | OpenCode, Codex, Antigravity, and Claude Code, one profile bound at install time (`--target all` for every host). |
+| How do I start? | `./install.sh` then run `oneshot <task>`. See [Installation](#️-installation-for-agents-and-humans). |
 
 ### Three-Layer Routing Architecture (Roles -> Profile Slots -> Provider Instances)
 
@@ -102,10 +122,10 @@ flowchart LR
 ### Full Pipeline & Seat Wiring (ASCII)
 
 ```text
-+======================================================================================+
++--------------------------------------------------------------------------------------+
 |                           [1. oneshot] (Master Controller)                           |
 |       State: $(git rev-parse --git-dir)/info/oneshot-state.md  |  auto-approve: true |
-+======================================================================================+
++--------------------------------------------------------------------------------------+
         |
         v
 +--------------------------------------------------------------------------------------+
@@ -173,7 +193,7 @@ flowchart LR
 |                                                                                      |
 |   [10. land] (Part 1)                                                                |
 |       +---> pushes `feat/<topic>` and opens PR (`## Summary`, `## Changes`,          |
-|             `## Test plan`)                                                          |
+|             `## Test plan`, `## Budget`)                                             |
 +--------------------------------------------------------------------------------------+
         |
         v
@@ -253,7 +273,7 @@ oneshot build a rate-limited webhook delivery worker with exponential backoff, d
 
 What happens across the 7 numbered phases plus 6.5:
 
-1. **Phase 1 - `shape` + `domain-modeling` + `codebase-design` (Design & Spec):** creates branch `feat/webhook-delivery-worker`, explores context via `scout`, invokes `domain-modeling` (when domain terms or ADRs change) and `codebase-design` (when module interfaces or seams change), and writes and commits `docs/specs/YYYY-MM-DD-webhook-delivery-worker-design.md` alongside any created or modified `GLOSSARY.md` / `docs/adr/` files. **Pauses at Gate 1 for design approval.**
+1. **Phase 1 - `shape` + `domain-modeling` + `codebase-design` (Design & Spec):** first ensures the tree is on a feature branch, either in the main checkout (`git switch -c feat/webhook-delivery-worker`) or in a dedicated git worktree (an OpenCode `worktree_create` + `session_move`, or a T3 Code worktree thread). Then it explores context via `scout`, invokes `domain-modeling` (when domain terms or ADRs change) and `codebase-design` (when module interfaces or seams change), and writes and commits `docs/specs/YYYY-MM-DD-webhook-delivery-worker-design.md` alongside any created or modified `GLOSSARY.md` / `docs/adr/` files. **Pauses at Gate 1 for design approval.**
 2. **Phase 2 - `plan` (Task Decomposition):** maps exact `path:line` targets via `scout` and breaks the approved spec into bite-size TDD tasks with exact file paths, glossary/seam invariants, and verification commands in `docs/plans/YYYY-MM-DD-webhook-delivery-worker.md`. **Pauses at Gate 2 for plan approval.**
 3. **Phase 3 - `dispatch` + `tdd` (L1 Task Loop):**
    - Dispatches `scout` for compressed `path:line` discovery without polluting main-session context.
@@ -261,10 +281,10 @@ What happens across the 7 numbered phases plus 6.5:
    - Escalates complex multi-file architecture tasks or 3x task failures (via `debug`) to `implementer-deep`.
    - Runs two-stage review after every task: Stage 1 spec compliance, then Stage 2 code quality (role `task-reviewer`, skipping any rung whose family wrote the code).
 4. **Phase 4 - `verify` (Evidence Gate):** dispatches `tester` as a script runner to execute the full test suite, typecheck, linter, and build, confirming every spec checklist item from its compressed pass/fail report.
-5. **Phase 5 - `land` (PR Filing):** pushes the feature branch and opens a problem-led GitHub PR (`## Summary`, `## Changes`, `## Test plan`).
+5. **Phase 5 - `land` (PR Filing):** pushes the feature branch and opens a problem-led GitHub PR (`## Summary`, `## Changes`, `## Test plan`, `## Budget`). The `## Budget` block reports pools hit, demotions, backup rungs used, and any degraded seats.
 6. **Phase 6.5 - `make-ci-green` (L3 CI Loop):** watches GitHub Actions and review bots, uses `tester` to inspect failing CI logs and rerun checks locally, dispatches implementation-seat fixers (`implementer`, or `implementer-deep` for hard clusters) on real failures, and requires concrete log-line evidence before retrying a suspected flake.
 7. **Phase 6 - `council` (L2 Branch Loop):** dispatches 3 adversarial reviewers from independent model families in parallel (`reviewer-a`, `reviewer-b`, `reviewer-c`, one family each per the active provider profile). Any confirmed red finding triggers implementation-seat fixers (`implementer`, or `implementer-deep` for hard clusters) and re-review (up to 3 rounds, then `reviewer-esc` on a fourth family). PASS also needs one vote from a seat whose family authored none of the commits (`implementer*`, `tester` when its tests are committed, `patch`, fixers); if every seat's family is an author family, `reviewer-esc` supplies it as one extra budgeted dispatch, else `yellow: degraded council`.
-8. **Phase 7 - `land` (Gate 3 Finish & Handoff):** presents finish options (merge PR and hand off to default branch, keep PR open, keep branch, or Discard).
+8. **Phase 7 - `land` (Gate 3 Finish & Handoff):** presents finish options (merge PR and hand off to default branch, keep PR open, keep branch, or Discard). Merging is worktree-aware: inside a linked worktree it fast-forwards the default branch ref instead of checking it out, leaving the main checkout untouched.
 
 ### 2. Zero-Gate Unattended Mode (`oneshot` Auto-Approve)
 
@@ -316,7 +336,7 @@ The harness is split into three layers so providers can be swapped or mixed with
 | Provider (swappable) | which provider instance, model, and effort runs each role; fallback ladders; model families; privacy class; quotas and provider notes | `providers/<profile>.md` or external file |
 | Install (binding) | binds one profile to one or more host targets (`opencode`, `codex`, `antigravity`, `claude`, or `all`): copies it as `<dest>/PROVIDERS.md` and renders host-native agent files and instructions | `install.sh --profile <name>` / `--profile-file <path>` `--target <targets>` |
 
-No harness file names a concrete model ID, provider quota, or provider-specific effort value (`skills/**` and `agents/*.md` also name zero concrete providers, host names, or T3 Code tools). The Dispatch Adapter in [`AGENTS.md`](./AGENTS.md) turns a role into a running subagent: the controller walks each role's rungs in ladder order (`primary -> fallback -> last-resort`, then sibling implementation hand-off and `## Backup ladder`). For the current rung it takes the first matching path: **Path 1** native pin on an OpenCode host (no override when the rung matches the seat's rendered `model:` pin); **Path 2** T3 Code `delegate_task` across any connected provider (calling `orchestrator_capabilities` once before the session's first dispatch and pointing `antigravity` seats at `<skills-dir>/_harness/agents/<seat>.md`); **Path 3** standalone same-provider native dispatch when T3 tools are absent and `provider` matches the active host (`opencode` `subagent`/`task`, `codex` `spawn_agent` + `wait`, `claudeAgent` `Agent`, or `antigravity` `invoke_subagent` on same-family rungs); or **Path 4** `unreachable` (skipped at zero council budget cost). On OpenCode, a seat whose 3-rung ladder has no `opencode` rung installs with no `model:` line and never uses Path 1. An implementation seat (`implementer`, `implementer-deep`) with no reachable rung hands its task to the other implementation seat (`implementer-deep` <-> `implementer`, never revisiting an exhausted seat); with all exhausted, or `scout`/`tester`/`patch` with none, the dispatch stops and reports, never running on the driver model. Design alternatives run on distinct-family `implementer-deep`, then `implementer` rungs (announcing `degraded design: N families` when too few are reachable).
+No harness file names a concrete model ID, provider quota, or provider-specific effort value (`skills/**` and `agents/*.md` also name zero concrete providers, host names, or T3 Code tools). The Dispatch Adapter in [`AGENTS.md`](./AGENTS.md) turns a role into a running subagent: the controller walks each role's rungs in ladder order (`primary -> fallback -> last-resort`, then sibling implementation hand-off and `## Backup ladder`). For `antigravity` seats, `<contract-path>` is passed literally as `<skills-dir>/_harness/agents/<seat>.md` (`<skills-dir>` = grandparent of `oneshot/SKILL.md`, i.e. parent of `oneshot/`, in the child's `<skills>` list; never substituting the driver's path); for all other providers the driver substitutes `<harness-dir>/agents/<seat>.md`. For the current rung it takes the first matching path: **Path 1** native pin on an OpenCode host (no override when the rung matches the seat's rendered `model:` pin); **Path 2** T3 Code `delegate_task` across any connected provider (calling `orchestrator_capabilities` once before the session's first dispatch); **Path 3** standalone same-provider native dispatch when T3 tools are absent and `provider` matches the active host (`opencode` `subagent`/`task`, `codex` `spawn_agent` + `wait`, `claudeAgent` `Agent`, or `antigravity` `invoke_subagent` `self` with self-enforced contracts for seats/`task-reviewer` and `research` for shell-free `design` when `<model>` equals the session model via `Model: inherit` or is a flash-tier `google` rung on a `google` session via `Model: flash`); or **Path 4** `unreachable` (skipped at zero council budget cost). On OpenCode, a seat whose 3-rung ladder has no `opencode` rung installs with no `model:` line and never uses Path 1. An implementation seat (`implementer`, `implementer-deep`) with no reachable rung hands its task to the other implementation seat (`implementer-deep` <-> `implementer`, never revisiting an exhausted seat); with all exhausted, or `scout`/`tester`/`patch` with none, the dispatch stops and reports, never running on the driver model. Design alternatives run on distinct-family `implementer-deep`, then `implementer` rungs (announcing `degraded design: N families` when too few are reachable).
 
 ### Which profile do I pick?
 
@@ -332,7 +352,7 @@ No harness file names a concrete model ID, provider quota, or provider-specific 
 
 - **Standalone native execution (without T3 Code) vs cross-provider T3 Code orchestration (`delegate_task`):**
   - **With T3 Code:** `delegate_task` dispatches across every enabled provider instance (`antigravity`, `codex`, `claudeAgent`, `opencode`), unlocking multi-subscription ladders (`tri`, `quad`) and cross-family Antigravity ladders (`google` + `anthropic`).
-  - **Standalone (without T3 Code):** OpenCode, Codex, Antigravity, and Claude Code each dispatch rungs matching their own provider natively via Dispatch Adapter Path 1/Path 3 (standalone Antigravity `invoke_subagent` runs rungs whose `family` matches the active session's model family via `Model: inherit` or tier `flash_lite|flash|pro`, treating cross-family rungs as `unreachable`). Single-subscription users bind `--profile opencode-go|codex|antigravity|claude`, and a `tri` (on OpenCode, Codex, or Gemini Antigravity) or `quad` (also covering Claude Code) install opened standalone falls back to its matching `*` row in `## Backup ladder` (standalone Claude Antigravity sessions use `--profile antigravity`, and standalone Claude Code uses `--profile claude` or `quad`).
+  - **Standalone (without T3 Code):** OpenCode, Codex, Antigravity, and Claude Code each dispatch rungs matching their own provider natively via Dispatch Adapter Path 1/Path 3 (standalone Antigravity `invoke_subagent` uses `self` for all seats and `task-reviewer` with self-enforced contracts so git inspection works, or `research` for shell-free `design`, passing `Model: inherit` only when `<model>` equals the active session model or `Model: flash` only for a flash-tier `google` rung on a `google` session; all other rungs, including cross-family rungs, hit Path 4 `unreachable`). Single-subscription users bind `--profile opencode-go|codex|antigravity|claude`, and a `tri` (on OpenCode, Codex, or Gemini Antigravity; `tri` has no `claudeAgent` backup row) or `quad` (also covering Claude Code) install opened standalone falls back to its matching `*` row in `## Backup ladder` (standalone Claude Antigravity sessions use `--profile antigravity`, and standalone Claude Code uses `--profile claude` or `quad`).
 - **Single-family `task-reviewer` fallback & council family minimum:**
   - **Per-task review (`task-reviewer`):** normally skips any rung whose `family` authored the task's code or `tester` red tests. If skipping the author/`tester` family leaves zero reachable `task-reviewer` rungs **solely** because all non-author families are `unreachable` on a standalone single-family host (never when skipped for `exhausted` quota or soft-cap), `task-reviewer` falls back to the first reachable same-family rung and announces `degraded task-review: single-family host (<family>)`.
   - **Branch council (`council`):** strictly requires **`>= 2` independent model families** across `reviewer-a`, `reviewer-b`, and `reviewer-c` (plus at least one PASS vote from a non-author family). Whenever `< 2` families are reachable (such as standalone `codex`, standalone `claude`, or a single-family standalone `antigravity` session), the council stops with `yellow: degraded council` rather than claiming multi-family consensus (`opencode-go` spans multiple families natively on standalone OpenCode).
@@ -341,7 +361,7 @@ No harness file names a concrete model ID, provider quota, or provider-specific 
 
 | Provider | Instance ID (`provider` column) | Effort Option ID & Values (`effort` column) | Example Model IDs (`model` column) | Where to See Limits |
 | --- | --- | --- | --- | --- |
-| **OpenCode Go** | `opencode` | `variant` (`low\|medium\|high\|xhigh\|max`, or `-` for single-tier models) | `opencode-go/deepseek-v4.1-flash`, `opencode-go/mimo-v2.6-flash`, `opencode-go/deepseek-v4-pro`, `opencode-go/mimo-v2.6-pro`, `opencode-go/minimax-m3`, `opencode-go/kimi-k3.1-pro`, `opencode-go/claude-haiku-5-5` | `opencode.ai/docs/go` console (5h cap = 20% of monthly dollar limit per model) |
+| **OpenCode Go** | `opencode` | `variant` (`low\|medium\|high\|xhigh\|max`, or `-` for single-tier models) | `opencode-go/deepseek-v4.1-flash`, `opencode-go/mimo-v2.6-flash`, `opencode-go/deepseek-v4-pro`, `opencode-go/mimo-v2.6-pro`, `opencode-go/minimax-m3`, `opencode-go/kimi-k3.1-pro`, `opencode-go/claude-haiku-5-5`, `opencode-go/glm-5.3` | `opencode.ai/docs/go` console (monthly dollar limit per model, with a 20% 5-hour cap and a 50% weekly cap; the shipped profiles are sized for the Go Plus $40/mo tier) |
 | **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-argon`, `gemini-3.8-flash`, `claude-opus-5-5`, `claude-sonnet-5-5` | `/status` in Antigravity (rolling 5-hour windows per plan) |
 | **Codex / ChatGPT** | `codex` | `reasoningEffort` (`low\|medium\|high\|xhigh`) | `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-luna`, `gpt-6-sol` | `/status` in Codex (rolling 5-hour windows per plan) |
 | **Claude Code / Anthropic** | `claudeAgent` | `effort` (`low\|medium\|high\|xhigh\|max\|ultracode\|ultrathink`) | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1` | `/status` in Claude Code (rolling 5-hour windows per plan) |
@@ -350,7 +370,7 @@ No harness file names a concrete model ID, provider quota, or provider-specific 
 - **Connect:** subscribe at `opencode.ai/docs/go` and run `/connect` in OpenCode.
 - **Privacy settings:** in OpenCode Console Privacy, enable **Global region** for DeepSeek models and turn training endpoints off (or rely on the harness privacy gate to skip `privacy: trains` rungs on `[confidential]` work).
 - **Verify models & limits:** run `opencode models` to list exact `opencode-go/<model>` catalog IDs; check per-model 5-hour and monthly limits in the OpenCode Go console.
-- **Quota structure:** **per-model** by default (`<provider>/<model>` when no `## Quota pools` row matches), because each OpenCode Go model has its own monthly dollar allowance and 5-hour cap (`opencode-go.md` adds an optional `opencode-kimi` pool row to soft-cap `opencode-go/kimi-k3.1-pro` at `6` dispatches and reserve the rest for `reviewer-esc`).
+- **Quota structure:** **per-model** by default (`<provider>/<model>` when no `## Quota pools` row matches), because each OpenCode Go model has its own monthly dollar allowance and 5-hour cap. `tri`/`quad` are sized for the **Go Plus ($40/mo)** tier, where allowances scale non-uniformly over the $10 Go tier: flash workhorses roughly double, pro models roughly quadruple, and `glm-5.3` grows 8x. `opencode-go.md` adds an optional `opencode-kimi` pool row to soft-cap `opencode-go/kimi-k3.1-pro` at `6` dispatches and reserve the rest for `reviewer-esc`.
 - **Profile columns:** `provider: opencode`, `effort: variant=<low|medium|high|xhigh|max>` (or `-` when the catalog exposes a single default tier).
 
 #### 2. Antigravity (`antigravity`)
@@ -409,17 +429,19 @@ T3 Code has **no separate global `skills/` or `agents/` directory**; OpenCode, C
 
 1. **OpenCode (`--target opencode`, default `${OPENCODE_CONFIG:-$HOME/.config/opencode}`):** seats with an `opencode` rung in the active profile are pinned via their rendered `model:` line in `<dest>/agents/<seat>.md` (and when OpenCode runs inside T3 Code, non-`opencode` rungs are dispatched via `delegate_task`).
 2. **Codex (`--target codex`, `${CODEX_HOME:-$HOME/.codex}`):** installs `skills/**`, `agents/<seat>.md`, `HARNESS.md`, `PROVIDERS.md`, and a combined `AGENTS.md` (`HARNESS.md` + `PROVIDERS.md`) so standalone Codex CLI/app and T3 Code Codex threads load both automatically.
-3. **Antigravity (`--target antigravity`, standalone `${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config}` + discovered T3 Code instances `${T3_USERDATA_DIR:-$HOME/.t3/userdata}/providers/antigravity/*/config`):** installs a flat layout of real regular files (`skills/<name>/...`, `skills/_harness/{HARNESS.md,PROVIDERS.md,NOTICE,LICENSE,agents/<seat>.md}` allowlisted inside `config/skills/` and hidden from the skill picker, `agents/<seat>.md` with Antigravity subagent frontmatter and self-enforced permissions, `rules/HARNESS.md` + `rules/PROVIDERS.md` with `trigger: always_on` each `< 24 KB`, root `HARNESS.md`, `PROVIDERS.md`, `NOTICE`, `LICENSE`, shared `state` symlink, and `.harness-manifest`). When `ANTIGRAVITY_CONFIG` is explicitly set without `T3_USERDATA_DIR`, T3 instance discovery is skipped and only `$ANTIGRAVITY_CONFIG` is installed (linking `state` to `${OPENCODE_CONFIG:-$HOME/.config/opencode}/state`).
+3. **Antigravity (`--target antigravity`, standalone `${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config}` + discovered T3 Code instances `${T3_USERDATA_DIR:-$HOME/.t3/userdata}/providers/antigravity/*/config`):** installs a flat layout of real regular files (`skills/<name>/...`, `skills/_harness/{HARNESS.md,PROVIDERS.md,NOTICE,LICENSE,agents/<seat>.md}` allowlisted inside `config/skills/` and hidden from the skill picker, `agents/<seat>.md` with Antigravity subagent frontmatter and self-enforced permissions, `rules/HARNESS.md` + `rules/PROVIDERS.md` with `trigger: always_on` each `< 24 KB`, root `HARNESS.md`, `PROVIDERS.md`, `NOTICE`, `LICENSE`, shared `state` symlink, and `.harness-manifest`, migrating any legacy pre-flat manifest/ledger under `--prune`). T3 instance discovery is a clean no-op when `~/.t3/userdata/providers/antigravity` is absent or when `ANTIGRAVITY_CONFIG` is explicitly set without `T3_USERDATA_DIR` (installing only `$ANTIGRAVITY_CONFIG` while still linking `state` to `${OPENCODE_CONFIG:-$HOME/.config/opencode}/state`).
 4. **Claude Code (`--target claude`, `${CLAUDE_CONFIG_DIR:-$HOME/.claude}`):** installs `skills/**`, `agents/<seat>.md` rendered with Claude Code subagent frontmatter and tool lists, `HARNESS.md`, `PROVIDERS.md`, and a combined `CLAUDE.md`.
 
-### Default profile `tri` (Revision 3)
+**Worktrees.** The pipeline never requires the main checkout. It runs on a feature branch in either the main checkout or a dedicated git worktree (an OpenCode worktree or a T3 Code worktree thread), keeps its state in `$(git rev-parse --git-dir)/info/oneshot-state.md` so concurrent runs in different worktrees cannot collide, and `land` fast-forwards the default branch ref instead of checking it out when the default branch is already used by another worktree.
 
-Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI models), and OpenCode Go (open-weight long tail, cheap high-allowance quota). Zero Google or OpenAI (`gpt-*`) models are routed through OpenCode Go in `tri`/`quad`: all Google models come from Antigravity and all `gpt-*` models come from Codex.
+### Default profile `tri` (Revision 3, Go Plus sizing)
+
+Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI models), and OpenCode Go Plus ($40/mo, open-weight long tail with a now-large allowance). Zero Google or OpenAI (`gpt-*`) models are routed through OpenCode Go in `tri`/`quad`: all Google models come from Antigravity and all `gpt-*` models come from Codex.
 
 - **Antigravity:** carries `implementer` primary (`gemini-4-argon` at `high`) and fallback (`claude-sonnet-5-5` at `medium`), `implementer-deep` primary (`claude-opus-5-5` at `high`), and `reviewer-b` primary/fallback (`claude-opus-5-5` / `claude-sonnet-5-5`). Keeping `driver`, `scout`, `tester`, `reviewer-a`, and `reviewer-c` off Antigravity primaries leaves room for Argon and the Anthropic review seat (`antigravity-claude` is soft-capped at 6 dispatches and reserved for `reviewer-b`). Antigravity's Claude limits are low; if you also have a Claude Code subscription, use [`providers/quad.md`](./providers/quad.md) (`--profile quad`).
 - **Codex:** carries `driver` (`gpt-6.1-sol` medium), per-task review `task-reviewer` (`gpt-6.1-terra` high), council Seat A `reviewer-a` (`gpt-6-astra` -> `gpt-6.1-sol` -> `gpt-6-sol` high), `implementer` last-resort (`gpt-6.1-sol` medium), `implementer-deep` fallback/last-resort (`gpt-6-astra` / `gpt-6.1-sol` high), and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
-- **OpenCode Go:** carries the high-volume cheap roles (`scout` on `mimo-v2.6-flash` ~30.1k req/5h and `deepseek-v4.1-flash` ~43.3k req/5h; `tester` and `patch` on `deepseek-v4.1-flash` high; `compaction` on `claude-haiku-5-5` low), council Seat C `reviewer-c` (`deepseek-v4-pro` ~1,040 req/5h -> `mimo-v2.6-pro` ~3,250 req/5h -> `minimax-m3` ~3,200 req/5h), and `reviewer-esc` (`mimo-v2.6-pro` ~3,250 req/5h -> `kimi-k3.1-pro` high ~147 req/5h -> `qwen3.8-max` ~160 req/5h).
-- **Council & escalation rationale:** Argon (`gemini-4-argon`) never reviews its own code. Seat A runs OpenAI frontier (`gpt-6-astra` -> `gpt-6.1-sol` -> `gpt-6-sol`), Seat B runs Anthropic frontier (`claude-opus-5-5` -> `claude-sonnet-5-5` -> `opencode-go/claude-haiku-5-5`), and Seat C runs high-budget Open-weight Pro (`opencode-go/deepseek-v4-pro` -> `opencode-go/mimo-v2.6-pro` -> `opencode-go/minimax-m3`). While Argon authors the code under `tri`, all three council seats are non-author families, and `reviewer-esc` (`mimo-v2.6-pro` -> `kimi-k3.1-pro` -> `qwen3.8-max`) starts on `mimo-v2.6-pro` (~3,250 req/5h, disjoint from all three council primaries) and skips to `kimi-k3.1-pro` (`moonshot`) or `qwen3.8-max` (`alibaba`) if `reviewer-c` demotes onto `xiaomi`.
+- **OpenCode Go Plus ($40/mo):** carries the high-volume cheap roles (`scout` on `mimo-v2.6-flash` ~60.2k req/5h and `deepseek-v4.1-flash` ~86.7k req/5h; `tester` and `patch` on `deepseek-v4.1-flash` high), the `task-reviewer` fallback (`glm-5.3` high, whose allowance grew 8x on Plus to ~1,760 req/5h), `compaction` on `claude-haiku-5-5` low, council Seat C `reviewer-c` (`deepseek-v4-pro` ~4,200 req/5h -> `mimo-v2.6-pro` ~13,000 req/5h -> `minimax-m3` ~9,600 req/5h), and `reviewer-esc` (`kimi-k3.1-pro` high ~588 req/5h -> `mimo-v2.6-pro` ~13,000 req/5h -> `qwen3.8-max` ~640 req/5h).
+- **Council & escalation rationale:** Argon (`gemini-4-argon`) never reviews its own code. Seat A runs OpenAI frontier (`gpt-6-astra` -> `gpt-6.1-sol` -> `gpt-6-sol`), Seat B runs Anthropic frontier (`claude-opus-5-5` -> `claude-sonnet-5-5` -> `opencode-go/claude-haiku-5-5`), and Seat C runs high-budget Open-weight Pro (`opencode-go/deepseek-v4-pro` -> `opencode-go/mimo-v2.6-pro` -> `opencode-go/minimax-m3`). While Argon authors the code under `tri`, all three council seats are non-author families, and `reviewer-esc` (`kimi-k3.1-pro` -> `mimo-v2.6-pro` -> `qwen3.8-max`) starts on `kimi-k3.1-pro` (~588 req/5h, `moonshot`, disjoint from all three council primaries) and skips the MiMo rung to `qwen3.8-max` (`alibaba`) when `reviewer-c` demotes onto `xiaomi`.
 
 | role | primary | fallback | last-resort |
 | --- | --- | --- | --- |
@@ -429,11 +451,11 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 | implementer-deep | antigravity `claude-opus-5-5` high | codex `gpt-6-astra` high | codex `gpt-6.1-sol` high |
 | tester | opencode `deepseek-v4.1-flash` high | codex `gpt-6-luna` medium | antigravity `gemini-3.8-flash` medium |
 | patch | opencode `deepseek-v4.1-flash` high | codex `gpt-6-luna` medium | antigravity `gemini-3.8-flash` medium |
-| task-reviewer | codex `gpt-6.1-terra` high | opencode `glm-5.3-flash` high | antigravity `gemini-3.8-flash` high |
+| task-reviewer | codex `gpt-6.1-terra` high | opencode `glm-5.3` high | antigravity `gemini-3.8-flash` high |
 | reviewer-a (OpenAI) | codex `gpt-6-astra` high | codex `gpt-6.1-sol` high | codex `gpt-6-sol` high |
 | reviewer-b (Anthropic) | antigravity `claude-opus-5-5` high | antigravity `claude-sonnet-5-5` high | opencode `claude-haiku-5-5` high |
 | reviewer-c (Open-weight Pro) | opencode `deepseek-v4-pro` - | opencode `mimo-v2.6-pro` - | opencode `minimax-m3` - |
-| reviewer-esc | opencode `mimo-v2.6-pro` - | opencode `kimi-k3.1-pro` high | opencode `qwen3.8-max` - |
+| reviewer-esc | opencode `kimi-k3.1-pro` high | opencode `mimo-v2.6-pro` - | opencode `qwen3.8-max` - |
 | compaction (advisory) | opencode `claude-haiku-5-5` low | codex `gpt-6-luna` low | - |
 
 `muse-spark-*` (trains on request data) is excluded from `tri`. See [`providers/tri.md`](./providers/tri.md) for the full 7-column machine-readable routing table, `## Quota pools`, `## Backup ladder`, and budget tables.
@@ -453,9 +475,9 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 
 Each single-subscription profile keeps all 10 required roles, advisory `driver`/`compaction`, `## Quota pools`, and `## Backup ladder` on one provider so you can run standalone without T3 Code (or through T3 Code when only one provider is connected):
 
-- **[`providers/opencode-go.md`](./providers/opencode-go.md) (`--profile opencode-go`):** every seat on `opencode-go/*` across multiple families (`deepseek`, `zhipu`, `anthropic`, `openai`, `moonshot`, `xiaomi`, `minimax`, `google`, `meta`), supporting multi-family `task-reviewer` and council natively on standalone OpenCode.
+- **[`providers/opencode-go.md`](./providers/opencode-go.md) (`--profile opencode-go`):** sized for the Go Plus ($40/mo) tier, with every seat on `opencode-go/*` across multiple families (`deepseek`, `zhipu`, `anthropic`, `openai`, `moonshot`, `xiaomi`, `minimax`, `google`, `meta`), supporting multi-family `task-reviewer` and council natively on standalone OpenCode. Two seats stay scarce and reserved: `implementer-deep` on `gemini-4-argon` (~1,760 req/5h) and `reviewer-esc` on `kimi-k3.1-pro` (~588 req/5h, soft-capped at 6 via `opencode-kimi`).
 - **[`providers/codex.md`](./providers/codex.md) (`--profile codex --target codex`):** every seat on `codex` (`gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-luna`, `gpt-6-sol`, `openai` family), dispatched natively via `spawn_agent` + `wait` (`degraded task-review: single-family host (openai)` and `yellow: degraded council` when standalone).
-- **[`providers/antigravity.md`](./providers/antigravity.md) (`--profile antigravity --target antigravity`):** every seat on `antigravity` (`gemini-4-argon`, `gemini-3.8-flash`, `claude-opus-5-5`, `claude-sonnet-5-5` across `google` + `anthropic` families, with `antigravity-claude` soft-capped at 6 and reserved for `reviewer-a,reviewer-b`). Standalone Antigravity runs same-family rungs via `invoke_subagent` (`degraded task-review: single-family host (<family>)`, `yellow: degraded council`), while T3 Code reaches both `google` and `anthropic` families via `delegate_task`.
+- **[`providers/antigravity.md`](./providers/antigravity.md) (`--profile antigravity --target antigravity`):** every seat on `antigravity` (`gemini-4-argon`, `gemini-3.8-flash`, `claude-opus-5-5`, `claude-sonnet-5-5` across `google` + `anthropic` families, with `antigravity-claude` soft-capped at 6 and reserved for `reviewer-a,reviewer-b`). Standalone Antigravity dispatches rungs matching the active session model (`Model: inherit`) plus flash-tier `google` rungs on a `google` session (`Model: flash`) via `invoke_subagent` (`degraded task-review: single-family host (<family>)`, `yellow: degraded council`), while T3 Code reaches every `google` and `anthropic` model via `delegate_task`.
 - **[`providers/claude.md`](./providers/claude.md) (`--profile claude --target claude`):** every seat on `claudeAgent` (`claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1`, `anthropic` family), dispatched natively via `Agent` (`degraded task-review: single-family host (anthropic)` and `yellow: degraded council` when standalone).
 
 ---
@@ -473,7 +495,7 @@ cp providers/tri.md ~/.config/oneshot/my-profile.md
 
 - **Binding and refresh:** `--profile-file <path>` (also `--profile-file=<path>`) validates your file, copies it byte for byte to `<dest>/PROVIDERS.md`, renders each seat's native pin from its first `opencode` rung, and records `# profile-file <absolute path>` on line 2 of `<dest>/.harness-manifest`. Subsequent `./install.sh --force` refreshes automatically reuse that recorded `# profile-file` path (if the file was removed, `install.sh` exits 2 with `install.sh: profile file not found: <path>`). `--profile` and `--profile-file` are mutually exclusive (passing both exits 2).
 - **Custom profile checklist:** when building a profile for a subset of subscriptions (e.g., Codex + Claude Code), replace every row whose `provider` you do not have connected, ensure all 10 required roles keep a reachable `primary` row, and verify connected provider instance IDs via `orchestrator_capabilities`.
-- **One-row override example** (for example, swapping `reviewer-esc` primary from `mimo-v2.6-pro` to `opencode-go/qwen3.8-max` in `~/.config/oneshot/my-profile.md`):
+- **One-row override example** (for example, swapping `reviewer-esc` primary from `opencode-go/kimi-k3.1-pro` to `opencode-go/qwen3.8-max` in `~/.config/oneshot/my-profile.md`):
 
 ```text
 | role | rung | provider | model | effort | family | privacy |
@@ -496,6 +518,46 @@ cp providers/tri.md ~/.config/oneshot/my-profile.md
 
 ---
 
+## 🤖 Agent quickstart
+
+If you are an agent working **on** this repo, read this block and [`AGENTS.md`](./AGENTS.md) before editing. If you are an agent **using** the harness, skip to [Installation](#️-installation-for-agents-and-humans).
+
+| You want to change | Touch only | Then verify |
+| --- | --- | --- |
+| Which model runs a role | `providers/<profile>.md` (all matching profiles) | update the pin expectations in `test/install.sh`, then `bash test/install.sh` |
+| Routing, loops, caps, council contract, permissions | [`AGENTS.md`](./AGENTS.md) plus the affected `skills/*/SKILL.md` | `bash test/install.sh` (HARNESS.md is asserted byte-identical to AGENTS.md) |
+| A seat's contract | `agents/<seat>.md` (never add a `model:` line) | `bash test/install.sh` |
+| Installer behavior or a new host target | `install.sh` | add a `pass`-gated case in `test/install.sh`, then run it under both `bash` and `/bin/bash` |
+| A pipeline stage | the owning `skills/<name>/SKILL.md` | `bash test/install.sh` and the `oneshot` state artifact stays consistent |
+
+**Invariants you must not break**
+
+- Harness files (`skills/**`, `agents/*.md`, `AGENTS.md`) contain **no** concrete model ID, provider quota, or provider-specific effort value (`skills/**` and `agents/*.md` also name no concrete providers, host names, or T3 Code tools). Those live only in `providers/*.md`.
+- Every profile defines a `primary` row for all ten dispatched roles (`scout`, `tester`, `implementer`, `implementer-deep`, `patch`, `task-reviewer`, `reviewer-a`, `reviewer-b`, `reviewer-c`, `reviewer-esc`); `driver` and `compaction` are advisory, and every shipped `AGENTS.md + providers/<profile>.md` pair stays uncompacted under the 32,768-byte host instruction cap (`< 24 KB` per Antigravity rule file).
+- The council needs at least two independent model `family` values; fewer than two reachable families is `yellow: degraded council`.
+- On OpenCode, Path 1 dispatches a seat without model override only when the rung matches its installed `opencode` pin; otherwise dispatches go through T3 Code `delegate_task` (Path 2) or standalone same-provider native dispatch with an explicit model/tier target (Path 3), and no subagent may inherit the driver's model by omission.
+- Budget skips (`exhausted`, `unreachable`, soft-cap) never consume council rounds or fix attempts.
+- Never commit or push to `main`/`master`; work on `feat/<topic>` and land through a PR.
+
+**Commands**
+
+```sh
+bash -n install.sh && bash -n test/install.sh   # syntax gate
+bash test/install.sh                            # full contract suite (throwaway HOME)
+/bin/bash test/install.sh                       # macOS Bash 3.2 compatibility
+./install.sh --force --prune                    # refresh the recorded profile into OpenCode
+./install.sh --force --target all --prune       # refresh every host (+ T3 Antigravity instances)
+```
+
+**Changing one role's model, end to end**
+
+1. Edit the role's rows in every profile that ships it (`providers/tri.md`, `providers/quad.md`, `providers/opencode-go.md`, `providers/codex.md`, `providers/antigravity.md`, `providers/claude.md`).
+2. If the new first `opencode` rung changes a rendered pin, update the `PINS` heredoc and the `tri`/`quad` pin greps in `test/install.sh`.
+3. Run `bash test/install.sh`. A stale pin fails as `installed file is byte-identical: agents/<seat>.md`.
+4. Run `./install.sh --force` (or `./install.sh --force --target all`) so `<dest>/PROVIDERS.md` and the installed seat files match the repo.
+
+---
+
 ## 📂 Structure
 
 ```text
@@ -509,6 +571,7 @@ skills/           12 pipeline skills:          oneshot, shape, plan, dispatch,
 providers/        swappable provider profiles: tri (default), quad (tri + Claude Code),
                                                opencode-go, codex, antigravity, claude
 docs/             design specs and plans:      docs/specs/, docs/plans/
+docs/assets/      vector visuals:              logo.svg, architecture.svg
 test/install.sh   117-assertion contract suite (runs in throwaway HOME on Bash >=3.2)
 AGENTS.md         harness routing instructions (installed as <dest>/HARNESS.md)
 install.sh        multi-host installer         (opencode, codex, antigravity, claude, all)
