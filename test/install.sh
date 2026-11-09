@@ -1798,6 +1798,112 @@ grep -qxF '# profile opencode-go' "$INH_LEG_HOME/.gemini/config/.harness-manifes
 grep -qxF '# profile opencode-go' "$INH_LEG_HOME/.t3/userdata/providers/antigravity/hash-leg/config/.harness-manifest" || fail "T3 child inherits opencode-go from pre-profiles standalone root"
 pass "multi-root antigravity installs propagate standalone profile, profile-file, and legacy bindings to all T3 instances"
 
+REAL_AGY="$TMPROOT/real-agy-sym"
+SYM_INH_HOME="$TMPROOT/sym-inh-home"
+SYM_INH_PROV="$SYM_INH_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$REAL_AGY" "$SYM_INH_HOME/.gemini" "$SYM_INH_PROV/hash-sym-inh"
+HOME="$SYM_INH_HOME" ANTIGRAVITY_CONFIG="$REAL_AGY" "$INSTALL" --profile quad --target antigravity >"$TMPROOT/sym-inh-seed.out" 2>&1
+ln -s "$REAL_AGY" "$SYM_INH_HOME/.gemini/config"
+rc=0
+HOME="$SYM_INH_HOME" "$INSTALL" --force --target antigravity >"$TMPROOT/sym-inh-a.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/sym-inh-a.out" >&2; fail "symlinked ~/.gemini/config multi-root refresh exits 0 (got $rc)"; }
+[ -L "$SYM_INH_HOME/.gemini/config" ] || fail "symlinked ~/.gemini/config remains a symlink after refresh"
+for sym_root in "$SYM_INH_HOME/.gemini/config" "$REAL_AGY" "$SYM_INH_PROV/hash-sym-inh/config"; do
+  grep -qxF '# profile quad' "$sym_root/.harness-manifest" || fail "symlinked ~/.gemini/config refresh writes '# profile quad' into $sym_root/.harness-manifest"
+  cmp -s "$ROOT/providers/quad.md" "$sym_root/PROVIDERS.md" || fail "symlinked ~/.gemini/config refresh writes quad PROVIDERS.md into $sym_root"
+done
+cmp -s "$SYM_INH_HOME/.gemini/config/PROVIDERS.md" "$SYM_INH_PROV/hash-sym-inh/config/PROVIDERS.md" || fail "symlinked standalone and T3 PROVIDERS.md are byte-identical"
+
+REAL_AGY_LEG="$TMPROOT/real-agy-sym-leg"
+SYM_AGY_CFG="$TMPROOT/sym-antigravity-config"
+SYM_ENV_HOME="$TMPROOT/sym-env-home"
+SYM_ENV_PROV="$SYM_ENV_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$REAL_AGY_LEG/plugins/oneshot-harness" "$SYM_ENV_PROV/hash-sym-env"
+printf '# harness deadbee\n# profile quad\nplugin.json\n' >"$REAL_AGY_LEG/plugins/oneshot-harness/.harness-manifest"
+printf '{"name":"oneshot-harness"}\n' >"$REAL_AGY_LEG/plugins/oneshot-harness/plugin.json"
+ln -s "$REAL_AGY_LEG" "$SYM_AGY_CFG"
+rc=0
+HOME="$SYM_ENV_HOME" ANTIGRAVITY_CONFIG="$SYM_AGY_CFG" T3_USERDATA_DIR="$SYM_ENV_HOME/.t3/userdata" \
+  "$INSTALL" --force --prune --target antigravity >"$TMPROOT/sym-inh-b.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/sym-inh-b.out" >&2; fail "symlinked ANTIGRAVITY_CONFIG legacy multi-root refresh exits 0 (got $rc)"; }
+[ -L "$SYM_AGY_CFG" ] || fail "symlinked ANTIGRAVITY_CONFIG remains a symlink after refresh"
+for sym_env_root in "$SYM_AGY_CFG" "$REAL_AGY_LEG" "$SYM_ENV_PROV/hash-sym-env/config"; do
+  grep -qxF '# profile quad' "$sym_env_root/.harness-manifest" || fail "symlinked ANTIGRAVITY_CONFIG refresh writes '# profile quad' into $sym_env_root/.harness-manifest"
+  cmp -s "$ROOT/providers/quad.md" "$sym_env_root/PROVIDERS.md" || fail "symlinked ANTIGRAVITY_CONFIG refresh writes quad PROVIDERS.md into $sym_env_root"
+done
+cmp -s "$SYM_AGY_CFG/PROVIDERS.md" "$SYM_ENV_PROV/hash-sym-env/config/PROVIDERS.md" || fail "symlinked ANTIGRAVITY_CONFIG and T3 PROVIDERS.md are byte-identical"
+
+INH_SYM_HARN_HOME="$TMPROOT/inh-sym-harn-home"
+mkdir -p "$INH_SYM_HARN_HOME/.gemini/config" "$INH_SYM_HARN_HOME/.t3/userdata/providers/antigravity/hash-sym-harn"
+printf 'legacy target\n' >"$TMPROOT/legacy-harness-target.md"
+ln -s "$TMPROOT/legacy-harness-target.md" "$INH_SYM_HARN_HOME/.gemini/config/HARNESS.md"
+rc=0
+HOME="$INH_SYM_HARN_HOME" "$INSTALL" --force --target antigravity >"$TMPROOT/inh-sym-harn.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/inh-sym-harn.out" >&2; fail "symlinked legacy HARNESS.md multi-root refresh exits 0 (got $rc)"; }
+grep -qxF '# profile opencode-go' "$INH_SYM_HARN_HOME/.gemini/config/.harness-manifest" || fail "standalone symlinked HARNESS.md fallback records opencode-go"
+grep -qxF '# profile opencode-go' "$INH_SYM_HARN_HOME/.t3/userdata/providers/antigravity/hash-sym-harn/config/.harness-manifest" || fail "T3 child shares symlinked HARNESS.md fallback opencode-go"
+
+BAD_MAN_HOME="$TMPROOT/bad-man-inh-home"
+mkdir -p "$BAD_MAN_HOME/.gemini/config/.harness-manifest" "$BAD_MAN_HOME/.t3/userdata/providers/antigravity/hash-bad-man"
+rc=0
+HOME="$BAD_MAN_HOME" "$INSTALL" --force --target antigravity >"$TMPROOT/bad-man-inh.out" 2>"$TMPROOT/bad-man-inh.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/bad-man-inh.err" >&2; fail "directory at standalone .harness-manifest exits 1 in multi-root run (got $rc)"; }
+grep -qF 'install.sh: manifest path is not a regular file:' "$TMPROOT/bad-man-inh.err" || fail "multi-root bad standalone manifest emits regular-file diagnostic"
+[ ! -e "$BAD_MAN_HOME/.t3/userdata/providers/antigravity/hash-bad-man/config/.harness-manifest" ] || fail "multi-root bad standalone manifest writes nothing to T3 instance"
+
+FRESH_SA_HOME="$TMPROOT/fresh-sa-home"
+FRESH_SA_PROV="$FRESH_SA_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$FRESH_SA_PROV/hash-a-fresh" "$FRESH_SA_PROV/hash-existing/config"
+printf '# harness deadbee\n# profile quad\nHARNESS.md\n' >"$FRESH_SA_PROV/hash-existing/config/.harness-manifest"
+printf 'old\n' >"$FRESH_SA_PROV/hash-existing/config/HARNESS.md"
+rc=0
+HOME="$FRESH_SA_HOME" "$INSTALL" --force --target antigravity >"$TMPROOT/fresh-sa.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/fresh-sa.out" >&2; fail "fresh standalone with existing T3 binding exits 0 (got $rc)"; }
+for fsa_root in "$FRESH_SA_HOME/.gemini/config" "$FRESH_SA_PROV/hash-a-fresh/config" "$FRESH_SA_PROV/hash-existing/config"; do
+  grep -qxF '# profile quad' "$fsa_root/.harness-manifest" || fail "fresh standalone + existing T3 converges $fsa_root to '# profile quad'"
+  cmp -s "$ROOT/providers/quad.md" "$fsa_root/PROVIDERS.md" || fail "fresh standalone + existing T3 writes quad PROVIDERS.md into $fsa_root"
+done
+cmp -s "$FRESH_SA_HOME/.gemini/config/PROVIDERS.md" "$FRESH_SA_PROV/hash-existing/config/PROVIDERS.md" || fail "fresh standalone and hash-existing PROVIDERS.md are byte-identical"
+
+FRESH_ALL_HOME="$TMPROOT/fresh-all-home"
+FRESH_ALL_PROV="$FRESH_ALL_HOME/.t3/userdata/providers/antigravity"
+HOME="$FRESH_ALL_HOME" "$INSTALL" --profile opencode-go --target opencode >"$TMPROOT/fresh-all-oc.out" 2>&1
+mkdir -p "$FRESH_ALL_PROV/hash-existing/config"
+printf '# harness deadbee\n# profile quad\nHARNESS.md\n' >"$FRESH_ALL_PROV/hash-existing/config/.harness-manifest"
+printf 'old\n' >"$FRESH_ALL_PROV/hash-existing/config/HARNESS.md"
+rc=0
+HOME="$FRESH_ALL_HOME" "$INSTALL" --force --target all >"$TMPROOT/fresh-all.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/fresh-all.out" >&2; fail "fresh standalone + existing T3 under --target all exits 0 (got $rc)"; }
+grep -qxF '# profile quad' "$FRESH_ALL_HOME/.gemini/config/.harness-manifest" || fail "--target all converges fresh standalone antigravity root to T3 quad binding"
+grep -qxF '# profile quad' "$FRESH_ALL_PROV/hash-existing/config/.harness-manifest" || fail "--target all keeps T3 hash-existing on quad"
+grep -qxF '# profile opencode-go' "$FRESH_ALL_HOME/.config/opencode/.harness-manifest" || fail "--target all leaves opencode binding untouched when inheriting from T3"
+grep -qxF '# profile tri' "$FRESH_ALL_HOME/.codex/.harness-manifest" || fail "--target all leaves fresh codex target on default tri"
+pass "symlinked standalone antigravity roots and fresh-standalone T3 roots converge on a single shared profile binding"
+
+BIG_T3_HOME="$TMPROOT/big-t3-home"
+BIG_T3_PROV="$BIG_T3_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$BIG_T3_PROV/hash-big"
+BIG_T3_PROF="$TMPROOT/prose-big-t3.md"
+{
+  cat "$ROOT/providers/tri.md"
+  awk 'BEGIN { for (i = 0; i < 180; i++) printf "prose filler line %04d ......................................................................\n", i }'
+} >"$BIG_T3_PROF"
+[ "$(wc -c <"$BIG_T3_PROF")" -gt 24000 ] || fail "oversized test profile fixture exceeds 24000 bytes"
+rc=0
+HOME="$BIG_T3_HOME" "$INSTALL" --profile-file "$BIG_T3_PROF" --target antigravity >"$TMPROOT/big-t3-agy.out" 2>"$TMPROOT/big-t3-agy.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/big-t3-agy.err" >&2; fail "multi-root oversized antigravity rule exits 2 (got $rc)"; }
+grep -qF 'antigravity rule file exceeds 24000 bytes' "$TMPROOT/big-t3-agy.err" || fail "multi-root oversized antigravity rule reports 24000-byte diagnostic"
+[ ! -e "$BIG_T3_HOME/.gemini/config/.harness-manifest" ] || fail "multi-root oversized rule writes no standalone .harness-manifest"
+[ ! -e "$BIG_T3_PROV/hash-big/config/.harness-manifest" ] || fail "multi-root oversized rule writes no T3 instance .harness-manifest"
+rc=0
+HOME="$BIG_T3_HOME" "$INSTALL" --profile-file "$BIG_T3_PROF" --target all >"$TMPROOT/big-t3-all.out" 2>"$TMPROOT/big-t3-all.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/big-t3-all.err" >&2; fail "multi-target oversized antigravity rule exits 2 under --target all (got $rc)"; }
+grep -qF 'antigravity rule file exceeds 24000 bytes' "$TMPROOT/big-t3-all.err" || fail "multi-target oversized antigravity rule reports 24000-byte diagnostic"
+[ ! -e "$BIG_T3_HOME/.config/opencode/.harness-manifest" ] || fail "atomic preflight on exit 2 writes no opencode .harness-manifest"
+[ ! -e "$BIG_T3_HOME/.gemini/config/.harness-manifest" ] || fail "atomic preflight on exit 2 writes no standalone antigravity .harness-manifest"
+[ ! -e "$BIG_T3_PROV/hash-big/config/.harness-manifest" ] || fail "atomic preflight on exit 2 writes no T3 antigravity .harness-manifest"
+pass "oversized antigravity rule file exits 2 atomically before writing any standalone, T3, or sibling host manifest"
+
 for oneshot_skill in \
   "$T3_HOME/.gemini/config/skills/oneshot/SKILL.md" \
   "$T3_PROV/hash-one/config/skills/oneshot/SKILL.md"; do
@@ -1815,6 +1921,10 @@ rc=0
 grep -qF 'available profiles: antigravity claude codex opencode-go quad tri' "$TMPROOT/help-74.out" || {
   cat "$TMPROOT/help-74.out" >&2
   fail "--help lists all six built-in profiles"
+}
+tr '\n' ' ' <"$TMPROOT/help-74.out" | tr -s ' ' | grep -qF "sharing the standalone root's profile binding on refresh" || {
+  cat "$TMPROOT/help-74.out" >&2
+  fail "--help notes Antigravity standalone and T3 roots share the standalone root's profile binding on refresh"
 }
 
 for profile in tri quad opencode-go codex antigravity claude; do

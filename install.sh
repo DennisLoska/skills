@@ -34,7 +34,8 @@ options:
   --target TARGETS     comma-separated host targets: opencode, codex, antigravity, claude, or all
                        (also --target=TARGETS; default: opencode; antigravity installs standalone
                        ${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config} plus any T3 Code instances under
-                       ${T3_USERDATA_DIR:-$HOME/.t3/userdata}/providers/antigravity/*/config)
+                       ${T3_USERDATA_DIR:-$HOME/.t3/userdata}/providers/antigravity/*/config, sharing
+                       the standalone root's profile binding on refresh)
   --force              overwrite files that already exist in the destination
   --prune              remove files recorded in a previous .harness-manifest that
                        this run no longer produces; files the installer never wrote
@@ -378,6 +379,53 @@ for tok in "${selected_targets[@]}"; do
   fi
 done
 
+read_prev_binding() {
+  local dest_canon="$1" target_host="$2"
+  local manifest_path="$dest_canon/.harness-manifest"
+  local legacy_dir="$dest_canon/plugins/oneshot-harness"
+  local legacy_manifest="$legacy_dir/.harness-manifest"
+  local mline entry
+  PREV_MANIFEST_SOURCE=""
+  prev_bad_manifest=0
+  prev_profile=""
+  prev_profile_present=0
+  prev_profile_file=""
+  prev_profile_file_present=0
+  prev_entry_present=0
+  prev_profile_legacy=0
+  if [ -L "$manifest_path" ] || { [ -e "$manifest_path" ] && [ ! -f "$manifest_path" ]; }; then
+    prev_bad_manifest=1
+    return 0
+  fi
+  if [ -f "$manifest_path" ]; then
+    PREV_MANIFEST_SOURCE="$manifest_path"
+  elif [ "$target_host" = "antigravity" ] &&
+       [ ! -L "$dest_canon/plugins" ] && [ -d "$dest_canon/plugins" ] &&
+       [ ! -L "$legacy_dir" ] && [ -d "$legacy_dir" ] &&
+       [ ! -L "$legacy_manifest" ] && [ -f "$legacy_manifest" ]; then
+    PREV_MANIFEST_SOURCE="$legacy_manifest"
+  fi
+  if [ -n "$PREV_MANIFEST_SOURCE" ]; then
+    while IFS= read -r mline || [ -n "$mline" ]; do
+      case "$mline" in
+        '# profile '*) prev_profile="${mline#'# profile '}"; prev_profile_present=1; break ;;
+        '# profile-file '*) prev_profile_file="${mline#'# profile-file '}"; prev_profile_file_present=1; break ;;
+        *)
+          entry="${mline#"${mline%%[![:space:]]*}"}"
+          case "$entry" in ''|\#*) ;; *) prev_entry_present=1 ;; esac
+          ;;
+      esac
+    done <"$PREV_MANIFEST_SOURCE"
+  fi
+  if [ "$prev_profile_present" -eq 0 ] && [ "$prev_profile_file_present" -eq 0 ] &&
+     { [ "$prev_entry_present" -eq 1 ] || { [ -z "$PREV_MANIFEST_SOURCE" ] && [ -f "$dest_canon/HARNESS.md" ]; }; }; then
+    prev_profile=opencode-go
+    prev_profile_present=1
+    prev_profile_legacy=1
+  fi
+  return 0
+}
+
 # When multiple jobs are scheduled (multiple targets or standalone + T3 instances),
 # run each job in its own clean invocation so per-root destination validation,
 # manifest tracking, and temp cleanup stay isolated. A nonce-guarded atomic
@@ -392,9 +440,11 @@ if [ "${#job_targets[@]}" -gt 1 ]; then
   elif [ "$profile_file_given" -eq 1 ]; then
     sub_args+=("--profile-file" "$profile_file_arg")
   fi
-  agy_sub_args=()
+  agy_standalone_args=()
+  agy_t3_args=()
   if [ "${#sub_args[@]}" -gt 0 ]; then
-    agy_sub_args=("${sub_args[@]}")
+    agy_standalone_args=("${sub_args[@]}")
+    agy_t3_args=("${sub_args[@]}")
   fi
   has_agy_override=0
   for idx in "${!job_override_agy[@]}"; do
@@ -404,69 +454,139 @@ if [ "${#job_targets[@]}" -gt 1 ]; then
     fi
   done
   if [ "$has_agy_override" -eq 1 ] && [ "$profile_given" -eq 0 ] && [ "$profile_file_given" -eq 0 ]; then
+    agy_standalone_bad=0
+    agy_standalone_bound=0
     agy_primary_raw="${ANTIGRAVITY_CONFIG-${HOME:-}/.gemini/config}"
     agy_primary_compact="${agy_primary_raw//[[:space:]]/}"
     agy_primary_compact="${agy_primary_compact//\//}"
-    if [ -n "$agy_primary_compact" ]; then
+    if [ -z "$agy_primary_compact" ]; then
+      agy_standalone_bad=1
+    else
       agy_primary_stripped="$agy_primary_raw"
       while [ "${agy_primary_stripped%/}" != "$agy_primary_stripped" ]; do
         agy_primary_stripped="${agy_primary_stripped%/}"
       done
+      [ -n "$agy_primary_stripped" ] || agy_primary_stripped="/"
       case "$agy_primary_stripped" in
-        ''|.|..|../*|*/..|*/../*) ;;
+        ''|.|..|../*|*/..|*/../*) agy_standalone_bad=1 ;;
         *)
-          if [ ! -L "$agy_primary_stripped" ] && [ -d "$agy_primary_stripped" ]; then
-            agy_primary="$(cd "$agy_primary_stripped" && pwd -P)"
-            if [ "$agy_primary" != "/" ] && [ "$agy_primary" != "$SRC_PHYS" ] && [ "$agy_primary" != "$HOME_PHYS" ]; then
-              agy_prev_manifest=""
-              agy_prev_bad_manifest=0
-              if [ -L "$agy_primary/.harness-manifest" ]; then
-                agy_prev_bad_manifest=1
-              elif [ -f "$agy_primary/.harness-manifest" ]; then
-                agy_prev_manifest="$agy_primary/.harness-manifest"
-              elif [ -e "$agy_primary/.harness-manifest" ]; then
-                agy_prev_bad_manifest=1
-              elif [ ! -L "$agy_primary/plugins" ] && [ -d "$agy_primary/plugins" ] &&
-                   [ ! -L "$agy_primary/plugins/oneshot-harness" ] && [ -d "$agy_primary/plugins/oneshot-harness" ] &&
-                   [ ! -L "$agy_primary/plugins/oneshot-harness/.harness-manifest" ] && [ -f "$agy_primary/plugins/oneshot-harness/.harness-manifest" ]; then
-                agy_prev_manifest="$agy_primary/plugins/oneshot-harness/.harness-manifest"
+          if [ -L "$agy_primary_stripped" ] && [ ! -e "$agy_primary_stripped" ]; then
+            agy_standalone_bad=1
+          elif [ -e "$agy_primary_stripped" ] && [ ! -d "$agy_primary_stripped" ]; then
+            agy_standalone_bad=1
+          else
+            agy_primary_canon="$(canonical_dest "$agy_primary_stripped")"
+            if [ -z "$agy_primary_canon" ] || [ "$agy_primary_canon" = "/" ] ||
+               [ "$agy_primary_canon" = "$SRC_PHYS" ] || [ "$agy_primary_canon" = "$SRC" ] ||
+               [ "$agy_primary_stripped" = "$SRC" ] || [ "$agy_primary_stripped" = "$SRC_PHYS" ]; then
+              agy_standalone_bad=1
+            else
+              case "$agy_primary_canon" in
+                "$SRC_PHYS"/*|"$SRC"/*) agy_standalone_bad=1 ;;
+              esac
+              if { [ -n "$HOME_PHYS" ] && [ "$agy_primary_canon" = "$HOME_PHYS" ]; } ||
+                 { [ -n "${HOME:-}" ] && { [ "$agy_primary_raw" = "$HOME" ] || [ "$agy_primary_stripped" = "$HOME" ]; }; }; then
+                agy_standalone_bad=1
               fi
-              if [ "$agy_prev_bad_manifest" -eq 0 ]; then
-                agy_inh_profile=""
-                agy_inh_profile_present=0
-                agy_inh_profile_file=""
-                agy_inh_profile_file_present=0
-                agy_inh_entry_present=0
-                if [ -n "$agy_prev_manifest" ]; then
-                  while IFS= read -r mline || [ -n "$mline" ]; do
-                    case "$mline" in
-                      '# profile '*) agy_inh_profile="${mline#'# profile '}"; agy_inh_profile_present=1; break ;;
-                      '# profile-file '*) agy_inh_profile_file="${mline#'# profile-file '}"; agy_inh_profile_file_present=1; break ;;
-                      *)
-                        entry="${mline#"${mline%%[![:space:]]*}"}"
-                        case "$entry" in ''|\#*) ;; *) agy_inh_entry_present=1 ;; esac
-                        ;;
-                    esac
-                  done <"$agy_prev_manifest"
-                fi
-                if [ "$agy_inh_profile_present" -eq 0 ] && [ "$agy_inh_profile_file_present" -eq 0 ] &&
-                   { [ "$agy_inh_entry_present" -eq 1 ] ||
-                     { [ -z "$agy_prev_manifest" ] && [ ! -L "$agy_primary/HARNESS.md" ] && [ -f "$agy_primary/HARNESS.md" ]; }; }; then
-                  agy_inh_profile="opencode-go"
-                  agy_inh_profile_present=1
-                fi
-                if [ "$agy_inh_profile_file_present" -eq 1 ] && [ -n "$agy_inh_profile_file" ]; then
-                  agy_sub_args+=("--profile-file" "$agy_inh_profile_file")
-                elif [ "$agy_inh_profile_present" -eq 1 ] && [ -n "$agy_inh_profile" ]; then
-                  agy_sub_args+=("--profile" "$agy_inh_profile")
-                fi
+            fi
+            if [ "$agy_standalone_bad" -eq 0 ] && [ -d "$agy_primary_stripped" ]; then
+              read_prev_binding "$agy_primary_canon" "antigravity"
+              if [ "$prev_bad_manifest" -eq 1 ]; then
+                agy_standalone_bad=1
+              elif [ "$prev_profile_file_present" -eq 1 ] && [ -n "$prev_profile_file" ]; then
+                agy_t3_args+=("--profile-file" "$prev_profile_file")
+                agy_standalone_bound=1
+              elif [ "$prev_profile_present" -eq 1 ] && [ -n "$prev_profile" ]; then
+                agy_t3_args+=("--profile" "$prev_profile")
+                agy_standalone_bound=1
+              elif [ "$prev_profile_file_present" -eq 1 ] || [ "$prev_profile_present" -eq 1 ]; then
+                agy_standalone_bound=1
               fi
             fi
           fi
           ;;
       esac
     fi
+    if [ "$agy_standalone_bad" -eq 0 ] && [ "$agy_standalone_bound" -eq 0 ]; then
+      for idx in "${!job_override_agy[@]}"; do
+        [ "${job_override_agy[$idx]}" -eq 1 ] || continue
+        t3_cfg="${job_agy_configs[$idx]}"
+        [ ! -L "$t3_cfg" ] && [ -d "$t3_cfg" ] || continue
+        t3_canon="$(canonical_dest "$t3_cfg")"
+        [ -n "$t3_canon" ] || continue
+        read_prev_binding "$t3_canon" "antigravity"
+        if [ "$prev_bad_manifest" -eq 1 ]; then
+          break
+        elif [ "$prev_profile_file_present" -eq 1 ] && [ -n "$prev_profile_file" ]; then
+          agy_standalone_args+=("--profile-file" "$prev_profile_file")
+          agy_t3_args+=("--profile-file" "$prev_profile_file")
+          break
+        elif [ "$prev_profile_present" -eq 1 ] && [ -n "$prev_profile" ]; then
+          agy_standalone_args+=("--profile" "$prev_profile")
+          agy_t3_args+=("--profile" "$prev_profile")
+          break
+        elif [ "$prev_profile_file_present" -eq 1 ] || [ "$prev_profile_present" -eq 1 ]; then
+          break
+        fi
+      done
+    fi
   fi
+  invoke_subjob() {
+    local idx="$1" is_pf="$2"
+    local jt="${job_targets[$idx]}"
+    local jargs=()
+    if [ "${job_override_agy[$idx]}" -eq 1 ]; then
+      [ "${#agy_t3_args[@]}" -gt 0 ] && jargs=("${agy_t3_args[@]}")
+      if [ "$is_pf" -eq 1 ]; then
+        if [ "${#jargs[@]}" -gt 0 ]; then
+          ANTIGRAVITY_CONFIG="${job_agy_configs[$idx]}" \
+            HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" \
+            HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+            "$SRC/install.sh" "${jargs[@]}" --target "$jt"
+        else
+          ANTIGRAVITY_CONFIG="${job_agy_configs[$idx]}" \
+            HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" \
+            HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+            "$SRC/install.sh" --target "$jt"
+        fi
+      else
+        if [ "${#jargs[@]}" -gt 0 ]; then
+          ANTIGRAVITY_CONFIG="${job_agy_configs[$idx]}" \
+            HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+            "$SRC/install.sh" "${jargs[@]}" --target "$jt"
+        else
+          ANTIGRAVITY_CONFIG="${job_agy_configs[$idx]}" \
+            HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+            "$SRC/install.sh" --target "$jt"
+        fi
+      fi
+    else
+      if [ "$jt" = "antigravity" ]; then
+        [ "${#agy_standalone_args[@]}" -gt 0 ] && jargs=("${agy_standalone_args[@]}")
+      else
+        [ "${#sub_args[@]}" -gt 0 ] && jargs=("${sub_args[@]}")
+      fi
+      if [ "$is_pf" -eq 1 ]; then
+        if [ "${#jargs[@]}" -gt 0 ]; then
+          HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" \
+            HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+            "$SRC/install.sh" "${jargs[@]}" --target "$jt"
+        else
+          HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" \
+            HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+            "$SRC/install.sh" --target "$jt"
+        fi
+      else
+        if [ "${#jargs[@]}" -gt 0 ]; then
+          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+            "$SRC/install.sh" "${jargs[@]}" --target "$jt"
+        else
+          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+            "$SRC/install.sh" --target "$jt"
+        fi
+      fi
+    fi
+  }
   trap 'rm -f -- ${pf_token_file:+"$pf_token_file"} ${sr_token_file:+"$sr_token_file"}' EXIT
   pf_token_file="$(mktemp "${TMPDIR:-/tmp}/harness-pf.XXXXXXXX")"
   chmod 0600 "$pf_token_file"
@@ -477,30 +597,7 @@ if [ "${#job_targets[@]}" -gt 1 ]; then
   sr_token="$$-$(date +%s)-${RANDOM:-0}-sr"
   printf '%s' "$sr_token" >"$sr_token_file"
   for idx in "${!job_targets[@]}"; do
-    jt="${job_targets[$idx]}"
-    if [ "${job_override_agy[$idx]}" -eq 1 ]; then
-      if [ "${#agy_sub_args[@]}" -gt 0 ]; then
-        ANTIGRAVITY_CONFIG="${job_agy_configs[$idx]}" \
-          HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" \
-          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
-          "$SRC/install.sh" "${agy_sub_args[@]}" --target "$jt"
-      else
-        ANTIGRAVITY_CONFIG="${job_agy_configs[$idx]}" \
-          HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" \
-          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
-          "$SRC/install.sh" --target "$jt"
-      fi
-    else
-      if [ "${#sub_args[@]}" -gt 0 ]; then
-        HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" \
-          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
-          "$SRC/install.sh" "${sub_args[@]}" --target "$jt"
-      else
-        HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" \
-          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
-          "$SRC/install.sh" --target "$jt"
-      fi
-    fi
+    invoke_subjob "$idx" 1
   done
   rm -f -- "$pf_token_file"
   pf_token_file=""
@@ -510,26 +607,7 @@ if [ "${#job_targets[@]}" -gt 1 ]; then
     exit 0
   fi
   for idx in "${!job_targets[@]}"; do
-    jt="${job_targets[$idx]}"
-    if [ "${job_override_agy[$idx]}" -eq 1 ]; then
-      if [ "${#agy_sub_args[@]}" -gt 0 ]; then
-        ANTIGRAVITY_CONFIG="${job_agy_configs[$idx]}" \
-          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
-          "$SRC/install.sh" "${agy_sub_args[@]}" --target "$jt"
-      else
-        ANTIGRAVITY_CONFIG="${job_agy_configs[$idx]}" \
-          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
-          "$SRC/install.sh" --target "$jt"
-      fi
-    else
-      if [ "${#sub_args[@]}" -gt 0 ]; then
-        HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
-          "$SRC/install.sh" "${sub_args[@]}" --target "$jt"
-      else
-        HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
-          "$SRC/install.sh" --target "$jt"
-      fi
-    fi
+    invoke_subjob "$idx" 0
   done
   rm -f -- "$sr_token_file"
   sr_token_file=""
@@ -688,39 +766,7 @@ if [ "$TARGET_HOST" = "antigravity" ]; then
   LEGACY_AGY_DIR="$DEST/plugins/oneshot-harness"
   LEGACY_AGY_MANIFEST="$LEGACY_AGY_DIR/.harness-manifest"
 fi
-PREV_MANIFEST_SOURCE=""
-if [ -f "$MANIFEST" ]; then
-  PREV_MANIFEST_SOURCE="$MANIFEST"
-elif [ "$TARGET_HOST" = "antigravity" ] &&
-     [ ! -L "$DEST/plugins" ] && [ -d "$DEST/plugins" ] &&
-     [ ! -L "$LEGACY_AGY_DIR" ] && [ -d "$LEGACY_AGY_DIR" ] &&
-     [ ! -L "$LEGACY_AGY_MANIFEST" ] && [ -f "$LEGACY_AGY_MANIFEST" ]; then
-  PREV_MANIFEST_SOURCE="$LEGACY_AGY_MANIFEST"
-fi
-prev_profile=""
-prev_profile_present=0
-prev_profile_file=""
-prev_profile_file_present=0
-prev_entry_present=0
-prev_profile_legacy=0
-if [ -n "$PREV_MANIFEST_SOURCE" ]; then
-  while IFS= read -r mline || [ -n "$mline" ]; do
-    case "$mline" in
-      '# profile '*) prev_profile="${mline#'# profile '}"; prev_profile_present=1; break ;;
-      '# profile-file '*) prev_profile_file="${mline#'# profile-file '}"; prev_profile_file_present=1; break ;;
-      *)
-        entry="${mline#"${mline%%[![:space:]]*}"}"
-        case "$entry" in ''|\#*) ;; *) prev_entry_present=1 ;; esac
-        ;;
-    esac
-  done <"$PREV_MANIFEST_SOURCE"
-fi
-if [ "$prev_profile_present" -eq 0 ] && [ "$prev_profile_file_present" -eq 0 ] &&
-   { [ "$prev_entry_present" -eq 1 ] || { [ -z "$PREV_MANIFEST_SOURCE" ] && [ -f "$DEST/HARNESS.md" ]; }; }; then
-  prev_profile=opencode-go
-  prev_profile_present=1
-  prev_profile_legacy=1
-fi
+read_prev_binding "$DEST" "$TARGET_HOST"
 use_profile_file=0
 if [ "$profile_file_given" -eq 1 ]; then
   use_profile_file=1
