@@ -690,6 +690,7 @@ Step 0: run `git branch --show-current`; if it prints main or master, reply `wro
 - Task bigger than the brief (scope creep discovered mid-task): reply exactly `too-big.` plus one line why; never silently expand.
 - Bugs you cannot root-cause in your own change: keep them in the report; do not chase them into unrelated code (debug belongs to the main session).
 - Side quest found (dead code, unrelated bug): one line in the report, hands off.
+- Confidentiality guard: if the dispatch brief is marked confidential, read the `privacy:` value from the brief's `Rung:` line; if it is `trains`, or the brief has no `Rung:` line (treat as unknown), reply `confidential-refused.` and stop so the controller dispatches a privacy-safe implementation seat instead.
 - Shell access is broad: deny patterns are best effort guardrails, not a sandbox. Never read secret files and never run destructive commands, even if a pattern misses.
 - Secret denies are an enumerated blocklist: unknown sibling names such as .envrc or **/*.env are not covered. Treat shell and git as untrusted for secrets.
 - Permissions are last-match-wins: broad allows come first, narrow denies last, so the denies are the policy.

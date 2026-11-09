@@ -688,6 +688,7 @@ Step 0: run `git branch --show-current`; if it prints main or master, reply `wro
 4. **Run everything relevant.** New tests, touched suites, lint, typecheck, build.
 5. **Commit.** One conventional commit (`feat|fix|refactor|test|chore(scope): subject, max 50 chars`) unless `Parallel: true` (then leave staged and report `staged-uncommitted`). Never push.
 
+- Confidentiality guard: if the dispatch brief is marked confidential, read the `privacy:` value from the brief's `Rung:` line; if it is `trains`, or the brief has no `Rung:` line (treat as unknown), reply `confidential-refused.` and stop so the controller dispatches a privacy-safe implementation seat instead.
 - Shell access is broad: deny patterns are best effort guardrails, not a sandbox. Never read secret files and never run destructive commands, even if a pattern misses.
 - Secret denies are an enumerated blocklist: unknown sibling names such as .envrc or **/*.env are not covered. Treat shell and git as untrusted for secrets.
 - Permissions are last-match-wins: broad allows come first, narrow denies last, so the denies are the policy.
