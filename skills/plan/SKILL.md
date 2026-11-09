@@ -36,11 +36,11 @@ This structure drives task decomposition. Each task should produce self-containe
 ## Bite-Sized Task Granularity
 
 **Each step is one action (2-5 minutes):**
-- "Write the failing test" - step
-- "Run it to make sure it fails" - step
-- "Implement the minimal code to make the test pass" - step
-- "Run the tests and make sure they pass" - step
-- "Commit" - step
+- "Write the failing test" - step (`tester` red step under `dispatch`, uncommitted)
+- "Run it to make sure it fails" - step (`tester` verifies red)
+- "Implement the minimal code to make the test pass" - step (`implementer` green step)
+- "Run the tests and make sure they pass" - step (`implementer` verifies green)
+- "Commit" - step (`implementer` commits `tester` tests + implementation together)
 
 ## Plan Document Header
 

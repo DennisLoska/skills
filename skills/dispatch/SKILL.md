@@ -52,10 +52,12 @@ digraph process {
 
     subgraph cluster_per_task {
         label="Per Task";
-        "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md)" [shape=box];
+        "Task has behaviour to test?" [shape=diamond];
+        "Dispatch tester through the AGENTS.md Dispatch Adapter (red step, brief: tester-prompt.md)" [shape=box];
+        "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md + tester report)" [shape=box];
         "Implementer asks questions?" [shape=diamond];
         "Answer questions, provide context" [shape=box];
-        "Implementer implements, tests, commits or stages (parallel mode), self-reviews" [shape=box];
+        "Implementer implements, runs suite, commits tests + impl (or stages in parallel mode), self-reviews" [shape=box];
         "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)" [shape=box];
         "Spec reviewer confirms code matches spec?" [shape=diamond];
         "Implementer fixes spec gaps" [shape=box];
@@ -72,12 +74,15 @@ digraph process {
     "Oneshot: controller moves to verify (Phase 4), then land (Phase 5)" [shape=box style=filled fillcolor=lightgreen];
     "Standalone: run the verify skill yourself, then land" [shape=box];
 
-    "Read plan once, extract all tasks with full text, create todo list" -> "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md)";
-    "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md)" -> "Implementer asks questions?";
+    "Read plan once, extract all tasks with full text, create todo list" -> "Task has behaviour to test?";
+    "Task has behaviour to test?" -> "Dispatch tester through the AGENTS.md Dispatch Adapter (red step, brief: tester-prompt.md)" [label="yes"];
+    "Task has behaviour to test?" -> "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md + tester report)" [label="no - mechanical"];
+    "Dispatch tester through the AGENTS.md Dispatch Adapter (red step, brief: tester-prompt.md)" -> "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md + tester report)";
+    "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md + tester report)" -> "Implementer asks questions?";
     "Implementer asks questions?" -> "Answer questions, provide context" [label="yes"];
-    "Answer questions, provide context" -> "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md)";
-    "Implementer asks questions?" -> "Implementer implements, tests, commits, self-reviews" [label="no"];
-    "Implementer implements, tests, commits, self-reviews" -> "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)";
+    "Answer questions, provide context" -> "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md + tester report)";
+    "Implementer asks questions?" -> "Implementer implements, runs suite, commits tests + impl (or stages in parallel mode), self-reviews" [label="no"];
+    "Implementer implements, runs suite, commits tests + impl (or stages in parallel mode), self-reviews" -> "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)";
     "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)" -> "Spec reviewer confirms code matches spec?";
     "Spec reviewer confirms code matches spec?" -> "Implementer fixes spec gaps" [label="no"];
     "Implementer fixes spec gaps" -> "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)" [label="re-review"];
@@ -87,7 +92,7 @@ digraph process {
     "Implementer fixes quality issues" -> "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" [label="re-review"];
     "Quality reviewer approves?" -> "Mark task complete in the todo list" [label="yes"];
     "Mark task complete in the todo list" -> "More tasks remain?";
-    "More tasks remain?" -> "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md)" [label="yes"];
+    "More tasks remain?" -> "Task has behaviour to test?" [label="yes"];
     "More tasks remain?" -> "Dispatch task-reviewer (final) through the AGENTS.md Dispatch Adapter" [label="no"];
     "Dispatch task-reviewer (final) through the AGENTS.md Dispatch Adapter" -> "Return to the controller with the final review verdict";
     "Return to the controller with the final review verdict" -> "Oneshot: controller moves to verify (Phase 4), then land (Phase 5)" [label="running as Phase 3"];
@@ -103,17 +108,18 @@ Standalone (no oneshot): after final review PASS, run the verify skill yourself,
 
 Skills never hardcode model IDs. Route every subagent by role through the active provider profile (`PROVIDERS.md`) and the AGENTS.md Routing Rules, dispatching through the AGENTS.md Dispatch Adapter (which chooses the native or `delegate_task` path per rung). Every dispatch names a rung so nothing inherits the main session model by accident.
 
-**Three implementation seats exist** (models and effort levels per the active provider profile; native pin rendered at install):
-- `implementer` and `implementer-b` - the two default implementation seats (rungs from the active provider profile). Alternate or pick either for standard and mechanical tasks.
+**Testing and implementation seats** (models and effort levels per the active provider profile; native pin rendered at install):
+- `tester` - the red-step test author and script runner (rungs from the active provider profile). For any plan task with behaviour to test, dispatch `tester` first (`tester-prompt.md`) to write the failing tests, run them, confirm they fail for the right reason, and leave them uncommitted in the working tree.
+- `implementer` - the default implementation seat (rungs from the active provider profile). Dispatched after `tester` with the `tester`'s report (`implementer-prompt.md`) to make the red tests pass, refactor, run the suite, and commit `tester` tests + implementation together; for mechanical tasks with no new behaviour to test, dispatch `implementer` directly (skip `tester`). Parallel fan-out dispatches several `implementer` instances concurrently.
 - `implementer-deep` - the heavy-reasoning seat reserved for complex multi-file architecture tasks and difficult bugs escalated by `debug`.
 
-Per-task dispatch = one of the three seats + the brief from `implementer-prompt.md`, through the AGENTS.md Dispatch Adapter. On a usage-limit/429 error from a seat, or an unreachable rung: re-dispatch the same role on the next rung of its ladder in the active provider profile, announce the demotion, and continue. A seat with no reachable rung hands the task to the next implementation seat per AGENTS.md Routing Rules (zero reachable rungs); after each task commit, the controller records the implementing rung's family for the author-family rule (oneshot Phase 3, step 7).
+On a usage-limit/429 error from a seat, or an unreachable rung: re-dispatch the same role on the next rung of its ladder in the active provider profile, announce the demotion, and continue. An implementation seat (`implementer`, `implementer-deep`) with no reachable rung hands the task to the other implementation seat (`implementer-deep` <-> `implementer`, never revisiting an exhausted seat; when all are exhausted, stop and report) per AGENTS.md Routing Rules (zero reachable rungs); after each task commit, the controller records the implementing rung's family (and the `tester` rung's family when `tester`-written tests are committed) for the author-family rule (oneshot Phase 3, step 7).
 
 **Stage reviewers dispatch ad-hoc:** spec-reviewer and quality-reviewer subagents are role `task-reviewer` from the active provider profile, chosen after the seat matrix call above; skip any `task-reviewer` rung whose family wrote the code for that task (AGENTS.md Routing Rules, author independence). They are not seat agents; fresh context each time, explicit rung each time.
 
-**Seat matrix (route every implementation through a named seat agent; models and effort levels per the active provider profile):**
-- Default single-task work -> `implementer`.
-- Second parallel track or lower-risk mechanical work -> `implementer-b`.
+**Seat matrix (route every test/implementation step through a named seat agent; models and effort levels per the active provider profile):**
+- Red step for a task with behaviour to test -> `tester` (writes failing tests in the working tree without committing), followed by `implementer` (green + refactor + commit).
+- Default single-task or mechanical work, and parallel fan-out (several `implementer` instances) -> `implementer`.
 - Multi-file architecture, concurrency, or a bug that resisted one standard attempt -> `implementer-deep`.
 - 1-2 file surgical edits with no test run -> `patch`.
 
@@ -141,14 +147,15 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 
 Both review stages dispatch fresh reviewer subagents that follow the council review contract. One owner: use the reviewer instruction block from `skills/council/SKILL.md` verbatim for each single reviewer (never invoke the council skill via the skill tool, which would start the full 3-seat branch loop), with the one-line finding format (`path:line: severity: problem. fix.`), and receiving-side rigor (confirm every finding against real code before dispatching fixes).
 
-- **Stage 1, spec compliance:** verify the implementer built what was requested, nothing more, nothing less.
+- **Stage 1, spec compliance:** verify the implementer built what was requested, nothing more, nothing less (and kept any `tester`-written tests intact unless a valid reason was stated in the report).
 - **Stage 2, code quality:** verify the implementation is well-built. Order is fixed. Never start quality review before spec compliance passes.
 
 Reviewer never fixes. Fixer never reviews. Fresh reviewer subagent every round.
 
 ## Prompt Templates
 
-- `implementer-prompt.md` - template: dispatch the `implementer` seat agent with this brief
+- `tester-prompt.md` - template: dispatch the `tester` seat agent for the TDD red step (write failing tests only, confirm failure reason, never commit)
+- `implementer-prompt.md` - template: dispatch the `implementer` seat agent with the task brief and the `tester`'s red-step report
 - `spec-reviewer-prompt.md` - template for dispatching the spec compliance reviewer
 - `quality-reviewer-prompt.md` - template for dispatching the code quality reviewer (council format)
 
@@ -161,10 +168,17 @@ Reviewer never fixes. Fixer never reviews. Fresh reviewer subagent every round.
 [Extract all 5 tasks with full text and context]
 [Create todo list with all tasks]
 
-Task 1: Hook installation script
+Task 1: Hook installation script (has behaviour to test)
 
 [Get Task 1 text and context (already extracted)]
-[Dispatch `implementer` through the AGENTS.md Dispatch Adapter with the brief from `implementer-prompt.md` (full task text + context)]
+[Dispatch `tester` through the AGENTS.md Dispatch Adapter with the brief from `tester-prompt.md`]
+Tester:
+  - Status: DONE (mode: red-step)
+  - Wrote failing tests in test/install-hook.test.ts (uncommitted in working tree)
+  - Command: npm test -- test/install-hook.test.ts
+  - Result: 5 failing ("installHook is not a function")
+
+[Dispatch `implementer` through the AGENTS.md Dispatch Adapter with the brief from `implementer-prompt.md` (full task text + `tester` red-step report + context)]
 
 Implementer: "Before I begin - should the hook be installed at user or system level?"
 
@@ -172,29 +186,34 @@ You: "User level (~/.config/opencode/hooks/)"
 
 Implementer: "Got it. Implementing now..."
 [Later] Implementer:
-  - Implemented install-hook command
-  - Added tests, 5/5 passing
-  - Self-review: found I missed --force flag, added it
-  - Committed (or staged in parallel mode)
+  - Started from tester's 5 red tests in test/install-hook.test.ts
+  - Implemented install-hook command, 5/5 passing
+  - Self-review: found I missed --force flag, added test + implementation
+  - Committed tester tests + implementation together (or staged in parallel mode)
 
 [Dispatch `task-reviewer` (spec) through the AGENTS.md Dispatch Adapter]
-Spec reviewer: PASS - all requirements met, nothing extra
+Spec reviewer: PASS - all requirements met, tester tests intact, nothing extra
 
 [Get git SHAs, dispatch `task-reviewer` (quality) through the AGENTS.md Dispatch Adapter]
 Quality reviewer: Strengths: good test coverage, clean. Findings: none. Verdict: PASS.
 
 [Mark Task 1 complete on the feature branch]
 
-Task 2: Recovery modes
+Task 2: Recovery modes (has behaviour to test)
 
-[Dispatch `implementer` through the AGENTS.md Dispatch Adapter with the brief from `implementer-prompt.md` (full task text + context)]
+[Dispatch `tester` through the AGENTS.md Dispatch Adapter with the brief from `tester-prompt.md`]
+Tester:
+  - Status: DONE (mode: red-step)
+  - Wrote 8 failing tests in test/recovery.test.ts
+
+[Dispatch `implementer` through the AGENTS.md Dispatch Adapter with the brief from `implementer-prompt.md` (full task text + `tester` report + context)]
 
 Implementer: [No questions, proceeds]
 Implementer:
   - Added verify/repair modes
   - 8/8 tests passing
   - Self-review: all good
-  - Committed (or staged in parallel mode)
+  - Committed tester tests + implementation together (or staged in parallel mode)
 
 [Dispatch `task-reviewer` (spec) through the AGENTS.md Dispatch Adapter]
 Spec reviewer: FAIL. Findings:

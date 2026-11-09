@@ -68,7 +68,7 @@ round 1 = the initial three-seat review from the Request phase (no extra batches
 total review batches = 3, counted out loud:
   round 1 = the initial three-seat review from the Request phase (no extra batch)
   verdict of round N FAIL, N < 3:
-    dispatch fresh fixer subagents from the implementation seats (`implementer` or `implementer-b`; one per finding cluster, max 2 files each; see `AGENTS.md` Review contracts for fixer seat routing); allow `patch` only for a finding that needs a 1-2 file edit with no test run
+    dispatch fresh fixer subagents from the implementation seats (`implementer`, or `implementer-deep` for hard clusters; one per finding cluster, max 2 files each; see `AGENTS.md` Review contracts for fixer seat routing); allow `patch` only for a finding that needs a 1-2 file edit with no test run
     implementation-seat fixers run tests before declaring done
     re-run verify skill checks (tests, lint, typecheck, build)
     round N+1 review = 3 fresh reviewer seats

@@ -3,7 +3,7 @@
 Provider: exclusively OpenCode Go (`opencode-go/*`, $10/mo tier). No local or non-Go providers are used in this profile. Most seats sit on high-allowance request tiers (6,320 to 45,300 req/5h). Two are scarce and reserved: `implementer-deep` (440) for complex tasks and hard bugs, and `reviewer-esc` (147) for escalation only.
 
 Effort defaults:
-- **Implementers:** each seat pins its own effort variant (`implementer` `#high`, `implementer-b` `#medium`, `implementer-deep` `#high`; `patch` also pins `#high`). `deepseek-v4.1-flash` exposes `low|high|max` only, so `#high` is its middle tier, while `reviewer-b` pins `#max`.
+- **Implementers and tester:** each seat pins its own effort variant (`implementer` `#high`, `implementer-deep` `#high`, `tester` `#high`; `patch` also pins `#high`). `deepseek-v4.1-flash` exposes `low|high|max` only, so `#high` is its middle tier, while `reviewer-b` pins `#max`.
 - **Reviewers:** `high` or higher reasoning effort (`#xhigh`, `#max`, `#high` on primaries; `#high` on every fallback and last resort).
 - **Scout:** `mimo-v2.6-flash` (catalog exposes a single default reasoning tier, no `#variant` suffix; fallbacks pin `#low`).
 
@@ -14,12 +14,12 @@ Only `opencode-go/*` models are permitted in this profile.
 | implementer | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | implementer | fallback | opencode | opencode-go/muse-spark-1.3-contributor | variant=medium | meta | trains |
 | implementer | last-resort | opencode | opencode-go/gpt-6-luna | variant=medium | openai | ok |
-| implementer-b | primary | opencode | opencode-go/muse-spark-1.3-contributor | variant=medium | meta | trains |
-| implementer-b | fallback | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
-| implementer-b | last-resort | opencode | opencode-go/gpt-6-luna | variant=medium | openai | ok |
 | implementer-deep | primary | opencode | opencode-go/gemini-4-argon | variant=high | google | ok |
 | implementer-deep | fallback | opencode | opencode-go/deepseek-v4.1-flash | variant=max | deepseek | ok |
 | implementer-deep | last-resort | opencode | opencode-go/muse-spark-1.3-contributor | variant=high | meta | trains |
+| tester | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
+| tester | fallback | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
+| tester | last-resort | opencode | opencode-go/gpt-6-luna | variant=medium | openai | ok |
 | patch | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | patch | fallback | opencode | opencode-go/muse-spark-1.3-contributor | variant=medium | meta | trains |
 | patch | last-resort | opencode | opencode-go/gpt-6-luna | variant=medium | openai | ok |

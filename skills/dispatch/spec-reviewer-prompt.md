@@ -53,8 +53,9 @@ dispatch through the AGENTS.md Dispatch Adapter (ad-hoc, NOT a seat): role `task
     - Did they solve the wrong problem?
     - Did they implement the right feature but wrong way?
 
-    **Glossary:**
+    **Glossary and Tester Tests:**
     - Does the change use the project glossary terms, and does it flag any new term that the glossary does not define?
+    - If `tester` wrote red tests for this task, did the implementer keep them intact (never weakening or deleting `tester` tests without a stated, valid reason in the report)?
 
     **Verify by reading code, not by trusting report.**
 

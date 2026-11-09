@@ -83,11 +83,11 @@ If the path IS ignored, record the local path and never use `git add -f`.
 
 1. Invoke `dispatch` and `tdd` via the `skill` tool.
 2. Work on the active feature branch (in the current checkout or dedicated worktree from Phase 1). Clean `git status` first; create the feature branch or worktree here only if Phase 1 was skipped (e.g. resume into Phase 3).
-3. For each plan task, dispatch one of the default implementation seats (`implementer` or `implementer-b`, or `implementer-deep` for tasks flagged complex) through the AGENTS.md Dispatch Adapter with the task brief from `dispatch/implementer-prompt.md`. When a GLOSSARY.md exists, the task brief carries the name of any glossary term the task must honor. The implementer seat follows TDD: failing test -> minimal implementation -> green -> commit (unless Parallel mode: stage only, main commits serially) -> receipt. Seat models and effort levels come from the active provider profile (native pin rendered at install for seats with an `opencode` rung; seats without one are reached only through `delegate_task`, see the Dispatch Adapter); fallback rungs live in its implementation rows.
-4. Independent tasks run in parallel as separate fresh subagents (parallel fan-out lives inside `dispatch`).
+3. For each plan task with behaviour to test, dispatch `tester` first through the AGENTS.md Dispatch Adapter with the red-step brief from `dispatch/tester-prompt.md` (writes failing tests in the working tree, runs them to confirm the failure reason, never writes production code, never commits). Then dispatch `implementer` (or `implementer-deep` for tasks flagged complex) through the AGENTS.md Dispatch Adapter with the task brief from `dispatch/implementer-prompt.md` and the `tester`'s report: `implementer` starts from the `tester`-written red tests, writes the minimal implementation to turn them green, refactors, runs the suite, and commits tests + implementation together (unless Parallel mode: stage only, main commits serially). Mechanical tasks with no new behaviour to test skip `tester` and dispatch `implementer` directly. When a GLOSSARY.md exists, the task brief carries the name of any glossary term the task must honor. Seat models and effort levels come from the active provider profile (native pin rendered at install for seats with an `opencode` rung; seats without one are reached only through `delegate_task`, see the Dispatch Adapter); fallback rungs live in the profile's role ladders.
+4. Independent tasks run in parallel as separate fresh `implementer` subagent instances (parallel fan-out lives inside `dispatch`).
 5. Stream task results to the user as they return (task name, pass/fail, key outputs).
 6. Task failure routes to `debug`: root cause first, then re-dispatch (escalating to `implementer-deep` when a bug resists standard fixes). Unfixable after the debug loop: escalate to user with failure context.
-7. Record the author family per task: after each task commit, append the commit sha, task, and the implementing rung's family (`family` column of the active provider profile) to the state artifact. In parallel mode the driver commits staged child work serially; record the child's rung family, not the driver's. Driver commits of spec, plan, or docs-only state record nothing (AGENTS.md Council Contract).
+7. Record the author family per task: after each task commit, append the commit sha, task, and the implementing rung's family (plus the `tester` rung's family when `tester`-written tests are committed in that commit; `family` column of the active provider profile) to the state artifact. In parallel mode the driver commits staged child work serially; record the child's rung family, not the driver's. Driver commits of spec, plan, or docs-only state record nothing (AGENTS.md Council Contract).
 
 Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug`. Debug gets at most 2 rotations; past that, STOP and escalate to the user with context. Escalation after exhausting caps is an explicit allowed stop point - the no-pause rule never overrides budget exhaustion.
 
@@ -98,7 +98,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 **Skill:** `verify`
 
 1. Invoke `verify` via the `skill` tool.
-2. Run test suite, lint, typecheck, build. If no suite exists, run what the project docs define and note it.
+2. Dispatch `tester` as a script runner through the AGENTS.md Dispatch Adapter to run the test suite, lint, typecheck, build, and project scripts (if no suite exists, run what the project docs define and note it), and act on its compressed pass/fail report (failing test/check names and first-error excerpts, never full raw logs in the main session).
 3. Cross-check implementation against the spec checklist.
 4. Fix failures or route to `debug`. Never proceed on failures.
 
@@ -119,7 +119,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 **Skill:** `make-ci-green`
 
 1. Invoke `make-ci-green` via the `skill` tool (skip if the repo has no CI/review bots; say "no CI to babysit" and move on).
-2. Watch checks and bot reviews. Real finding -> fresh fixer subagent -> rerun CI (record the fixer rung's family per commit in the state artifact, as in Phase 3). No new information -> no rerun. No blind loops, no flake chasing.
+2. Watch checks and bot reviews. Failing check logs and local reruns are inspected via `tester` (script runner, compressed failure report). Real finding -> fresh fixer subagent (`implementer`, or `implementer-deep` for hard clusters) -> rerun CI (record the fixer rung's family per commit in the state artifact, as in Phase 3). No new information -> no rerun. No blind loops, no flake chasing.
 
 ---
 
@@ -132,7 +132,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 2. Dispatch three fresh reviewer subagents on three independent model families (`reviewer-a`, `reviewer-b`, `reviewer-c` roles, rungs from the active provider profile). Each assumes the code is broken, hunts for bugs: spec compliance, edges, error handling, security, diff-vs-plan, regressions.
 3. Findings merge into one line per item: `path:line: emoji severity: problem. fix.`
 4. Round loop (max 3 rounds, never stops mid-loop):
-   - FAIL -> dispatch fresh implementation-seat fixer subagents (`implementer` or `implementer-b`, one per problem cluster, max 2 files each; see `AGENTS.md` Review contracts for fixer seat routing; record each fixer commit's rung family in the state artifact) -> push -> re-review next round.
+   - FAIL -> dispatch fresh implementation-seat fixer subagents (`implementer`, or `implementer-deep` for hard clusters, one per problem cluster, max 2 files each; see `AGENTS.md` Review contracts for fixer seat routing; record each fixer commit's rung family in the state artifact) -> push -> re-review next round.
    - PASS + green -> break, proceed to Phase 7.
    - CI freshness gate: if any council fix round pushed commits after the last green `make-ci-green` receipt, re-enter Phase 6.5 on the final HEAD before Phase 7. A stale green receipt never satisfies the gate.
    - If that 6.5 re-entry itself pushes further CI-repair commits, the final HEAD needs one delta council round on the changed files (counted against the 3-round budget); when the round budget is exhausted alongside red CI, STOP and escalate instead of landing unreviewed.
