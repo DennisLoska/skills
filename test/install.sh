@@ -1281,10 +1281,10 @@ case "$(readlink "$TMPROOT/rel-cx-69/state")" in
 esac
 
 mkdir -p "$TMPROOT/m-oc-69/state" "$TMPROOT/m-cx-69/state"
-printf 'pool\twindow_start\tcount\tstatus\tupdated_at\n' >"$TMPROOT/m-oc-69/state/quota-ledger.tsv"
-printf 'antigravity-argon\t2026-11-09T10:00:00Z\t3\tok\t2026-11-09T11:00:00Z\n' >>"$TMPROOT/m-oc-69/state/quota-ledger.tsv"
-printf 'pool\twindow_start\tcount\tstatus\tupdated_at\n' >"$TMPROOT/m-cx-69/state/quota-ledger.tsv"
-printf 'codex-spark\t2026-11-09T10:00:00Z\t7\tok\t2026-11-09T11:05:00Z\n' >>"$TMPROOT/m-cx-69/state/quota-ledger.tsv"
+printf 'antigravity-argon\tantigravity\t2026-11-09T10:00:00Z\t2026-11-09T15:00:00Z\timplementer\t429\n' >"$TMPROOT/m-oc-69/state/quota-ledger.tsv"
+printf 'codex-spark\tcodex\t2026-11-09T12:00:00Z\t2026-11-09T17:00:00Z\ttask-reviewer\t429\n' >>"$TMPROOT/m-oc-69/state/quota-ledger.tsv"
+printf 'codex-spark\tcodex\t2026-11-09T13:00:00Z\t2026-11-09T18:00:00Z\treviewer-a\t429\n' >"$TMPROOT/m-cx-69/state/quota-ledger.tsv"
+printf 'opencode-pro\topencode\t2026-11-09T11:00:00Z\t2026-11-09T16:00:00Z\treviewer-c\t429\n' >>"$TMPROOT/m-cx-69/state/quota-ledger.tsv"
 
 rc=0
 OPENCODE_CONFIG="$TMPROOT/m-oc-69" CODEX_HOME="$TMPROOT/m-cx-69" "$INSTALL" --target codex >"$TMPROOT/merge-noforce-69.out" 2>"$TMPROOT/merge-noforce-69.err" || rc=$?
@@ -1295,8 +1295,11 @@ rc=0
 OPENCODE_CONFIG="$TMPROOT/m-oc-69" CODEX_HOME="$TMPROOT/m-cx-69" "$INSTALL" --force --target codex >"$TMPROOT/merge-force-69.out" 2>"$TMPROOT/merge-force-69.err" || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/merge-force-69.err" >&2; fail "pre-existing per-target ledger merges under --force (got $rc)"; }
 [ -L "$TMPROOT/m-cx-69/state" ] || fail "merged install links state/ to the shared state dir"
-grep -q "$(printf '^antigravity-argon\t')" "$TMPROOT/m-oc-69/state/quota-ledger.tsv" || fail "merge keeps the shared ledger row"
-grep -q "$(printf '^codex-spark\t')" "$TMPROOT/m-oc-69/state/quota-ledger.tsv" || fail "merge keeps the per-target ledger row"
+grep -qxF "$(printf 'antigravity-argon\tantigravity\t2026-11-09T10:00:00Z\t2026-11-09T15:00:00Z\timplementer\t429')" "$TMPROOT/m-oc-69/state/quota-ledger.tsv" || fail "merge keeps the shared ledger row"
+grep -qxF "$(printf 'opencode-pro\topencode\t2026-11-09T11:00:00Z\t2026-11-09T16:00:00Z\treviewer-c\t429')" "$TMPROOT/m-oc-69/state/quota-ledger.tsv" || fail "merge keeps the per-target ledger row"
+grep -qxF "$(printf 'codex-spark\tcodex\t2026-11-09T13:00:00Z\t2026-11-09T18:00:00Z\treviewer-a\t429')" "$TMPROOT/m-oc-69/state/quota-ledger.tsv" || fail "merge retains the later retry_after per pool"
+! grep -q '2026-11-09T17:00:00Z' "$TMPROOT/m-oc-69/state/quota-ledger.tsv" || fail "merge supersedes the earlier retry_after"
+! grep -q 'window_start' "$TMPROOT/m-oc-69/state/quota-ledger.tsv" || fail "merge does not write a foreign ledger header"
 
 mkdir -p "$TMPROOT/nl-cx-69/state"
 printf 'not a ledger\n' >"$TMPROOT/nl-cx-69/state/host.sqlite"
@@ -1340,5 +1343,36 @@ CODEX_HOME="$TMPROOT/cap-cx-bad-70" OPENCODE_CONFIG="$TMPROOT/cap-oc-70" "$INSTA
 grep -qF 'exceeds 32768 bytes' "$TMPROOT/cap-bad-70.err" || fail "post-compaction oversize profile reports the 32768-byte limit"
 [ ! -e "$TMPROOT/cap-cx-bad-70/.harness-manifest" ] || fail "refused codex install writes no manifest"
 pass "size-cap guards compact prose with a note and refuse oversized Antigravity and post-compaction Codex/Claude files with exit 2"
+
+# 71. Directory locks and ambient preflight variables must not prevent safe installs.
+mkdir -p "$TMPROOT/lk-oc-71/state/quota-ledger.lock" "$TMPROOT/lk-cx-71/state/quota-ledger.lock"
+touch -t 202001010000 "$TMPROOT/lk-oc-71/state/quota-ledger.lock" "$TMPROOT/lk-cx-71/state/quota-ledger.lock"
+printf 'agy-opus\tantigravity\t2026-11-09T10:00:00Z\t2026-11-09T15:00:00Z\treviewer-b\t429\n' >"$TMPROOT/lk-cx-71/state/quota-ledger.tsv"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/lk-oc-71" CODEX_HOME="$TMPROOT/lk-cx-71" "$INSTALL" --force --target codex >"$TMPROOT/lk-71.out" 2>"$TMPROOT/lk-71.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/lk-71.err" >&2; fail "stale ledger directory locks are broken (got $rc)"; }
+[ -L "$TMPROOT/lk-cx-71/state" ] || fail "stale lock migration links target state"
+[ ! -e "$TMPROOT/lk-oc-71/state/quota-ledger.lock" ] || fail "shared ledger lock is released"
+grep -q "$(printf '^agy-opus\t')" "$TMPROOT/lk-oc-71/state/quota-ledger.tsv" || fail "stale lock migration preserves ledger row"
+
+mkdir -p "$TMPROOT/act-oc-71/state" "$TMPROOT/act-cx-71/state/quota-ledger.lock"
+printf 'agy-opus\tantigravity\t2026-11-09T10:00:00Z\t2026-11-09T15:00:00Z\treviewer-b\t429\n' >"$TMPROOT/act-cx-71/state/quota-ledger.tsv"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/act-oc-71" CODEX_HOME="$TMPROOT/act-cx-71" "$INSTALL" --force --target codex >"$TMPROOT/act-71.out" 2>"$TMPROOT/act-71.err" || rc=$?
+[ "$rc" -eq 1 ] || fail "active ledger directory lock refuses installation (got $rc)"
+[ -f "$TMPROOT/act-cx-71/state/quota-ledger.tsv" ] || fail "active lock refusal preserves source ledger"
+[ ! -L "$TMPROOT/act-cx-71/state" ] || fail "active lock refusal leaves source state unlinked"
+
+rc=0
+HARNESS_INTERNAL_PREFLIGHT=1 OPENCODE_CONFIG="$TMPROOT/amb1-71" "$INSTALL" >"$TMPROOT/amb1-71.out" 2>"$TMPROOT/amb1-71.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/amb1-71.err" >&2; fail "ambient preflight=1 install exits 0 (got $rc)"; }
+[ -f "$TMPROOT/amb1-71/.harness-manifest" ] || fail "ambient preflight=1 installs manifest"
+[ ! -s "$TMPROOT/amb1-71.err" ] || fail "ambient preflight=1 emits no errors"
+rc=0
+HARNESS_INTERNAL_PREFLIGHT=yes OPENCODE_CONFIG="$TMPROOT/amb2-71" "$INSTALL" >"$TMPROOT/amb2-71.out" 2>"$TMPROOT/amb2-71.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/amb2-71.err" >&2; fail "ambient preflight=yes install exits 0 (got $rc)"; }
+[ -f "$TMPROOT/amb2-71/.harness-manifest" ] || fail "ambient preflight=yes installs manifest"
+[ ! -s "$TMPROOT/amb2-71.err" ] || fail "ambient preflight=yes emits no errors"
+pass "ledger directory locks (stale break, active refusal, release) and ambient preflight env immunity"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

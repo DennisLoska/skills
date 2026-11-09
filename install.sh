@@ -52,7 +52,14 @@ unknown_target() {
 
 force=0
 prune=0
-preflight_only="${HARNESS_INTERNAL_PREFLIGHT:-0}"
+pf_token_file=""
+preflight_only=0
+if [ -n "${HARNESS_PREFLIGHT_TOKEN_FILE:-}" ] && [ -n "${HARNESS_PREFLIGHT_TOKEN:-}" ] &&
+   [ -f "$HARNESS_PREFLIGHT_TOKEN_FILE" ] && [ ! -L "$HARNESS_PREFLIGHT_TOKEN_FILE" ] &&
+   [ "$(cat "$HARNESS_PREFLIGHT_TOKEN_FILE" 2>/dev/null || true)" = "$HARNESS_PREFLIGHT_TOKEN" ]; then
+  preflight_only=1
+fi
+unset HARNESS_PREFLIGHT_TOKEN_FILE HARNESS_PREFLIGHT_TOKEN HARNESS_INTERNAL_PREFLIGHT
 profile=tri
 profile_given=0
 profile_file_arg=""
@@ -170,7 +177,7 @@ fi
 
 # When multiple targets are selected, run each target in its own clean invocation
 # so per-target destination validation, manifest tracking, and temp cleanup stay isolated.
-# An atomic preflight pass (HARNESS_INTERNAL_PREFLIGHT=1) runs across all targets first so any
+# A nonce-guarded atomic preflight pass runs across all targets first so any
 # invalid destination or collision aborts before any target is mutated.
 if [ "${#selected_targets[@]}" -gt 1 ]; then
   sub_args=()
@@ -181,13 +188,20 @@ if [ "${#selected_targets[@]}" -gt 1 ]; then
   elif [ "$profile_file_given" -eq 1 ]; then
     sub_args+=("--profile-file" "$profile_file_arg")
   fi
+  trap 'rm -f -- ${pf_token_file:+"$pf_token_file"}' EXIT
+  pf_token_file="$(mktemp "${TMPDIR:-/tmp}/harness-pf.XXXXXXXX")"
+  chmod 0600 "$pf_token_file"
+  pf_token="$$-$(date +%s)-${RANDOM:-0}"
+  printf '%s' "$pf_token" >"$pf_token_file"
   for t in "${selected_targets[@]}"; do
     if [ "${#sub_args[@]}" -gt 0 ]; then
-      HARNESS_INTERNAL_PREFLIGHT=1 "$SRC/install.sh" "${sub_args[@]}" --target "$t"
+      HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" "$SRC/install.sh" "${sub_args[@]}" --target "$t"
     else
-      HARNESS_INTERNAL_PREFLIGHT=1 "$SRC/install.sh" --target "$t"
+      HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" "$SRC/install.sh" --target "$t"
     fi
   done
+  rm -f -- "$pf_token_file"
+  pf_token_file=""
   [ "$preflight_only" -eq 1 ] && exit 0
   for t in "${selected_targets[@]}"; do
     if [ "${#sub_args[@]}" -gt 0 ]; then
@@ -574,13 +588,119 @@ TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
 staged_profile=""
 ledger_tmp=""
 rendered_files=()
+owned_locks=()
 cleanup() {
-  rm -f -- "$TMP_MANIFEST" ${staged_profile:+"$staged_profile"} ${ledger_tmp:+"$ledger_tmp"}
+  local lk
+  rm -f -- "$TMP_MANIFEST" ${pf_token_file:+"$pf_token_file"} ${staged_profile:+"$staged_profile"} ${ledger_tmp:+"$ledger_tmp"}
   if [ "${#rendered_files[@]}" -gt 0 ]; then
     rm -f -- "${rendered_files[@]}"
   fi
+  if [ "${#owned_locks[@]}" -gt 0 ]; then
+    for lk in "${owned_locks[@]}"; do
+      if [ -n "$lk" ] && [ -d "$lk" ] && [ ! -L "$lk" ]; then
+        rmdir "$lk" 2>/dev/null || true
+      fi
+    done
+  fi
 }
 trap cleanup EXIT
+
+lock_age_seconds() {
+  local d="$1" mtime="" now
+  now="$(date +%s)"
+  mtime="$(stat -c %Y "$d" 2>/dev/null || stat -f %m "$d" 2>/dev/null || printf '%s' "$now")"
+  case "${mtime#-}" in
+    ''|*[!0-9]*) mtime="$now" ;;
+  esac
+  printf '%d' "$((now - mtime))"
+}
+
+check_lock_path_struct() {
+  local lockpath="$1"
+  local lk_entries=()
+  if [ ! -e "$lockpath" ] && [ ! -L "$lockpath" ]; then
+    return 0
+  fi
+  if [ -L "$lockpath" ] || [ ! -d "$lockpath" ]; then
+    printf 'install.sh: ledger lock path is not a directory: %s\n' "$lockpath" >&2
+    exit 1
+  fi
+  shopt -s nullglob dotglob
+  lk_entries=("$lockpath"/*)
+  shopt -u nullglob dotglob
+  if [ "${#lk_entries[@]}" -gt 0 ]; then
+    printf 'install.sh: ledger lock directory is not empty: %s\n' "$lockpath" >&2
+    exit 1
+  fi
+}
+
+check_lock_path_preflight() {
+  local lockpath="$1" _w
+  if [ ! -e "$lockpath" ] && [ ! -L "$lockpath" ]; then
+    return 0
+  fi
+  check_lock_path_struct "$lockpath"
+  if [ "$(lock_age_seconds "$lockpath")" -le 60 ]; then
+    for _w in 1 2 3; do
+      sleep 0.1
+      if [ ! -e "$lockpath" ] && [ ! -L "$lockpath" ]; then
+        return 0
+      fi
+    done
+    check_lock_path_struct "$lockpath"
+    if { [ -e "$lockpath" ] || [ -L "$lockpath" ]; } && [ "$(lock_age_seconds "$lockpath")" -le 60 ]; then
+      printf 'install.sh: quota ledger lock is active: %s\n' "$lockpath" >&2
+      exit 1
+    fi
+  fi
+}
+
+acquire_ledger_lock() {
+  local lockdir="$1" acquired=0 _w
+  if mkdir "$lockdir" 2>/dev/null; then
+    acquired=1
+  else
+    check_lock_path_struct "$lockdir"
+    if [ -d "$lockdir" ] && [ "$(lock_age_seconds "$lockdir")" -gt 60 ]; then
+      if ! rmdir "$lockdir" 2>/dev/null; then
+        if [ -e "$lockdir" ] || [ -L "$lockdir" ]; then
+          printf 'install.sh: ledger lock directory is not empty: %s\n' "$lockdir" >&2
+          exit 1
+        fi
+      fi
+      if mkdir "$lockdir" 2>/dev/null; then
+        acquired=1
+      fi
+    fi
+    if [ "$acquired" -eq 0 ]; then
+      for _w in 1 2 3 4 5; do
+        sleep 0.1
+        if mkdir "$lockdir" 2>/dev/null; then
+          acquired=1
+          break
+        fi
+        check_lock_path_struct "$lockdir"
+      done
+    fi
+  fi
+  if [ "$acquired" -eq 0 ]; then
+    printf 'install.sh: quota ledger lock is active: %s\n' "$lockdir" >&2
+    exit 1
+  fi
+  owned_locks+=("$lockdir")
+}
+
+release_ledger_lock() {
+  local lockdir="$1" idx
+  rmdir "$lockdir"
+  if [ "${#owned_locks[@]}" -gt 0 ]; then
+    for idx in "${!owned_locks[@]}"; do
+      if [ "${owned_locks[$idx]}" = "$lockdir" ]; then
+        owned_locks[$idx]=""
+      fi
+    done
+  fi
+}
 
 if [ ! -d "$SRC/agents" ] || [ ! -d "$SRC/skills" ] || [ ! -f "$SRC/AGENTS.md" ] ||
    [ ! -f "$SRC/NOTICE" ] || [ ! -f "$SRC/LICENSE" ]; then
@@ -898,6 +1018,12 @@ if [ "$TARGET_HOST" = "opencode" ] || [ "$DEST" = "$SHARED_OC_CANON" ]; then
 else
   if [ -L "$SHARED_STATE" ] || { [ -e "$SHARED_STATE" ] && [ ! -d "$SHARED_STATE" ]; }; then
     parent_blocks+=("$SHARED_STATE")
+  elif [ -d "$SHARED_STATE" ]; then
+    if [ -L "$SHARED_STATE/quota-ledger.tsv" ] || { [ -e "$SHARED_STATE/quota-ledger.tsv" ] && [ ! -f "$SHARED_STATE/quota-ledger.tsv" ]; }; then
+      printf 'install.sh: ledger path is not a regular file: %s\n' "$SHARED_STATE/quota-ledger.tsv" >&2
+      exit 1
+    fi
+    check_lock_path_struct "$SHARED_STATE/quota-ledger.lock"
   fi
   if [ -L "$DEST/state" ]; then
     if [ "$(readlink "$DEST/state")" != "$SHARED_STATE" ] && [ "$(canonical_dest "$DEST/state")" != "$SHARED_STATE" ]; then
@@ -911,7 +1037,15 @@ else
       for se in "${state_entries[@]}"; do
         se_base="$(basename -- "$se")"
         case "$se_base" in
-          quota-ledger.tsv|quota-ledger.lock) ;;
+          quota-ledger.tsv)
+            if [ -L "$se" ] || [ ! -f "$se" ]; then
+              printf 'install.sh: ledger path is not a regular file: %s\n' "$se" >&2
+              exit 1
+            fi
+            ;;
+          quota-ledger.lock)
+            check_lock_path_struct "$se"
+            ;;
           *)
             printf 'install.sh: refusing to replace state directory containing non-ledger files: %s\n' "$DEST/state" >&2
             exit 1
@@ -964,6 +1098,12 @@ if [ "${#dir_targets[@]}" -gt 0 ] && [ "$force" -eq 1 ]; then
     printf 'install.sh: directory at target cannot be replaced: %s\n' "$dt" >&2
   done
   exit 1
+fi
+
+if [ "$TARGET_HOST" != "opencode" ] && [ "$DEST" != "$SHARED_OC_CANON" ] &&
+   [ -d "$DEST/state" ] && [ ! -L "$DEST/state" ]; then
+  check_lock_path_preflight "$DEST/state/quota-ledger.lock"
+  check_lock_path_preflight "$SHARED_STATE/quota-ledger.lock"
 fi
 
 if [ "$preflight_only" -eq 1 ]; then
@@ -1028,31 +1168,41 @@ if [ "$TARGET_HOST" = "opencode" ] || [ "$DEST" = "$SHARED_OC_CANON" ]; then
 else
   mkdir -p "$SHARED_STATE"
   if [ -d "$DEST/state" ] && [ ! -L "$DEST/state" ]; then
+    acquire_ledger_lock "$SHARED_STATE/quota-ledger.lock"
+    acquire_ledger_lock "$DEST/state/quota-ledger.lock"
     if [ -f "$DEST/state/quota-ledger.tsv" ]; then
       if [ ! -f "$SHARED_STATE/quota-ledger.tsv" ]; then
         mv -- "$DEST/state/quota-ledger.tsv" "$SHARED_STATE/quota-ledger.tsv"
       else
-        ledger_tmp="$(mktemp "$SHARED_STATE/quota-ledger.XXXXXXXX")"
+        ledger_tmp="$SHARED_STATE/.quota-ledger.$$.tmp"
+        rm -f -- "$ledger_tmp"
         awk -F'\t' '
-          $1 == "pool" && $2 == "window_start" { next }
-          NF >= 2 && $1 != "" {
-            k = $1 "\t" $2
-            c = $3 + 0
-            u = $5
+          BEGIN { n = 0; want_header = 0 }
+          $0 == "" { next }
+          $1 == "pool" && $2 == "provider" && $3 == "exhausted_at" {
+            want_header = 1
+            next
+          }
+          $1 != "" {
+            k = $1
+            e = $3 ""
+            r = $4 ""
             if (!(k in seen)) {
               order[++n] = k
               seen[k] = 1
-              best_c[k] = c
-              best_u[k] = u
+              best_r[k] = r
+              best_e[k] = e
               best_line[k] = $0
-            } else if (c > best_c[k] || (c == best_c[k] && u > best_u[k])) {
-              best_c[k] = c
-              best_u[k] = u
+            } else if (r > best_r[k] || (r == best_r[k] && e > best_e[k])) {
+              best_r[k] = r
+              best_e[k] = e
               best_line[k] = $0
             }
           }
           END {
-            print "pool\twindow_start\tcount\tstatus\tupdated_at"
+            if (want_header) {
+              print "pool\tprovider\texhausted_at\tretry_after\tsource_role\tnote"
+            }
             for (i = 1; i <= n; i++) {
               print best_line[order[i]]
             }
@@ -1060,15 +1210,22 @@ else
         ' "$SHARED_STATE/quota-ledger.tsv" "$DEST/state/quota-ledger.tsv" >"$ledger_tmp"
         chmod 0644 "$ledger_tmp"
         mv -f -- "$ledger_tmp" "$SHARED_STATE/quota-ledger.tsv"
-        rm -f -- "$DEST/state/quota-ledger.tsv"
+        ledger_tmp=""
       fi
+      rm -f -- "$DEST/state/quota-ledger.tsv"
     fi
-    rm -f -- "$DEST/state/quota-ledger.lock"
+    release_ledger_lock "$DEST/state/quota-ledger.lock"
     rmdir "$DEST/state"
+    ln -snf "$SHARED_STATE" "$DEST/state"
+    release_ledger_lock "$SHARED_STATE/quota-ledger.lock"
   elif [ -L "$DEST/state" ]; then
-    rm -f -- "$DEST/state"
+    if [ "$(readlink "$DEST/state")" != "$SHARED_STATE" ]; then
+      rm -f -- "$DEST/state"
+      ln -snf "$SHARED_STATE" "$DEST/state"
+    fi
+  else
+    ln -snf "$SHARED_STATE" "$DEST/state"
   fi
-  ln -snf "$SHARED_STATE" "$DEST/state"
 fi
 for i in "${!rels[@]}"; do
   target="$DEST/${rels[$i]}"
