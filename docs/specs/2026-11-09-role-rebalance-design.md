@@ -105,3 +105,58 @@ The `implementer-b` rows are removed. New `tester` rows: deepseek-v4.1-flash hig
   - A missing recorded profile file exits 2.
   - The new `tri` pins: scout `model: opencode-go/mimo-v2.6-flash`, implementer `model: opencode-go/gemini-4-argon#high`, tester `model: opencode-go/deepseek-v4.1-flash#high`, reviewer-a `model: opencode-go/kimi-k3.1-pro#high`, reviewer-esc `model: opencode-go/deepseek-v4-pro`, implementer-deep has no pin and prints the note.
 - The harness grep stays empty, and `implementer-b` appears nowhere outside `docs/` history.
+
+## Revision 2 (user feedback, 14:04)
+
+Supersedes the council rows, seat-A rationale and pins above where they conflict.
+
+1. **No OpenAI model through OpenCode Go** in `tri`/`quad`. OpenAI models come from the Codex subscription only. The legacy `opencode-go` profile stays as it is: it's the single-subscription option.
+2. **The council gets the strongest model of each frontier family:** Gemini 4 Argon (Google), Claude Opus 5.5 (Anthropic) and GPT-6 Astra (OpenAI, Codex's "frontier intelligence" model), all at high effort. Review is short output with the highest stakes, so this is where frontier tokens pay off most. At most 3 rounds × 3 seats + 1 escalation per PR.
+   - Author independence still holds through the author-family PASS rule: Argon authors under `tri`, so the non-author vote comes from Opus or Astra.
+   - Escalation moves to the best open-weight family, unused by any council seat.
+3. **Claude Code (Anthropic subscription) is a supported provider:**
+   - T3 provider instance id: `claudeAgent`.
+   - Effort option id: `effort`, with values `low|medium|high|xhigh|max|ultracode|ultrathink`.
+   - Models: `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1`.
+   - The installer accepts provider ids matching `^[A-Za-z0-9][A-Za-z0-9-]*$`, so camelCase ids such as `claudeAgent` are valid. Family stays lowercase.
+   - New profile `providers/quad.md` = `tri` plus Claude Code. Anthropic roles run primarily on `claudeAgent`, with Antigravity's Claude as fallback, because Antigravity's Claude limits are low.
+4. **The README gets setup instructions for every provider** (OpenCode Go, Antigravity, Codex/ChatGPT, Claude Code/Anthropic), plus:
+   - a "which profile do I pick" table: only OpenCode Go -> `opencode-go`; Antigravity + Codex + Go -> `tri`; plus Claude Code -> `quad`; anything else -> copy one and use `--profile-file`;
+   - a provider reference table: instance id, effort option id and values, example model ids, how to connect;
+   - the council's minimum of two families;
+   - hosts: OpenCode natively, or a T3 Code session on any provider as driver.
+
+### `tri` council and escalation (revision 2)
+
+| role | primary | fallback | last-resort |
+| --- | --- | --- | --- |
+| reviewer-a (Google) | antigravity `gemini-4-argon` high | opencode `gemini-4-argon` high | opencode `qwen3.8-max` - |
+| reviewer-b (Anthropic) | antigravity `claude-opus-5-5` high | antigravity `claude-sonnet-5-5` high | opencode `claude-haiku-5-5` high |
+| reviewer-c (OpenAI) | codex `gpt-6-astra` high | codex `gpt-6.1-sol` high | codex `gpt-6-sol` high |
+| reviewer-esc | opencode `kimi-k3.1-pro` high | opencode `deepseek-v4-pro` - | opencode `mimo-v2.6-pro` - |
+
+The other `tri` rows stay as listed above. qwen=alibaba, kimi=moonshot, mimo=xiaomi.
+
+### `quad` (= `tri` with these rows replaced)
+
+| role | primary | fallback | last-resort |
+| --- | --- | --- | --- |
+| driver (advisory) | codex `gpt-6.1-sol` medium | claudeAgent `claude-sonnet-5-5` medium | - |
+| implementer-deep | claudeAgent `claude-opus-5-5` high | codex `gpt-6-astra` high | antigravity `claude-opus-5-5` high |
+| reviewer-b (Anthropic) | claudeAgent `claude-opus-5-5` high | antigravity `claude-opus-5-5` high | claudeAgent `claude-sonnet-5-5` high |
+
+`claudeAgent` effort is written `effort=high` / `effort=medium`.
+
+### Pins and success criteria (revision 2)
+
+- **`tri` pins:**
+  - scout `model: opencode-go/mimo-v2.6-flash`
+  - implementer `model: opencode-go/gemini-4-argon#high`
+  - tester `model: opencode-go/deepseek-v4.1-flash#high`
+  - patch `model: opencode-go/deepseek-v4.1-flash#high`
+  - reviewer-a `model: opencode-go/gemini-4-argon#high`
+  - reviewer-b `model: opencode-go/claude-haiku-5-5#high`
+  - reviewer-esc `model: opencode-go/kimi-k3.1-pro#high`
+  - `implementer-deep` and `reviewer-c` get no pin; the install prints their `note:` lines.
+- **`quad` installs cleanly** (validation accepts `claudeAgent`). `reviewer-b` and `implementer-deep` get no pin there.
+- **No OpenCode GPT rows:** `grep -n 'opencode-go/gpt' providers/tri.md providers/quad.md` returns nothing.
