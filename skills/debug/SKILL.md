@@ -283,6 +283,7 @@ These techniques are part of this skill and available in this directory:
 - **`condition-based-waiting.md`** - replace arbitrary timeouts with condition polling; `condition-based-waiting-example.ts` holds the complete implementation, `find-polluter.sh` bisection-computes which test creates unwanted state
 
 **Related skills and seats:**
+- **tester** (`agents/tester.md`) - test author (red step) and script runner for reproducing test/CI failures with compressed pass/fail excerpts
 - **implementer-deep** (`agents/implementer-deep.md`) - heavy-reasoning seat dispatched when a bug resists standard implementer fixes or spans complex multi-file state
 - **tdd** - for creating the failing test case (Phase 4, step 1): invoke via the skill tool
 - **verify** - confirm the fix worked before claiming success: invoke via the skill tool

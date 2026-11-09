@@ -5,7 +5,7 @@ Use this template when dispatching a spec compliance reviewer subagent.
 **Purpose:** verify the implementer built what was requested (nothing more, nothing less)
 
 ```
-subagent dispatch (ad-hoc, NOT a seat): type general, ALWAYS pass an explicit `model` field from the AGENTS.md "Task-stage reviewers (spec + quality)" rung. Never rely on inherit - it would run the main session model. Fresh subagent per review, fresh context per round.
+dispatch through the AGENTS.md Dispatch Adapter (ad-hoc, NOT a seat): role `task-reviewer` from the active provider profile (`PROVIDERS.md`), skipping any rung whose family wrote the code. ALWAYS name a rung. Never rely on inherit - it would run the main session model. Native path: a general-purpose subagent (`type general`) with an explicit `model`; delegate path: role `review`, no contract line (both per the Dispatch Adapter's `task-reviewer` rule). Fresh subagent per review, fresh context per round.
   description: "Review spec compliance for Task N"
   prompt: |
     You are reviewing whether an implementation matches its specification.
@@ -53,8 +53,9 @@ subagent dispatch (ad-hoc, NOT a seat): type general, ALWAYS pass an explicit `m
     - Did they solve the wrong problem?
     - Did they implement the right feature but wrong way?
 
-    **Glossary:**
+    **Glossary and Tester Tests:**
     - Does the change use the project glossary terms, and does it flag any new term that the glossary does not define?
+    - If `tester` wrote red tests for this task, did the implementer keep them intact (never weakening or deleting `tester` tests without a stated, valid reason in the report)?
 
     **Verify by reading code, not by trusting report.**
 

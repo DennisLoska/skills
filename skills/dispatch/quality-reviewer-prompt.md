@@ -7,7 +7,7 @@ Use this template when dispatching a code quality reviewer subagent.
 **Only dispatch after spec compliance review passes.** One owner for the review contract: use the reviewer instruction block from `skills/council/SKILL.md` verbatim for this single reviewer (do not invoke the council skill via the skill tool, which would start the full 3-seat branch loop), then dispatch a fresh quality reviewer subagent:
 
 ```
-subagent dispatch (ad-hoc, NOT a seat): type general, ALWAYS pass an explicit `model` field from the AGENTS.md "Task-stage reviewers (spec + quality)" rung. Never rely on inherit - it would run the main session model. Fresh subagent per review, fresh context per round.
+dispatch through the AGENTS.md Dispatch Adapter (ad-hoc, NOT a seat): role `task-reviewer` from the active provider profile (`PROVIDERS.md`), skipping any rung whose family wrote the code. ALWAYS name a rung. Never rely on inherit - it would run the main session model. Native path: a general-purpose subagent (`type general`) with an explicit `model`; delegate path: role `review`, no contract line (both per the Dispatch Adapter's `task-reviewer` rule). Fresh subagent per review, fresh context per round.
   description = quality review for Task N
 
   Give the reviewer (from the council instruction block):

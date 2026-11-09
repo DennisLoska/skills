@@ -3,9 +3,12 @@
 Use this template when dispatching an implementer subagent.
 
 ```
-subagent dispatch: agent `implementer` or `implementer-b` for standard tasks, `implementer-deep` for complex/escalated tasks (seat models and effort levels pinned in agents/implementer*.md; on a usage-limit/429 error re-dispatch the same agent id with an explicit `model` override per AGENTS.md)
+dispatch through the AGENTS.md Dispatch Adapter: role `implementer` for standard tasks, `implementer-deep` for complex/escalated tasks (seat models and effort levels per the active provider profile; on a usage-limit/429 error or unreachable rung re-dispatch the same role on the next rung per the AGENTS.md Routing Rules)
   description: "Implement Task N: [task name]"
   prompt: |
+    Role contract: read <harness-dir>/agents/<seat>.md; follow its body; its permissions block is your policy and you enforce it yourself.
+    Rung: <provider>/<model> (<effort>), privacy: <ok|trains>.
+
     You are implementing Task N: [task name]
 
     ## Dispatch mode
@@ -14,6 +17,10 @@ subagent dispatch: agent `implementer` or `implementer-b` for standard tasks, `i
     ## Task Description
 
     [FULL TEXT of task from plan - paste it here, don't make subagent read file]
+
+    ## Tester Red-Step Report (if any)
+
+    [Paste `tester` receipt here (test files written in the working tree, run command, failure excerpt), or "none (mechanical / standalone task - write failing tests yourself first)"]
 
     ## Context
 
@@ -35,12 +42,11 @@ subagent dispatch: agent `implementer` or `implementer-b` for standard tasks, `i
 
     Once you're clear on requirements:
     1. Run `git branch --show-current` and STOP with `wrong-branch.` if the branch is `main` or `master`. This branch check is the branch protection; do not rely on shell deny patterns.
-    2. Implement exactly what the task specifies
-    3. Write tests (invoke the tdd skill via the skill tool if the task says to)
-    4. Verify implementation works
-    5. If `Parallel: true` (Dispatch mode): leave all changes STAGED, do not commit, and note `staged-uncommitted` in your receipt. If `Parallel: false`: make one conventional commit (feat|fix|refactor|test|chore(scope): subject, max 50 chars) and never push
-    6. Self-review (see below)
-    7. Report back
+    2. If `tester` wrote failing red tests in the working tree (see Tester Red-Step Report above), start from them: inspect them, run them to see the expected failure, write the minimal production implementation to make them pass, and refactor. You may add additional tests, but NEVER weaken or delete `tester`-written tests without stating the reason in your report. If no `tester` red tests were provided, do your own red-green-refactor (write the failing test first, watch it fail, then implement).
+    3. Verify implementation works across the touched suite, lint, typecheck, and build.
+    4. If `Parallel: true` (Dispatch mode): leave all changes STAGED, do not commit, and note `staged-uncommitted` in your receipt. If `Parallel: false`: make one conventional commit (feat|fix|refactor|test|chore(scope): subject, max 50 chars) committing `tester` tests and your implementation together, and never push.
+    5. Self-review (see below)
+    6. Report back
 
     Work from: [directory] (current checkout or worktree on the feature branch)
 
@@ -75,7 +81,7 @@ subagent dispatch: agent `implementer` or `implementer-b` for standard tasks, `i
     **How to escalate:** Report back with status BLOCKED or NEEDS_CONTEXT. Describe
     specifically what you're stuck on, what you've tried, and what kind of help you need.
     The controller can provide more context, re-dispatch on a stronger rung of the
-    AGENTS.md ladder, or break the task into smaller pieces.
+    provider-profile ladder, or break the task into smaller pieces.
 
     ## Before Reporting Back: Self-Review
 
@@ -98,7 +104,7 @@ subagent dispatch: agent `implementer` or `implementer-b` for standard tasks, `i
 
     **Testing:**
     - Do tests actually verify behavior (not just mock behavior)?
-    - Did I follow tdd if required?
+    - Did I preserve all `tester`-written tests (or state any reason in the report)?
     - Are tests comprehensive?
 
     If you find issues during self-review, fix them now before reporting.
@@ -111,7 +117,7 @@ subagent dispatch: agent `implementer` or `implementer-b` for standard tasks, `i
     - What you tested and test results
     - Files changed
     - Self-review findings (if any)
-    - Any issues or concerns
+    - Any issues or concerns (including any stated reason if a `tester` test was adjusted)
 
     Use DONE_WITH_CONCERNS if you completed the work but have doubts about correctness.
     Use BLOCKED if you cannot complete the task. Use NEEDS_CONTEXT if you need

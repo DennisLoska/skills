@@ -68,6 +68,8 @@ digraph tdd_cycle {
 }
 ```
 
+**Seat split under `dispatch`:** for a plan task with behaviour to test, `dispatch` runs the **RED** step on the `tester` seat (`dispatch/tester-prompt.md` - writes failing tests, confirms they fail for the right reason, never writes production code, leaves tests uncommitted in the working tree) and then dispatches `implementer` (`dispatch/implementer-prompt.md`) with the `tester`'s report to run **GREEN** and **REFACTOR** and commit tests + implementation together (`implementer` may add tests, and never weakens or deletes `tester`-written tests without a stated reason in its report). When `implementer` runs without `tester` (mechanical tasks or standalone runs), `implementer` executes the full RED -> GREEN -> REFACTOR cycle itself.
+
 ### RED - Write Failing Test
 
 Write one minimal test showing what should happen.

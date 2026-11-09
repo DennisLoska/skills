@@ -36,11 +36,11 @@ This structure drives task decomposition. Each task should produce self-containe
 ## Bite-Sized Task Granularity
 
 **Each step is one action (2-5 minutes):**
-- "Write the failing test" - step
-- "Run it to make sure it fails" - step
-- "Implement the minimal code to make the test pass" - step
-- "Run the tests and make sure they pass" - step
-- "Commit" - step
+- "Write the failing test" - step (`tester` red step under `dispatch`, uncommitted)
+- "Run it to make sure it fails" - step (`tester` verifies red)
+- "Implement the minimal code to make the test pass" - step (`implementer` green step)
+- "Run the tests and make sure they pass" - step (`implementer` verifies green)
+- "Commit" - step (`implementer` commits `tester` tests + implementation together)
 
 ## Plan Document Header
 
@@ -147,7 +147,7 @@ For standalone use only, offer the execution choice after saving the plan:
 
 **"Plan complete and saved to `docs/plans/<filename>.md`. Two execution options:**
 
-**1. Dispatched (recommended)** - fresh subagent per task (subagent tool), review between tasks, fast iteration
+**1. Dispatched (recommended)** - fresh subagent per task (dispatch the role through the AGENTS.md Dispatch Adapter), review between tasks, fast iteration
 
 **2. Inline** - execute the tasks in this session in batches, with checkpoint reviews
 

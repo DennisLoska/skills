@@ -2,6 +2,7 @@
 # test/install.sh - contract tests for install.sh
 # Uses a throwaway HOME under a scratch dir; never touches the real config.
 set -euo pipefail
+export LC_ALL=C
 unset OPENCODE_CONFIG
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,13 +16,45 @@ cleanup() {
 }
 trap cleanup EXIT
 
-pass() { printf 'ok: %s\n' "$1"; }
+passed=0
+pass() { passed=$((passed + 1)); printf 'ok: %s\n' "$1"; }
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
 mkdir -p "$TMPROOT"
 HOME_DIR="$TMPROOT/home"
 DEST="$HOME_DIR/.config/opencode"
 MANIFEST="$DEST/.harness-manifest"
+
+# Frozen historical pins and positions, independent of current source layout.
+mkdir -p "$TMPROOT/legacy-agents"
+while IFS="$(printf '\t')" read -r seat line model; do
+  [ -f "$ROOT/agents/$seat.md" ] || continue
+  MODEL_LINE="$model" awk -v line="$line" '
+    NR == line { print ENVIRON["MODEL_LINE"] }
+    { print }
+  ' "$ROOT/agents/$seat.md" >"$TMPROOT/legacy-agents/$seat.md"
+done <"$ROOT/test/fixtures/legacy-pins.txt"
+
+# Default render expectations are independent of the routing-table parser.
+mkdir -p "$TMPROOT/tri-agents"
+while read -r seat pin; do
+  [ -f "$ROOT/agents/$seat.md" ] || continue
+  awk -v pin="$pin" '
+    /^model: / { next }
+    { print }
+    /^mode: subagent$/ && pin != "-" { print "model: " pin }
+  ' "$ROOT/agents/$seat.md" >"$TMPROOT/tri-agents/$seat.md"
+done <<'PINS'
+scout opencode-go/mimo-v2.6-flash
+implementer -
+implementer-deep -
+patch opencode-go/deepseek-v4.1-flash#high
+tester opencode-go/deepseek-v4.1-flash#high
+reviewer-a -
+reviewer-b opencode-go/claude-haiku-5-5#high
+reviewer-c opencode-go/deepseek-v4-pro
+reviewer-esc opencode-go/mimo-v2.6-pro
+PINS
 
 # 1. clean install into an empty HOME
 rc1=0
@@ -31,7 +64,7 @@ HOME="$HOME_DIR" "$INSTALL" >"$TMPROOT/case1.out" 2>&1 || rc1=$?
 pass "clean install into empty HOME"
 
 # 2. copied agent is byte-identical to the source
-cmp -s "$ROOT/agents/scout.md" "$DEST/agents/scout.md" || fail "copied agent is byte-identical"
+cmp -s "$TMPROOT/legacy-agents/scout.md" "$DEST/agents/scout.md" || fail "copied agent is byte-identical"
 pass "copied agent is byte-identical"
 
 # 3. HARNESS.md is the repo's AGENTS.md, byte for byte
@@ -41,7 +74,7 @@ pass "HARNESS.md is byte-identical to AGENTS.md"
 # 4. manifest records exactly the installed set, no more and no less
 [ -f "$MANIFEST" ] || fail "install writes .harness-manifest"
 (cd "$ROOT" && find agents skills -type f -print | sort >"$TMPROOT/case4.expected")
-printf 'HARNESS.md\nNOTICE\nLICENSE\n' >>"$TMPROOT/case4.expected"
+printf 'HARNESS.md\nNOTICE\nLICENSE\nPROVIDERS.md\n' >>"$TMPROOT/case4.expected"
 sort -o "$TMPROOT/case4.expected" "$TMPROOT/case4.expected"
 grep -v '^#' "$MANIFEST" | sort >"$TMPROOT/case4.actual"
 cmp -s "$TMPROOT/case4.expected" "$TMPROOT/case4.actual" || fail "manifest matches the installed file set exactly"
@@ -87,7 +120,7 @@ printf 'junk\n' >"$DEST/agents/scout.md"
 rc9=0
 HOME="$HOME_DIR" "$INSTALL" --force >"$TMPROOT/case9.out" 2>&1 || rc9=$?
 [ "$rc9" -eq 0 ] || { cat "$TMPROOT/case9.out" >&2; fail "--force repair install exits 0"; }
-cmp -s "$ROOT/agents/scout.md" "$DEST/agents/scout.md" || fail "--force restores tampered file content"
+cmp -s "$TMPROOT/legacy-agents/scout.md" "$DEST/agents/scout.md" || fail "--force restores tampered file content"
 pass "--force restores tampered file content"
 
 # 10. foreign files survive --force --prune
@@ -116,7 +149,7 @@ rm -f "$MANIFEST"
 mkdir -p "$DEST/skills/ghost"
 printf 'ghost\n' >"$DEST/skills/ghost/SKILL.md"
 rc12=0
-HOME="$HOME_DIR" "$INSTALL" --force --prune >"$TMPROOT/case12.out" 2>&1 || rc12=$?
+HOME="$HOME_DIR" "$INSTALL" --force --prune --profile tri >"$TMPROOT/case12.out" 2>&1 || rc12=$?
 [ "$rc12" -eq 0 ] || { cat "$TMPROOT/case12.out" >&2; fail "--prune without a manifest exits 0"; }
 [ -f "$DEST/skills/ghost/SKILL.md" ] || fail "--prune without a manifest removes nothing"
 grep -q 'no previous manifest; prune skipped' "$TMPROOT/case12.out" || fail "--prune without a manifest reports the skip"
@@ -134,7 +167,7 @@ HOME="$HOME_DIR" "$INSTALL" --force >"$TMPROOT/case13.out" 2>&1 || rc13=$?
 [ "$rc13" -eq 0 ] || { cat "$TMPROOT/case13.out" >&2; fail "install over a destination symlink exits 0"; }
 [ "$(cat "$OUTSIDE/scout-target.md")" = "outside-content" ] || fail "--force never writes through a symlink"
 [ -f "$DEST/agents/scout.md" ] && [ ! -L "$DEST/agents/scout.md" ] || fail "symlink is replaced by a regular file"
-cmp -s "$ROOT/agents/scout.md" "$DEST/agents/scout.md" || fail "symlink target replaced with source content"
+cmp -s "$TMPROOT/legacy-agents/scout.md" "$DEST/agents/scout.md" || fail "symlink target replaced with source content"
 pass "--force replaces a destination symlink instead of writing through it"
 
 # 14. OPENCODE_CONFIG overrides the destination
@@ -290,6 +323,11 @@ while IFS= read -r mrel || [ -n "$mrel" ]; do
   entries=$((entries + 1))
   if [ "$mrel" = "HARNESS.md" ]; then
     src="$ROOT/AGENTS.md"
+  elif [ "$mrel" = "PROVIDERS.md" ]; then
+    src="$ROOT/providers/tri.md"
+  elif [[ "$mrel" == agents/*.md ]]; then
+    # Compare against the independent default pin fixture.
+    src="$TMPROOT/tri-agents/${mrel#agents/}"
   else
     src="$ROOT/$mrel"
   fi
@@ -553,7 +591,7 @@ cmp -s "$TMPROOT/case36.snap" "$TMPROOT/case36.after" || fail "non-regular manif
 rm -f "$MANIFEST/inside.md"
 rmdir "$MANIFEST"
 rc36b=0
-HOME="$HOME_DIR" "$INSTALL" --force >"$TMPROOT/case36b.out" 2>&1 || rc36b=$?
+HOME="$HOME_DIR" "$INSTALL" --force --profile tri >"$TMPROOT/case36b.out" 2>&1 || rc36b=$?
 [ "$rc36b" -eq 0 ] || { cat "$TMPROOT/case36b.out" >&2; fail "restore after manifest directory case exits 0"; }
 pass "a directory at .harness-manifest exits 1 before copying anything"
 
@@ -571,4 +609,798 @@ grep -q 'inside the source checkout' "$TMPROOT/case28.link-interior-dot.out" || 
 [ -z "$(ls -A "$DOT_HOME")" ] || fail "./ and interior /./ destinations create nothing in HOME"
 pass "./ and <symlink-to-src>/missing/./sub exit 1 and create nothing"
 
-printf 'all install tests passed\n'
+# 38. default tri binding and native pins
+cmp -s "$ROOT/providers/tri.md" "$DEST/PROVIDERS.md" || fail "default selects tri"
+grep -qx 'PROVIDERS.md' "$MANIFEST" || fail "manifest owns PROVIDERS.md"
+[ "$(sed -n '2p' "$MANIFEST")" = '# profile tri' ] || fail "manifest line 2 names tri"
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$DEST/agents/scout.md" || fail "tri scout pin"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$DEST/agents/tester.md" || fail "tri tester pin"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$DEST/agents/patch.md" || fail "tri patch pin"
+grep -qxF 'model: opencode-go/claude-haiku-5-5#high' "$DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
+grep -qxF 'model: opencode-go/deepseek-v4-pro' "$DEST/agents/reviewer-c.md" || fail "tri reviewer-c pin"
+grep -qxF 'model: opencode-go/mimo-v2.6-pro' "$DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
+for seat in implementer implementer-deep reviewer-a; do
+  if grep -q '^model:' "$DEST/agents/$seat.md"; then
+    fail "tri $seat has no native pin"
+  fi
+  grep -qxF "note: $seat has no opencode rung; dispatch it through delegate_task only" "$TMPROOT/case1.out" || fail "tri reports the $seat delegate-only seat"
+done
+pass "default tri profile, manifest metadata, Revision 3 native pins and delegate-only notes"
+
+# 39. legacy profile preserves historical pin values and line positions
+LEGACY_DEST="$TMPROOT/legacy-install"
+OPENCODE_CONFIG="$LEGACY_DEST" "$INSTALL" --profile opencode-go >"$TMPROOT/legacy.out"
+while IFS="$(printf '\t')" read -r seat line model; do
+  installed="$LEGACY_DEST/agents/$seat.md"
+  [ "$(sed -n "${line}p" "$installed")" = "$model" ] || fail "historical pin position: $seat"
+  [ "$(grep -c '^model: ' "$installed")" -eq 1 ] || fail "one model line: $seat"
+  awk -v line="$line" 'NR != line' "$installed" >"$TMPROOT/without-pin"
+  cmp -s "$ROOT/agents/$seat.md" "$TMPROOT/without-pin" || fail "current source body: $seat"
+done <"$ROOT/test/fixtures/legacy-pins.txt"
+cmp -s "$ROOT/providers/opencode-go.md" "$LEGACY_DEST/PROVIDERS.md" || fail "legacy profile is byte copied"
+[ "$(sed -n '2p' "$LEGACY_DEST/.harness-manifest")" = '# profile opencode-go' ] || fail "legacy metadata"
+pass "opencode-go preserves all nine historical pins and current source bodies"
+
+# 40. both flag forms bind the same profile
+OPENCODE_CONFIG="$LEGACY_DEST" "$INSTALL" --force --profile=opencode-go >"$TMPROOT/equals.out"
+cmp -s "$ROOT/providers/opencode-go.md" "$LEGACY_DEST/PROVIDERS.md" || fail "equals flag binds legacy profile"
+pass "--profile=NAME is accepted"
+
+# 41. unknown and malformed names fail before any write, even with force/prune
+for profile in missing ../tri Tri 'tri/name' '-tri' 'tri.bad'; do
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/unknown-dest" "$INSTALL" --force --prune --profile="$profile" >"$TMPROOT/unknown.out" 2>"$TMPROOT/unknown.err" || rc=$?
+  [ "$rc" -eq 2 ] || fail "unknown profile exits 2: $profile"
+  grep -qF "install.sh: unknown profile: $profile (available: opencode-go quad tri)" "$TMPROOT/unknown.err" || fail "unknown profile diagnostic: $profile"
+  [ ! -e "$TMPROOT/unknown-dest" ] || fail "unknown profile creates nothing"
+done
+pass "unknown and malformed profiles exit 2 and write nothing"
+
+# 42. isolated installer fixture exercises validation without mutating the repo
+FIXTURE="$TMPROOT/profile-fixture"
+mkdir -p "$FIXTURE/providers"
+cp "$INSTALL" "$FIXTURE/install.sh"
+for defect in missing-primary invalid-rung; do
+  if [ "$defect" = missing-primary ]; then
+    awk '!/^[|] implementer-deep [|] primary [|]/' "$ROOT/providers/tri.md" >"$FIXTURE/providers/broken.md"
+  else
+    sed 's/| implementer-deep | fallback |/| implementer-deep | bogus |/' "$ROOT/providers/tri.md" >"$FIXTURE/providers/broken.md"
+  fi
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/incomplete-dest" "$FIXTURE/install.sh" --force --prune --profile broken >"$TMPROOT/incomplete.out" 2>"$TMPROOT/incomplete.err" || rc=$?
+  [ "$rc" -eq 1 ] || fail "incomplete profile exits 1: $defect"
+  if [ "$defect" = missing-primary ]; then
+    diagnostic='install.sh: profile broken incomplete: implementer-deep'
+  else
+    diagnostic='install.sh: profile broken invalid row: implementer-deep bogus: invalid rung'
+  fi
+  grep -qxF "$diagnostic" "$TMPROOT/incomplete.err" || fail "incomplete diagnostic: $defect"
+  [ ! -e "$TMPROOT/incomplete-dest" ] || fail "incomplete profile writes nothing"
+done
+pass "missing primary and invalid rung exit 1 before any write"
+
+# 43. PROVIDERS.md follows normal collision, force, symlink and prune rules
+PROFILE_DEST="$TMPROOT/profile-dest"
+mkdir -p "$PROFILE_DEST"
+printf 'keep\n' >"$PROFILE_DEST/PROVIDERS.md"
+rc=0
+OPENCODE_CONFIG="$PROFILE_DEST" "$INSTALL" >"$TMPROOT/profile-collision.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || fail "profile collision exits 1"
+[ ! -e "$PROFILE_DEST/agents" ] || fail "profile collision aborts before copying"
+[ "$(cat "$PROFILE_DEST/PROVIDERS.md")" = keep ] || fail "profile collision preserves content"
+rm -f "$PROFILE_DEST/PROVIDERS.md"
+printf 'outside\n' >"$TMPROOT/outside-profile.md"
+ln -s "$TMPROOT/outside-profile.md" "$PROFILE_DEST/PROVIDERS.md"
+OPENCODE_CONFIG="$PROFILE_DEST" "$INSTALL" --force >"$TMPROOT/profile-force.out"
+[ "$(cat "$TMPROOT/outside-profile.md")" = outside ] || fail "profile force preserves symlink target"
+[ ! -L "$PROFILE_DEST/PROVIDERS.md" ] || fail "profile force unlinks symlink"
+OPENCODE_CONFIG="$PROFILE_DEST" "$INSTALL" --force --prune --profile opencode-go >"$TMPROOT/profile-prune.out"
+cmp -s "$ROOT/providers/opencode-go.md" "$PROFILE_DEST/PROVIDERS.md" || fail "profile switch survives prune"
+[ ! -e "$PROFILE_DEST/providers" ] || fail "profiles directory is not installed"
+pass "PROVIDERS.md respects collision, force, symlink and prune rules"
+
+# 44. every required role is validated (including the ad-hoc task reviewer)
+for role in scout implementer implementer-deep patch tester reviewer-a reviewer-b reviewer-c reviewer-esc task-reviewer; do
+  awk -F '|' -v role="$role" '!($2 == " " role " " && $3 == " primary ")' "$ROOT/providers/tri.md" >"$FIXTURE/providers/broken.md"
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/incomplete-dest" "$FIXTURE/install.sh" --profile broken >"$TMPROOT/role.out" 2>"$TMPROOT/role.err" || rc=$?
+  [ "$rc" -eq 1 ] || fail "missing primary for $role exits 1"
+  grep -qxF "install.sh: profile broken incomplete: $role" "$TMPROOT/role.err" || fail "missing primary names $role"
+  [ ! -e "$TMPROOT/incomplete-dest" ] || fail "missing $role creates nothing"
+done
+pass "all ten required roles must have a primary rung"
+
+# 45. table order cannot override ladder order; unrelated rows are ignored
+cp -R "$ROOT/agents" "$FIXTURE/agents"
+mkdir -p "$FIXTURE/skills"
+cp "$ROOT/NOTICE" "$ROOT/LICENSE" "$FIXTURE/"
+printf 'fixture harness\n' >"$FIXTURE/AGENTS.md"
+awk '
+  /^[|] (scout|implementer|implementer-deep|patch|tester|reviewer-a|reviewer-b|reviewer-c|reviewer-esc|task-reviewer) [|]/ { rows[++n] = $0; next }
+  { print }
+  END { for (i = n; i >= 1; i--) print rows[i] }
+' "$ROOT/providers/opencode-go.md" >"$FIXTURE/providers/reordered.md"
+printf '| unknown-role | bogus | ignored |\n' >>"$FIXTURE/providers/reordered.md"
+OPENCODE_CONFIG="$TMPROOT/reordered-dest" "$FIXTURE/install.sh" --profile reordered >"$TMPROOT/reordered.out"
+for expected in "$TMPROOT/legacy-agents/"*.md; do
+  cmp -s "$expected" "$TMPROOT/reordered-dest/agents/${expected##*/}" || fail "reordered ladder: ${expected##*/}"
+done
+pass "native pins follow ladder order and parser ignores unknown roles"
+
+# Hostile rows are added to a temporary source tree, never the checkout.
+snapshot() { find "$1" -type f -exec cksum {} + | LC_ALL=C sort; }
+REJECT_DEST="$TMPROOT/reject-dest"
+mkdir -p "$REJECT_DEST"
+printf 'sentinel\n' >"$REJECT_DEST/keep"
+reject_unchanged() {
+  local expected_rc="$1" diagnostic="$2" rc=0
+  shift 2
+  snapshot "$REJECT_DEST" >"$TMPROOT/reject.before"
+  find "$REJECT_DEST" -print | LC_ALL=C sort >"$TMPROOT/reject.paths.before"
+  OPENCODE_CONFIG="$REJECT_DEST" "$FIXTURE/install.sh" --force --prune "$@" >"$TMPROOT/reject.out" 2>"$TMPROOT/reject.err" || rc=$?
+  [ "$rc" -eq "$expected_rc" ] || { cat "$TMPROOT/reject.err" >&2; fail "rejection status: $diagnostic"; }
+  case "$diagnostic" in
+    'install.sh: profile '*)
+      grep -qxF "$diagnostic" "$TMPROOT/reject.err" || { cat "$TMPROOT/reject.err" >&2; fail "rejection diagnostic: $diagnostic"; } ;;
+    *) grep -qF "$diagnostic" "$TMPROOT/reject.err" || { cat "$TMPROOT/reject.err" >&2; fail "rejection diagnostic: $diagnostic"; } ;;
+  esac
+  snapshot "$REJECT_DEST" >"$TMPROOT/reject.after"
+  find "$REJECT_DEST" -print | LC_ALL=C sort >"$TMPROOT/reject.paths.after"
+  cmp -s "$TMPROOT/reject.before" "$TMPROOT/reject.after" || fail "rejection changed files"
+  cmp -s "$TMPROOT/reject.paths.before" "$TMPROOT/reject.paths.after" || fail "rejection changed paths"
+}
+while IFS=';' read -r label row reason; do
+  cp "$ROOT/providers/opencode-go.md" "$FIXTURE/providers/evil.md"
+  printf '%s\n' "$row" >>"$FIXTURE/providers/evil.md"
+  reject_unchanged 1 "install.sh: profile evil invalid row: scout fallback: $reason" --profile evil
+  pass "hostile profile rejected without writes: $label"
+done <"$ROOT/test/fixtures/hostile-profile-rows.txt"
+cp "$ROOT/providers/opencode-go.md" "$FIXTURE/providers/evil.md"
+printf '| scout | primary | opencode | valid | - | google | ok |\n' >>"$FIXTURE/providers/evil.md"
+reject_unchanged 1 'install.sh: profile evil invalid row: scout primary: duplicate rung' --profile evil
+pass "duplicate primary is rejected without writes"
+cp "$ROOT/providers/opencode-go.md" "$FIXTURE/providers/evil.md"
+printf '| reviewer-a | last-resort | opencode | valid | - | - | ok |\n' >>"$FIXTURE/providers/evil.md"
+reject_unchanged 1 'install.sh: profile evil invalid row: reviewer-a last-resort: invalid family' --profile evil
+pass "council seat rejects placeholder family without writes"
+cp "$ROOT/providers/opencode-go.md" "$FIXTURE/providers/evil.md"
+printf '| driver | fallback | - | host-default | - | - | typo |\n' >>"$FIXTURE/providers/evil.md"
+reject_unchanged 1 'install.sh: profile evil invalid row: driver fallback: invalid privacy' --profile evil
+pass "advisory rows are validated without writes"
+# Fenced examples must not participate, including duplicates and malformed rows.
+cp "$ROOT/providers/opencode-go.md" "$FIXTURE/providers/fenced.md"
+cat >>"$FIXTURE/providers/fenced.md" <<'FENCE'
+```markdown
+| scout | primary | opencode | x\n--- | - | google | ok |
+| driver | bogus | ignored |
+```
+FENCE
+OPENCODE_CONFIG="$TMPROOT/fenced-dest" "$FIXTURE/install.sh" --profile fenced >"$TMPROOT/fenced.out"
+pass "fenced routing examples are ignored"
+
+cp "$ROOT/providers/opencode-go.md" "$FIXTURE/providers/evil.md"
+# Body text cannot supply a missing frontmatter insertion point.
+sed '/^mode: subagent$/d' "$ROOT/agents/scout.md" >"$FIXTURE/agents/scout.md"
+printf '\nmode: subagent\n' >>"$FIXTURE/agents/scout.md"
+reject_unchanged 1 'install.sh: cannot insert native pin: scout' --profile evil
+cp "$ROOT/agents/scout.md" "$FIXTURE/agents/scout.md"
+pass "missing frontmatter mode refuses before writes despite a body match"
+# Only the first frontmatter mode gets a pin; later blocks/body remain intact.
+printf '\n---\nmode: subagent\n---\nmode: subagent\n' >>"$FIXTURE/agents/scout.md"
+OPENCODE_CONFIG="$TMPROOT/frontmatter-dest" "$FIXTURE/install.sh" --profile evil >"$TMPROOT/frontmatter.out"
+[ "$(grep -c '^model: ' "$TMPROOT/frontmatter-dest/agents/scout.md")" -eq 1 ] || fail "frontmatter pin inserted only once"
+cp "$ROOT/agents/scout.md" "$FIXTURE/agents/scout.md"
+pass "pin insertion is confined to first frontmatter block"
+
+reject_unchanged 2 'usage: install.sh' --profile
+reject_unchanged 2 'usage: install.sh' --profile ''
+reject_unchanged 2 'usage: install.sh' --profile=
+pass "missing and empty profile arguments show usage without writes"
+
+OPENCODE_CONFIG="$LEGACY_DEST" "$INSTALL" --force >"$TMPROOT/reuse.out"
+cmp -s "$ROOT/providers/opencode-go.md" "$LEGACY_DEST/PROVIDERS.md" || fail "implicit reuse retains opencode-go"
+pass "implicit profile reuses previous manifest binding"
+OPENCODE_CONFIG="$LEGACY_DEST" "$INSTALL" --force --profile tri >"$TMPROOT/change.out"
+grep -qxF 'profile changed: opencode-go -> tri' "$TMPROOT/change.out" || fail "explicit profile change announced"
+pass "explicit profile change is announced"
+printf '# profile removed\n' >"$REJECT_DEST/.harness-manifest"
+reject_unchanged 2 'install.sh: unknown profile: removed'
+pass "removed implicit profile refuses without writes"
+
+# A pre-profile manifest is the historical opencode-go binding, not a fresh install.
+for selection in implicit explicit; do
+  PREPROFILE_DEST="$TMPROOT/preprofile-$selection"
+  mkdir -p "$PREPROFILE_DEST"
+  printf '# harness old-revision\nagents/scout.md\n' >"$PREPROFILE_DEST/.harness-manifest"
+  if [ "$selection" = implicit ]; then
+    OPENCODE_CONFIG="$PREPROFILE_DEST" "$INSTALL" --force >"$TMPROOT/preprofile.out"
+    expected_profile=opencode-go
+    expected_message='profile: opencode-go (previous install predates profiles)'
+  else
+    OPENCODE_CONFIG="$PREPROFILE_DEST" "$INSTALL" --force --profile tri >"$TMPROOT/preprofile.out"
+    expected_profile=tri
+    expected_message='profile changed: opencode-go -> tri'
+  fi
+  cmp -s "$ROOT/providers/$expected_profile.md" "$PREPROFILE_DEST/PROVIDERS.md" || fail "pre-profile $selection binding"
+  grep -qxF "# profile $expected_profile" "$PREPROFILE_DEST/.harness-manifest" || fail "pre-profile $selection metadata"
+  grep -qxF "$expected_message" "$TMPROOT/preprofile.out" || fail "pre-profile $selection announcement"
+  pass "pre-profile manifest respects $selection selection"
+done
+
+# Older installs may have a headerless manifest or no manifest at all.
+for legacy_kind in headerless premanifest; do
+  OLD_DEST="$TMPROOT/old-$legacy_kind"
+  mkdir -p "$OLD_DEST"
+  if [ "$legacy_kind" = headerless ]; then
+    printf 'agents/scout.md\n' >"$OLD_DEST/.harness-manifest"
+  else
+    printf 'old harness\n' >"$OLD_DEST/HARNESS.md"
+  fi
+  OPENCODE_CONFIG="$OLD_DEST" "$INSTALL" --force >"$TMPROOT/old.out"
+  [ "$(sed -n '2p' "$OLD_DEST/.harness-manifest")" = '# profile opencode-go' ] || fail "$legacy_kind metadata"
+  grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$OLD_DEST/agents/reviewer-a.md" || fail "$legacy_kind pin"
+  grep -qxF 'profile: opencode-go (previous install predates profiles)' "$TMPROOT/old.out" || fail "$legacy_kind announcement"
+  pass "$legacy_kind preserves historical profile"
+done
+
+# Advisory placeholders are valid when present and do not affect native pins.
+awk '!/^[|] (driver|compaction) [|]/' "$ROOT/providers/opencode-go.md" >"$FIXTURE/providers/advisory.md"
+printf '| driver | primary | - | - | - | - | ok |\n| compaction | primary | - | - | - | - | ok |\n' >>"$FIXTURE/providers/advisory.md"
+OPENCODE_CONFIG="$TMPROOT/advisory-dest" "$FIXTURE/install.sh" --profile advisory >"$TMPROOT/advisory.out"
+for expected in "$TMPROOT/legacy-agents/"*.md; do
+  cmp -s "$expected" "$TMPROOT/advisory-dest/agents/${expected##*/}" || fail "advisory placeholders affect pin: ${expected##*/}"
+done
+pass "advisory placeholders are accepted without rendering"
+awk '!/^[|] (driver|compaction) [|]/' "$ROOT/providers/opencode-go.md" >"$FIXTURE/providers/no-advisory.md"
+OPENCODE_CONFIG="$TMPROOT/no-advisory-dest" "$FIXTURE/install.sh" --profile no-advisory >"$TMPROOT/no-advisory.out"
+pass "advisory rows remain optional"
+
+# 46. tester is a required role, validated like every other seat
+awk '!/^[|] tester [|] primary [|]/' "$ROOT/providers/tri.md" >"$FIXTURE/providers/broken.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/tester-required-dest" "$FIXTURE/install.sh" --profile broken >"$TMPROOT/tester-required.out" 2>"$TMPROOT/tester-required.err" || rc=$?
+[ "$rc" -eq 1 ] || fail "a profile without a tester primary exits 1"
+grep -qxF 'install.sh: profile broken incomplete: tester' "$TMPROOT/tester-required.err" || fail "missing tester primary is named"
+[ ! -e "$TMPROOT/tester-required-dest" ] || fail "missing tester primary writes nothing"
+pass "tester is a required role"
+
+# 47. implementer-b is gone and its rows are optional
+REBAL_DEST="$TMPROOT/rebalance-default"
+rc=0
+OPENCODE_CONFIG="$REBAL_DEST" "$INSTALL" >"$TMPROOT/rebalance-default.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/rebalance-default.out" >&2; fail "default tri install exits 0"; }
+[ ! -e "$REBAL_DEST/agents/implementer-b.md" ] || fail "no implementer-b agent is installed"
+if grep -qxF 'agents/implementer-b.md' "$REBAL_DEST/.harness-manifest"; then
+  fail "the manifest does not record implementer-b"
+fi
+awk '!/^[|] implementer-b [|]/' "$ROOT/providers/tri.md" >"$TMPROOT/no-implementer-b.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/no-implementer-b-dest" "$INSTALL" --profile-file "$TMPROOT/no-implementer-b.md" >"$TMPROOT/no-implementer-b.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "a profile without implementer-b rows is valid"
+pass "implementer-b is neither installed nor required"
+
+# 48. --profile-file binds an external file and records its absolute path
+PF_DIR="$TMPROOT/profile-file"
+mkdir -p "$PF_DIR"
+{ cat "$ROOT/providers/tri.md"; printf '\n# user-local copy\n'; } >"$PF_DIR/custom.md"
+PF_ABS="$(cd "$PF_DIR" && pwd -P)/custom.md"
+PF_DEST="$TMPROOT/profile-file-dest"
+rc=0
+OPENCODE_CONFIG="$PF_DEST" "$INSTALL" --profile-file "$PF_ABS" >"$TMPROOT/profile-file.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/profile-file.out" >&2; fail "--profile-file install exits 0"; }
+cmp -s "$PF_ABS" "$PF_DEST/PROVIDERS.md" || fail "PROVIDERS.md is a byte copy of the profile file"
+[ "$(sed -n '2p' "$PF_DEST/.harness-manifest")" = "# profile-file $PF_ABS" ] || fail "manifest line 2 records the profile file path"
+PF_REL_DEST="$TMPROOT/profile-file-rel-dest"
+rc=0
+( cd "$PF_DIR" && OPENCODE_CONFIG="$PF_REL_DEST" "$INSTALL" --profile-file custom.md ) >"$TMPROOT/profile-file-rel.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/profile-file-rel.out" >&2; fail "relative --profile-file install exits 0"; }
+cmp -s "$PF_ABS" "$PF_REL_DEST/PROVIDERS.md" || fail "relative profile file is byte copied"
+[ "$(sed -n '2p' "$PF_REL_DEST/.harness-manifest")" = "# profile-file $PF_ABS" ] || fail "relative profile file is recorded as absolute"
+pass "--profile-file binds, copies and records an absolute path"
+
+# 49. refresh reuses a recorded profile file; a missing file is fatal
+rc=0
+OPENCODE_CONFIG="$PF_DEST" "$INSTALL" --force >"$TMPROOT/profile-reuse.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/profile-reuse.out" >&2; fail "refresh with a recorded profile file exits 0"; }
+cmp -s "$PF_ABS" "$PF_DEST/PROVIDERS.md" || fail "refresh without flags reuses the recorded profile file"
+[ "$(sed -n '2p' "$PF_DEST/.harness-manifest")" = "# profile-file $PF_ABS" ] || fail "refresh keeps the profile file binding"
+find "$PF_DEST" -type f -exec cksum {} + | sort >"$TMPROOT/profile-missing.snap"
+rm -f -- "$PF_ABS"
+rc=0
+OPENCODE_CONFIG="$PF_DEST" "$INSTALL" --force >"$TMPROOT/profile-missing.out" 2>"$TMPROOT/profile-missing.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/profile-missing.err" >&2; fail "a deleted profile file exits 2"; }
+grep -qxF "install.sh: profile file not found: $PF_ABS" "$TMPROOT/profile-missing.err" || fail "a deleted profile file is named"
+find "$PF_DEST" -type f -exec cksum {} + | sort >"$TMPROOT/profile-missing.after"
+cmp -s "$TMPROOT/profile-missing.snap" "$TMPROOT/profile-missing.after" || fail "a deleted profile file writes nothing"
+pass "refresh reuses the binding and a missing profile file is fatal"
+
+# 50. --profile-file conflicts with --profile and is validated like a named profile
+PF_X="$PF_DIR/mutex.md"
+cp "$ROOT/providers/tri.md" "$PF_X"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/profile-mutex-dest" "$INSTALL" --profile tri --profile-file "$PF_X" >"$TMPROOT/profile-mutex.out" 2>"$TMPROOT/profile-mutex.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/profile-mutex.err" >&2; fail "--profile with --profile-file exits 2"; }
+[ ! -e "$TMPROOT/profile-mutex-dest" ] || fail "--profile with --profile-file writes nothing"
+PF_BAD="$PF_DIR/invalid.md"
+cp "$ROOT/providers/tri.md" "$PF_BAD"
+printf '| scout | last-resort | opencode | valid | - | google | typo |\n' >>"$PF_BAD"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/profile-invalid-dest" "$INSTALL" --profile-file "$PF_BAD" >"$TMPROOT/profile-invalid.out" 2>"$TMPROOT/profile-invalid.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/profile-invalid.err" >&2; fail "an invalid profile file exits 1"; }
+grep -q 'invalid row: scout last-resort: invalid privacy' "$TMPROOT/profile-invalid.err" || fail "an invalid profile file gets the named-profile diagnostic"
+[ ! -e "$TMPROOT/profile-invalid-dest" ] || fail "an invalid profile file writes nothing"
+pass "--profile-file conflicts with --profile and shares named-profile validation"
+
+# 51. the default tri profile renders the Revision 3 native pins
+PINS_DEST="$TMPROOT/rebalance-pins"
+rc=0
+OPENCODE_CONFIG="$PINS_DEST" "$INSTALL" >"$TMPROOT/pins.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/pins.out" >&2; fail "fresh tri install exits 0"; }
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$PINS_DEST/agents/scout.md" || fail "tri scout pin"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$PINS_DEST/agents/tester.md" || fail "tri tester pin"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$PINS_DEST/agents/patch.md" || fail "tri patch pin"
+grep -qxF 'model: opencode-go/claude-haiku-5-5#high' "$PINS_DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
+grep -qxF 'model: opencode-go/deepseek-v4-pro' "$PINS_DEST/agents/reviewer-c.md" || fail "tri reviewer-c pin"
+grep -qxF 'model: opencode-go/mimo-v2.6-pro' "$PINS_DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
+for seat in implementer implementer-deep reviewer-a; do
+  if grep -q '^model:' "$PINS_DEST/agents/$seat.md"; then
+    fail "tri $seat has no native pin"
+  fi
+  grep -qxF "note: $seat has no opencode rung; dispatch it through delegate_task only" "$TMPROOT/pins.out" || fail "tri reports the $seat delegate-only seat"
+done
+pass "default tri renders the Revision 3 native pins"
+
+# 52. quad installs cleanly with the camelCase Claude Code provider id
+QUAD_DEST="$TMPROOT/quad-install"
+[ -f "$ROOT/providers/quad.md" ] || fail "providers/quad.md is missing; quad cannot install (expected red)"
+rc=0
+OPENCODE_CONFIG="$QUAD_DEST" "$INSTALL" --profile quad >"$TMPROOT/quad.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/quad.out" >&2; fail "quad install exits 0 (claudeAgent provider id accepted)"; }
+cmp -s "$ROOT/providers/quad.md" "$QUAD_DEST/PROVIDERS.md" || fail "quad PROVIDERS.md is a byte copy of providers/quad.md"
+grep -qxF 'model: opencode-go/deepseek-v4-pro' "$QUAD_DEST/agents/reviewer-c.md" || fail "quad reviewer-c pin"
+grep -qxF 'model: opencode-go/mimo-v2.6-pro' "$QUAD_DEST/agents/reviewer-esc.md" || fail "quad reviewer-esc pin"
+for seat in implementer implementer-deep reviewer-a reviewer-b; do
+  if grep -q '^model:' "$QUAD_DEST/agents/$seat.md"; then
+    fail "quad $seat has no native pin"
+  fi
+  grep -qxF "note: $seat has no opencode rung; dispatch it through delegate_task only" "$TMPROOT/quad.out" || fail "quad reports the $seat delegate-only seat"
+done
+pass "quad installs cleanly and leaves its delegate-only seats unpinned"
+
+# 53. provider ids accept camelCase but reject underscores and a leading hyphen
+CHARSET_BASE="$TMPROOT/charset.md"
+grep -v '^| driver | fallback |' "$ROOT/providers/tri.md" >"$CHARSET_BASE"
+printf '| driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |\n' >>"$CHARSET_BASE"
+cp "$CHARSET_BASE" "$FIXTURE/providers/charset.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/charset-valid-dest" "$FIXTURE/install.sh" --profile charset >"$TMPROOT/charset-valid.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/charset-valid.out" >&2; fail "camelCase provider id claudeAgent is accepted"; }
+for bad_provider in bad_id -x; do
+  cp "$CHARSET_BASE" "$FIXTURE/providers/charset.md"
+  printf '| compaction | last-resort | %s | valid | - | google | ok |\n' "$bad_provider" >>"$FIXTURE/providers/charset.md"
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/charset-bad-dest" "$FIXTURE/install.sh" --profile charset >"$TMPROOT/charset-bad.out" 2>"$TMPROOT/charset-bad.err" || rc=$?
+  [ "$rc" -eq 1 ] || { cat "$TMPROOT/charset-bad.err" >&2; fail "provider id $bad_provider exits 1"; }
+  grep -qF 'install.sh: profile charset invalid row: compaction last-resort: ' "$TMPROOT/charset-bad.err" || { cat "$TMPROOT/charset-bad.err" >&2; fail "provider id $bad_provider is reported as an invalid row"; }
+  [ ! -e "$TMPROOT/charset-bad-dest" ] || fail "provider id $bad_provider writes nothing"
+done
+pass "provider ids accept camelCase and reject underscore and leading-hyphen ids"
+
+# 54. tri and quad carry no OpenAI or Google model through OpenCode Go
+[ -f "$ROOT/providers/quad.md" ] || fail "providers/quad.md is missing; cannot check opencode-go/gpt or opencode-go/gemini rows (expected red)"
+if grep -nE 'opencode-go/(gpt|gemini)' "$ROOT/providers/tri.md" "$ROOT/providers/quad.md" >"$TMPROOT/opencode-gpt.out" 2>&1; then
+  cat "$TMPROOT/opencode-gpt.out" >&2
+  fail "tri and quad contain no opencode-go/gpt or opencode-go/gemini rows"
+fi
+pass "tri and quad carry no OpenAI or Google model through OpenCode Go"
+
+# 55. --profile-file may point at the installed PROVIDERS.md (directly or via a
+# symlink) without deleting or corrupting the file it is reading.
+SELF_DEST="$TMPROOT/self-bind"
+rc=0
+OPENCODE_CONFIG="$SELF_DEST" "$INSTALL" >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "self-bind fixture install exits 0"
+rc=0
+OPENCODE_CONFIG="$SELF_DEST" "$INSTALL" --force --profile-file "$SELF_DEST/PROVIDERS.md" >"$TMPROOT/self-bind.out" 2>"$TMPROOT/self-bind.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/self-bind.err" >&2; fail "--profile-file pointing at installed PROVIDERS.md exits 0"; }
+[ -e "$SELF_DEST/PROVIDERS.md" ] || fail "self-bound PROVIDERS.md still exists"
+[ -s "$SELF_DEST/PROVIDERS.md" ] || fail "self-bound PROVIDERS.md is non-empty"
+cmp -s "$ROOT/providers/tri.md" "$SELF_DEST/PROVIDERS.md" || fail "self-bound PROVIDERS.md is byte-identical to providers/tri.md"
+ln -s "$SELF_DEST/PROVIDERS.md" "$TMPROOT/providers-link.md"
+rc=0
+OPENCODE_CONFIG="$SELF_DEST" "$INSTALL" --force --profile-file "$TMPROOT/providers-link.md" >"$TMPROOT/self-bind-link.out" 2>"$TMPROOT/self-bind-link.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/self-bind-link.err" >&2; fail "--profile-file symlinked to installed PROVIDERS.md exits 0"; }
+cmp -s "$ROOT/providers/tri.md" "$SELF_DEST/PROVIDERS.md" || fail "symlink-bound PROVIDERS.md stays byte-identical to providers/tri.md"
+pass "--profile-file pointing to installed PROVIDERS.md preserves the file"
+
+# 56. --profile-file rejects a path containing a newline before writing anything.
+NL_DIR="$TMPROOT/nl"$'\n'"dir"
+mkdir -p "$NL_DIR"
+cp "$ROOT/providers/tri.md" "$NL_DIR/custom.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/nl-dest" "$INSTALL" --profile-file "$NL_DIR/custom.md" >"$TMPROOT/nl.out" 2>"$TMPROOT/nl.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/nl.err" >&2; fail "--profile-file with a newline in the path exits 2 (got $rc)"; }
+[ ! -e "$TMPROOT/nl-dest" ] || fail "--profile-file with a newline in the path writes nothing"
+grep -q 'install.sh: invalid profile file path:' "$TMPROOT/nl.err" || { cat "$TMPROOT/nl.err" >&2; fail "--profile-file with a newline reports invalid profile file path"; }
+pass "--profile-file rejects newline in path without writing"
+
+# 57. quota pools and backup ladder are optional; shipped profiles carry both
+cat >"$TMPROOT/no-pools-or-backups.md" <<'MINIMAL'
+# Minimal profile without quota pools or a backup ladder
+
+| role | rung | provider | model | effort | family | privacy |
+| --- | --- | --- | --- | --- | --- | --- |
+| scout | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
+| implementer | primary | opencode | opencode-go/gemini-4-argon | variant=high | google | ok |
+| implementer-deep | primary | opencode | opencode-go/gemini-4-argon | variant=high | google | ok |
+| patch | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
+| tester | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
+| reviewer-a | primary | opencode | opencode-go/muse-spark-1.3-contributor | variant=xhigh | meta | trains |
+| reviewer-b | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=max | deepseek | ok |
+| reviewer-c | primary | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
+| reviewer-esc | primary | opencode | opencode-go/kimi-k3.1-pro | variant=high | moonshot | ok |
+| task-reviewer | primary | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
+MINIMAL
+rc=0
+OPENCODE_CONFIG="$TMPROOT/no-pools-dest" "$INSTALL" --profile-file "$TMPROOT/no-pools-or-backups.md" >"$TMPROOT/no-pools.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/no-pools.out" >&2; fail "a profile without quota pools or backup ladder installs cleanly"; }
+[ -f "$TMPROOT/no-pools-dest/PROVIDERS.md" ] || fail "a profile without quota pools or backup ladder renders PROVIDERS.md"
+for shipped in tri quad opencode-go; do
+  grep -qxF '## Quota pools' "$ROOT/providers/$shipped.md" || fail "providers/$shipped.md carries a ## Quota pools section"
+  grep -qxF '## Backup ladder' "$ROOT/providers/$shipped.md" || fail "providers/$shipped.md carries a ## Backup ladder section"
+done
+grep -qxF '## Quota pools' "$DEST/PROVIDERS.md" || fail "default tri PROVIDERS.md renders ## Quota pools"
+grep -qxF '## Backup ladder' "$DEST/PROVIDERS.md" || fail "default tri PROVIDERS.md renders ## Backup ladder"
+pass "quota pools and backup ladder sections are optional for custom profiles and present in shipped profiles"
+
+# strip_profile_section <file> <heading text>: drop one optional section so a
+# test controls the exact rows that follow it.
+strip_profile_section() {
+  awk -v section="$2" '
+    $0 == "## " section { skip = 1; next }
+    skip && /^## / { skip = 0 }
+    !skip { print }
+  ' "$1"
+}
+
+# 58. ## Quota pools validation rejects malformed rows before any write
+strip_profile_section "$ROOT/providers/opencode-go.md" 'Quota pools' >"$TMPROOT/pools-base.md"
+while IFS=';' read -r label row diagnostic; do
+  cp "$TMPROOT/pools-base.md" "$TMPROOT/bad-pool.md"
+  printf '\n## Quota pools\n\n| pool | provider | models | window | soft-cap | reserve |\n| --- | --- | --- | --- | --- | --- |\n%s\n' "$row" >>"$TMPROOT/bad-pool.md"
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/bad-pool-dest" "$INSTALL" --profile-file "$TMPROOT/bad-pool.md" >"$TMPROOT/bad-pool.out" 2>"$TMPROOT/bad-pool.err" || rc=$?
+  [ "$rc" -eq 1 ] || { cat "$TMPROOT/bad-pool.err" >&2; fail "quota pool $label exits 1"; }
+  [ ! -e "$TMPROOT/bad-pool-dest" ] || fail "quota pool $label writes nothing"
+  grep -qF "$diagnostic" "$TMPROOT/bad-pool.err" || { cat "$TMPROOT/bad-pool.err" >&2; fail "quota pool $label diagnostic"; }
+done <<'POOLROWS'
+bad window;| p1 | opencode | * | 5hours | - | - |;invalid pool row: p1: invalid window
+bad soft-cap;| p1 | opencode | * | 5h | zero | - |;invalid pool row: p1: invalid soft-cap
+unknown reserve role;| p1 | opencode | * | 5h | 6 | unknown-role |;invalid pool row: p1: invalid reserve
+POOLROWS
+cp "$TMPROOT/pools-base.md" "$TMPROOT/bad-pool.md"
+printf '\n## Quota pools\n\n| pool | provider | models | window | soft-cap | reserve |\n| --- | --- | --- | --- | --- | --- |\n| p1 | opencode | * | 5h | - | - |\n| p1 | opencode | * | 5h | - | - |\n' >>"$TMPROOT/bad-pool.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/bad-pool-dest" "$INSTALL" --profile-file "$TMPROOT/bad-pool.md" >"$TMPROOT/bad-pool.out" 2>"$TMPROOT/bad-pool.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/bad-pool.err" >&2; fail "duplicate pool name exits 1"; }
+[ ! -e "$TMPROOT/bad-pool-dest" ] || fail "duplicate pool name writes nothing"
+grep -qF 'invalid pool row: p1: duplicate pool' "$TMPROOT/bad-pool.err" || { cat "$TMPROOT/bad-pool.err" >&2; fail "duplicate pool name diagnostic"; }
+pass "quota pools validation rejects bad window, soft-cap, reserve role, and duplicate pool"
+
+# 59. ## Backup ladder validation rejects malformed rows before any write
+strip_profile_section "$ROOT/providers/opencode-go.md" 'Backup ladder' >"$TMPROOT/backup-base.md"
+while IFS=';' read -r label row diagnostic; do
+  cp "$TMPROOT/backup-base.md" "$TMPROOT/bad-backup.md"
+  printf '\n## Backup ladder\n\n| order | roles | provider | model | effort | family | privacy |\n| --- | --- | --- | --- | --- | --- | --- |\n%s\n' "$row" >>"$TMPROOT/bad-backup.md"
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/bad-backup-dest" "$INSTALL" --profile-file "$TMPROOT/bad-backup.md" >"$TMPROOT/bad-backup.out" 2>"$TMPROOT/bad-backup.err" || rc=$?
+  [ "$rc" -eq 1 ] || { cat "$TMPROOT/bad-backup.err" >&2; fail "backup row $label exits 1"; }
+  [ ! -e "$TMPROOT/bad-backup-dest" ] || fail "backup row $label writes nothing"
+  grep -qF "$diagnostic" "$TMPROOT/bad-backup.err" || { cat "$TMPROOT/bad-backup.err" >&2; fail "backup row $label diagnostic"; }
+done <<'BACKUPROWS'
+unknown role;| 1 | implementer,bogus-role | opencode | opencode-go/minimax-m3 | - | minimax | ok |;invalid backup row: 1: invalid roles
+non-integer order;| zero | * | opencode | opencode-go/minimax-m3 | - | minimax | ok |;invalid backup row: zero: invalid order
+invalid privacy;| 1 | * | opencode | opencode-go/minimax-m3 | - | minimax | maybe |;invalid backup row: 1: invalid privacy
+BACKUPROWS
+cp "$TMPROOT/backup-base.md" "$TMPROOT/bad-backup.md"
+printf '\n## Backup ladder\n\n| order | roles | provider | model | effort | family | privacy |\n| --- | --- | --- | --- | --- | --- | --- |\n| 1 | * | opencode | opencode-go/minimax-m3 | - | minimax | ok |\n| 1 | * | opencode | opencode-go/minimax-m3 | - | minimax | ok |\n' >>"$TMPROOT/bad-backup.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/bad-backup-dest" "$INSTALL" --profile-file "$TMPROOT/bad-backup.md" >"$TMPROOT/bad-backup.out" 2>"$TMPROOT/bad-backup.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/bad-backup.err" >&2; fail "duplicate backup order exits 1"; }
+[ ! -e "$TMPROOT/bad-backup-dest" ] || fail "duplicate backup order writes nothing"
+grep -qF 'invalid backup row: 1: duplicate order' "$TMPROOT/bad-backup.err" || { cat "$TMPROOT/bad-backup.err" >&2; fail "duplicate backup order diagnostic"; }
+pass "backup ladder validation rejects bad order, unknown role, duplicate order, and invalid privacy"
+
+# 60. state/ is created, unmanaged by the manifest, and the ledger survives prune
+STATE_DEST="$TMPROOT/state-dest"
+rc=0
+OPENCODE_CONFIG="$STATE_DEST" "$INSTALL" >"$TMPROOT/state.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/state.out" >&2; fail "state fixture install exits 0"; }
+[ -d "$STATE_DEST/state" ] || fail "install creates <dest>/state/"
+if grep -q '^state' "$STATE_DEST/.harness-manifest"; then
+  fail "the manifest does not record state/"
+fi
+ledger_line="$(printf 'antigravity-claude\tantigravity\t2026-11-09T14:00:00Z\t2026-11-09T19:00:00Z\treviewer-b\t429')"
+printf '%s\n' "$ledger_line" >"$STATE_DEST/state/quota-ledger.tsv"
+rc=0
+OPENCODE_CONFIG="$STATE_DEST" "$INSTALL" --force --prune >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "--force --prune over an existing state directory exits 0"
+[ -f "$STATE_DEST/state/quota-ledger.tsv" ] || fail "quota-ledger.tsv survives --force --prune"
+[ "$(cat "$STATE_DEST/state/quota-ledger.tsv")" = "$ledger_line" ] || fail "quota-ledger.tsv is unchanged by --force --prune"
+pass "state directory is created, unmanaged by manifest, and quota-ledger.tsv survives --force --prune"
+
+# 61. a pool literally named "pool" is validated (not skipped as a header), and
+# GFM alignment separators (:---, ---:) are accepted as the separator row.
+strip_profile_section "$ROOT/providers/opencode-go.md" 'Quota pools' >"$TMPROOT/pool-named-pool.md"
+printf '\n## Quota pools\n\n| pool | provider | models | window | soft-cap | reserve |\n| :---: | :--- | --- | ---: | :---: | --- |\n| pool | codex | * | nonsense | zero | unknown-role |\n' >>"$TMPROOT/pool-named-pool.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/pool-named-pool-dest" "$INSTALL" --profile-file "$TMPROOT/pool-named-pool.md" >"$TMPROOT/pool-named-pool.out" 2>"$TMPROOT/pool-named-pool.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/pool-named-pool.err" >&2; fail "a pool literally named pool with a bad window exits 1 (got $rc)"; }
+[ ! -e "$TMPROOT/pool-named-pool-dest" ] || fail "a pool literally named pool with a bad window writes nothing"
+grep -qF 'invalid pool row: pool: invalid window' "$TMPROOT/pool-named-pool.err" || { cat "$TMPROOT/pool-named-pool.err" >&2; fail "a pool literally named pool reports invalid pool row: pool: invalid window"; }
+awk '{ if ($0 == "| pool | codex | * | nonsense | zero | unknown-role |") print "| pool | codex | * | 5h | - | - |"; else print }' \
+  "$TMPROOT/pool-named-pool.md" >"$TMPROOT/pool-named-pool-fixed.md"
+mv "$TMPROOT/pool-named-pool-fixed.md" "$TMPROOT/pool-named-pool.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/pool-named-pool-ok" "$INSTALL" --profile-file "$TMPROOT/pool-named-pool.md" >"$TMPROOT/pool-named-pool-ok.out" 2>"$TMPROOT/pool-named-pool-ok.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/pool-named-pool-ok.err" >&2; fail "a valid pool literally named pool under GFM alignment separators exits 0 (got $rc)"; }
+pass "a pool literally named pool is validated and GFM alignment separators are accepted"
+
+# 62. --target codex installs into ${CODEX_HOME:-$HOME/.codex}
+rc=0
+CODEX_HOME="$TMPROOT/codex-dest" "$INSTALL" --target codex >"$TMPROOT/codex.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/codex.out" >&2; fail "--target codex install exits 0"; }
+[ -f "$TMPROOT/codex-dest/skills/oneshot/SKILL.md" ] || fail "codex target writes skills/oneshot/SKILL.md"
+[ -f "$TMPROOT/codex-dest/agents/implementer.md" ] || fail "codex target writes agents/implementer.md"
+[ -f "$TMPROOT/codex-dest/HARNESS.md" ] || fail "codex target writes HARNESS.md"
+[ -f "$TMPROOT/codex-dest/PROVIDERS.md" ] || fail "codex target writes PROVIDERS.md"
+[ -f "$TMPROOT/codex-dest/AGENTS.md" ] || fail "codex target writes AGENTS.md"
+[ -d "$TMPROOT/codex-dest/state" ] || fail "codex target writes state/"
+[ -f "$TMPROOT/codex-dest/.harness-manifest" ] || fail "codex target writes .harness-manifest"
+grep -qxF '## Dispatch Adapter' "$TMPROOT/codex-dest/AGENTS.md" || fail "codex AGENTS.md carries the harness rules"
+grep -qxF '## Quota pools' "$TMPROOT/codex-dest/AGENTS.md" || fail "codex AGENTS.md carries the active profile"
+pass "--target codex installs skills, agents, HARNESS.md, PROVIDERS.md, and combined AGENTS.md"
+
+# 63. --target antigravity installs the oneshot-harness plugin
+# under ${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config}/plugins/oneshot-harness
+rc=0
+ANTIGRAVITY_CONFIG="$TMPROOT/agy-config" "$INSTALL" --target antigravity >"$TMPROOT/agy.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/agy.out" >&2; fail "--target antigravity install exits 0"; }
+AGY_PLUGIN="$TMPROOT/agy-config/plugins/oneshot-harness"
+[ -f "$AGY_PLUGIN/plugin.json" ] || fail "antigravity target writes plugin.json"
+[ -f "$AGY_PLUGIN/skills/oneshot/SKILL.md" ] || fail "antigravity target writes skills/oneshot/SKILL.md"
+[ -f "$AGY_PLUGIN/agents/implementer.md" ] || fail "antigravity target writes agents/implementer.md"
+[ -f "$AGY_PLUGIN/rules/HARNESS.md" ] || fail "antigravity target writes rules/HARNESS.md"
+[ -f "$AGY_PLUGIN/rules/PROVIDERS.md" ] || fail "antigravity target writes rules/PROVIDERS.md"
+[ -f "$AGY_PLUGIN/HARNESS.md" ] || fail "antigravity target writes plugin-root HARNESS.md"
+[ -f "$AGY_PLUGIN/PROVIDERS.md" ] || fail "antigravity target writes plugin-root PROVIDERS.md"
+[ -d "$AGY_PLUGIN/state" ] || fail "antigravity target writes state/"
+[ -f "$AGY_PLUGIN/.harness-manifest" ] || fail "antigravity target writes .harness-manifest"
+grep -qxF 'trigger: always_on' "$AGY_PLUGIN/rules/HARNESS.md" || fail "antigravity rules/HARNESS.md is always_on"
+grep -qxF 'trigger: always_on' "$AGY_PLUGIN/rules/PROVIDERS.md" || fail "antigravity rules/PROVIDERS.md is always_on"
+[ "$(wc -c <"$AGY_PLUGIN/rules/HARNESS.md")" -lt 24000 ] || fail "antigravity rules/HARNESS.md is under 24KB"
+[ "$(wc -c <"$AGY_PLUGIN/rules/PROVIDERS.md")" -lt 24000 ] || fail "antigravity rules/PROVIDERS.md is under 24KB"
+grep -qxF 'subagent: true' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer is a subagent"
+grep -qxF 'mainAgent: false' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer is not a main agent"
+grep -q '^tools:' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer carries a tools frontmatter line"
+grep -qxF 'permissions:' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer preserves the permissions policy block"
+grep -qxF 'permissions:' "$AGY_PLUGIN/agents/reviewer-a.md" || fail "antigravity reviewer-a preserves the permissions policy block"
+grep -qF 'Antigravity cannot narrow run_command in frontmatter' "$AGY_PLUGIN/agents/reviewer-a.md" || fail "antigravity reviewer-a documents the read-only run_command constraint"
+pass "--target antigravity installs oneshot-harness plugin with always_on rules (<24KB), Antigravity subagent frontmatter, and the permissions policy"
+
+# 64. --target claude installs into ${CLAUDE_CONFIG_DIR:-$HOME/.claude}
+rc=0
+CLAUDE_CONFIG_DIR="$TMPROOT/claude-dest" "$INSTALL" --target claude >"$TMPROOT/claude.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/claude.out" >&2; fail "--target claude install exits 0"; }
+[ -f "$TMPROOT/claude-dest/skills/oneshot/SKILL.md" ] || fail "claude target writes skills/oneshot/SKILL.md"
+[ -f "$TMPROOT/claude-dest/agents/implementer.md" ] || fail "claude target writes agents/implementer.md"
+[ -f "$TMPROOT/claude-dest/HARNESS.md" ] || fail "claude target writes HARNESS.md"
+[ -f "$TMPROOT/claude-dest/PROVIDERS.md" ] || fail "claude target writes PROVIDERS.md"
+[ -f "$TMPROOT/claude-dest/CLAUDE.md" ] || fail "claude target writes CLAUDE.md"
+[ -d "$TMPROOT/claude-dest/state" ] || fail "claude target writes state/"
+[ -f "$TMPROOT/claude-dest/.harness-manifest" ] || fail "claude target writes .harness-manifest"
+grep -qxF 'name: implementer' "$TMPROOT/claude-dest/agents/implementer.md" || fail "claude implementer carries a name frontmatter line"
+grep -q '^tools:' "$TMPROOT/claude-dest/agents/implementer.md" || fail "claude implementer carries a tools frontmatter line"
+grep -qxF 'permissions:' "$TMPROOT/claude-dest/agents/implementer.md" || fail "claude implementer preserves the permissions policy block"
+grep -qxF 'permissions:' "$TMPROOT/claude-dest/agents/reviewer-a.md" || fail "claude reviewer-a preserves the permissions policy block"
+pass "--target claude installs skills, Claude subagent frontmatter, the permissions policy, and combined CLAUDE.md"
+
+# 65. --target all installs all four targets and --force --prune works across targets
+rc=0
+OPENCODE_CONFIG="$TMPROOT/all-oc" CODEX_HOME="$TMPROOT/all-codex" ANTIGRAVITY_CONFIG="$TMPROOT/all-agy" CLAUDE_CONFIG_DIR="$TMPROOT/all-claude" \
+  "$INSTALL" --target all >"$TMPROOT/all.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/all.out" >&2; fail "--target all install exits 0"; }
+for manifest in "$TMPROOT/all-oc/.harness-manifest" "$TMPROOT/all-codex/.harness-manifest" "$TMPROOT/all-agy/plugins/oneshot-harness/.harness-manifest" "$TMPROOT/all-claude/.harness-manifest"; do
+  [ -f "$manifest" ] || fail "--target all writes $manifest"
+done
+rc=0
+OPENCODE_CONFIG="$TMPROOT/all-oc" CODEX_HOME="$TMPROOT/all-codex" ANTIGRAVITY_CONFIG="$TMPROOT/all-agy" CLAUDE_CONFIG_DIR="$TMPROOT/all-claude" \
+  "$INSTALL" --target all --force --prune >"$TMPROOT/all-refresh.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/all-refresh.out" >&2; fail "--target all --force --prune exits 0"; }
+pass "--target all installs and refreshes all four provider targets"
+
+# 66. unknown --target value exits 2 without writing
+rc=0
+OPENCODE_CONFIG="$TMPROOT/bad-target-dest" "$INSTALL" --target bogus >"$TMPROOT/bad-target.out" 2>"$TMPROOT/bad-target.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/bad-target.err" >&2; fail "unknown --target exits 2 (got $rc)"; }
+[ ! -e "$TMPROOT/bad-target-dest" ] || fail "unknown --target writes nothing"
+grep -qF 'install.sh: unknown target: bogus' "$TMPROOT/bad-target.err" || { cat "$TMPROOT/bad-target.err" >&2; fail "unknown --target diagnostic"; }
+pass "unknown --target exits 2 without writing"
+
+# 67. Multi-target install works through a relative `bash install.sh` invocation,
+# and every selected target is preflighted before any target is written.
+rc=0
+( cd "$ROOT" && OPENCODE_CONFIG="$TMPROOT/rel-oc" CODEX_HOME="$TMPROOT/rel-codex" ANTIGRAVITY_CONFIG="$TMPROOT/rel-agy" CLAUDE_CONFIG_DIR="$TMPROOT/rel-claude" bash install.sh --target all ) >"$TMPROOT/rel-all.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/rel-all.out" >&2; fail "relative bash install.sh --target all exits 0 (got $rc)"; }
+for manifest in "$TMPROOT/rel-oc/.harness-manifest" "$TMPROOT/rel-codex/.harness-manifest" "$TMPROOT/rel-agy/plugins/oneshot-harness/.harness-manifest" "$TMPROOT/rel-claude/.harness-manifest"; do
+  [ -f "$manifest" ] || fail "relative bash install.sh --target all writes $manifest"
+done
+# A collision in the second target must abort before the first target is written.
+mkdir -p "$TMPROOT/atomic-codex"
+printf 'existing\n' >"$TMPROOT/atomic-codex/AGENTS.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/atomic-oc" CODEX_HOME="$TMPROOT/atomic-codex" "$INSTALL" --target opencode,codex >"$TMPROOT/atomic.out" 2>"$TMPROOT/atomic.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/atomic.err" >&2; fail "multi-target preflight collision exits 1 (got $rc)"; }
+[ ! -e "$TMPROOT/atomic-oc" ] || fail "multi-target preflight writes nothing to an earlier target when a later target collides"
+pass "multi-target install works via bash install.sh and preflights all targets atomically before writing"
+
+# 68. Every target shares one machine-wide state/quota-ledger.tsv, symlinked to
+# $OPENCODE_CONFIG/state, and --force --prune never trims it.
+rc=0
+OPENCODE_CONFIG="$TMPROOT/shared-oc" CODEX_HOME="$TMPROOT/shared-codex" ANTIGRAVITY_CONFIG="$TMPROOT/shared-agy" CLAUDE_CONFIG_DIR="$TMPROOT/shared-claude" "$INSTALL" --target all >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "--target all install for the shared ledger exits 0 (got $rc)"
+SHARED_LEDGER_OC="$TMPROOT/shared-oc/state/quota-ledger.tsv"
+SHARED_LEDGER_CODEX="$TMPROOT/shared-codex/state/quota-ledger.tsv"
+SHARED_LEDGER_AGY="$TMPROOT/shared-agy/plugins/oneshot-harness/state/quota-ledger.tsv"
+SHARED_LEDGER_CLAUDE="$TMPROOT/shared-claude/state/quota-ledger.tsv"
+printf 'shared-pool\topencode\t2026-11-09T14:00:00Z\t2026-11-09T19:00:00Z\treviewer-a\tshared\n' >"$SHARED_LEDGER_CODEX"
+[ -f "$SHARED_LEDGER_OC" ] || fail "opencode state/quota-ledger.tsv receives the ledger written through codex state/"
+cmp -s "$SHARED_LEDGER_OC" "$SHARED_LEDGER_CODEX" || fail "opencode and codex share the same quota-ledger.tsv"
+cmp -s "$SHARED_LEDGER_OC" "$SHARED_LEDGER_AGY" || fail "opencode and antigravity share the same quota-ledger.tsv"
+cmp -s "$SHARED_LEDGER_OC" "$SHARED_LEDGER_CLAUDE" || fail "opencode and claude share the same quota-ledger.tsv"
+ledger_before="$(cat "$SHARED_LEDGER_OC")"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/shared-oc" CODEX_HOME="$TMPROOT/shared-codex" ANTIGRAVITY_CONFIG="$TMPROOT/shared-agy" CLAUDE_CONFIG_DIR="$TMPROOT/shared-claude" "$INSTALL" --force --prune --target all >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "--force --prune --target all with a shared ledger exits 0 (got $rc)"
+for ledger in "$SHARED_LEDGER_OC" "$SHARED_LEDGER_CODEX" "$SHARED_LEDGER_AGY" "$SHARED_LEDGER_CLAUDE"; do
+  [ -f "$ledger" ] || fail "shared quota-ledger.tsv survives --force --prune: $ledger"
+  [ "$(cat "$ledger")" = "$ledger_before" ] || fail "shared quota-ledger.tsv is unchanged by --force --prune: $ledger"
+done
+pass "all targets share a single machine-wide state/quota-ledger.tsv that survives --force --prune"
+
+# 69. shared-state safety: a relative OPENCODE_CONFIG resolves to an absolute
+# shared state path, an existing per-target ledger is merged (never removed)
+# under --force, a non-ledger file in state/ is refused even with --force, and
+# a same-directory CODEX_HOME/OPENCODE_CONFIG alias keeps state/ a real dir.
+rc=0
+( cd "$TMPROOT" && OPENCODE_CONFIG="rel-oc-69" CODEX_HOME="$TMPROOT/rel-cx-69" "$INSTALL" --target codex ) >"$TMPROOT/rel-state-69.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/rel-state-69.out" >&2; fail "relative OPENCODE_CONFIG install exits 0 (got $rc)"; }
+[ -L "$TMPROOT/rel-cx-69/state" ] && [ -d "$TMPROOT/rel-cx-69/state" ] || fail "relative OPENCODE_CONFIG links state/ to a directory"
+case "$(readlink "$TMPROOT/rel-cx-69/state")" in
+  /*) true ;;
+  *) fail "relative OPENCODE_CONFIG state symlink is absolute: $(readlink "$TMPROOT/rel-cx-69/state")" ;;
+esac
+
+mkdir -p "$TMPROOT/m-oc-69/state" "$TMPROOT/m-cx-69/state"
+printf 'antigravity-argon\tantigravity\t2026-11-09T10:00:00Z\t2026-11-09T15:00:00Z\timplementer\t429\n' >"$TMPROOT/m-oc-69/state/quota-ledger.tsv"
+printf 'codex-spark\tcodex\t2026-11-09T12:00:00Z\t2026-11-09T17:00:00Z\ttask-reviewer\t429\n' >>"$TMPROOT/m-oc-69/state/quota-ledger.tsv"
+printf 'codex-spark\tcodex\t2026-11-09T13:00:00Z\t2026-11-09T18:00:00Z\treviewer-a\t429\n' >"$TMPROOT/m-cx-69/state/quota-ledger.tsv"
+printf 'opencode-pro\topencode\t2026-11-09T11:00:00Z\t2026-11-09T16:00:00Z\treviewer-c\t429\n' >>"$TMPROOT/m-cx-69/state/quota-ledger.tsv"
+
+rc=0
+OPENCODE_CONFIG="$TMPROOT/m-oc-69" CODEX_HOME="$TMPROOT/m-cx-69" "$INSTALL" --target codex >"$TMPROOT/merge-noforce-69.out" 2>"$TMPROOT/merge-noforce-69.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/merge-noforce-69.err" >&2; fail "pre-existing per-target ledger refuses without --force (got $rc)"; }
+[ -f "$TMPROOT/m-cx-69/state/quota-ledger.tsv" ] && [ ! -L "$TMPROOT/m-cx-69/state" ] || fail "refused install leaves the pre-existing state ledger in place"
+
+rc=0
+OPENCODE_CONFIG="$TMPROOT/m-oc-69" CODEX_HOME="$TMPROOT/m-cx-69" "$INSTALL" --force --target codex >"$TMPROOT/merge-force-69.out" 2>"$TMPROOT/merge-force-69.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/merge-force-69.err" >&2; fail "pre-existing per-target ledger merges under --force (got $rc)"; }
+[ -L "$TMPROOT/m-cx-69/state" ] || fail "merged install links state/ to the shared state dir"
+grep -qxF "$(printf 'antigravity-argon\tantigravity\t2026-11-09T10:00:00Z\t2026-11-09T15:00:00Z\timplementer\t429')" "$TMPROOT/m-oc-69/state/quota-ledger.tsv" || fail "merge keeps the shared ledger row"
+grep -qxF "$(printf 'opencode-pro\topencode\t2026-11-09T11:00:00Z\t2026-11-09T16:00:00Z\treviewer-c\t429')" "$TMPROOT/m-oc-69/state/quota-ledger.tsv" || fail "merge keeps the per-target ledger row"
+grep -qxF "$(printf 'codex-spark\tcodex\t2026-11-09T13:00:00Z\t2026-11-09T18:00:00Z\treviewer-a\t429')" "$TMPROOT/m-oc-69/state/quota-ledger.tsv" || fail "merge retains the later retry_after per pool"
+! grep -q '2026-11-09T17:00:00Z' "$TMPROOT/m-oc-69/state/quota-ledger.tsv" || fail "merge supersedes the earlier retry_after"
+! grep -q 'window_start' "$TMPROOT/m-oc-69/state/quota-ledger.tsv" || fail "merge does not write a foreign ledger header"
+
+mkdir -p "$TMPROOT/nl-cx-69/state"
+printf 'not a ledger\n' >"$TMPROOT/nl-cx-69/state/host.sqlite"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/m-oc-69" CODEX_HOME="$TMPROOT/nl-cx-69" "$INSTALL" --force --target codex >"$TMPROOT/nonledger-69.out" 2>"$TMPROOT/nonledger-69.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/nonledger-69.err" >&2; fail "non-ledger file in state/ refuses even with --force (got $rc)"; }
+[ -f "$TMPROOT/nl-cx-69/state/host.sqlite" ] || fail "non-ledger file in state/ survives the refused install"
+
+rc=0
+OPENCODE_CONFIG="$TMPROOT/m-oc-69" CODEX_HOME="$TMPROOT/m-oc-69" "$INSTALL" --force --target codex >"$TMPROOT/same-dir-69.out" 2>"$TMPROOT/same-dir-69.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/same-dir-69.err" >&2; fail "same-dir CODEX_HOME/OPENCODE_CONFIG install exits 0 (got $rc)"; }
+[ -d "$TMPROOT/m-oc-69/state" ] && [ ! -L "$TMPROOT/m-oc-69/state" ] && [ -f "$TMPROOT/m-oc-69/state/quota-ledger.tsv" ] || fail "same-dir alias preserves state/ as a real directory with its ledger"
+pass "shared-state safety handles relative OPENCODE_CONFIG, merges existing ledger under --force, refuses non-ledger files, and preserves same-dir state"
+
+# 70. size-cap guards: a prose-heavy profile compacts with a note for codex, an
+# oversized Antigravity rule refuses at 24000 bytes, and a profile whose
+# headings survive compaction refuses at 32768 bytes instead of shipping.
+{
+  cat "$ROOT/providers/tri.md"
+  awk 'BEGIN { for (i = 0; i < 150; i++) printf "prose filler line %04d ......................................................................\n", i }'
+} >"$TMPROOT/prose-big-70.md"
+rc=0
+CODEX_HOME="$TMPROOT/cap-cx-ok-70" OPENCODE_CONFIG="$TMPROOT/cap-oc-70" "$INSTALL" --profile-file "$TMPROOT/prose-big-70.md" --target codex >"$TMPROOT/cap-ok-70.out" 2>"$TMPROOT/cap-ok-70.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/cap-ok-70.err" >&2; fail "oversized codex prose compacts and installs (got $rc)"; }
+grep -qF 'note: compacting codex profile prose to fit 32768-byte host instruction limit' "$TMPROOT/cap-ok-70.out" || fail "compaction prints the 32768-byte host instruction note"
+[ "$(wc -c <"$TMPROOT/cap-cx-ok-70/AGENTS.md")" -lt 32768 ] || fail "compacted codex AGENTS.md is under 32768 bytes"
+
+rc=0
+ANTIGRAVITY_CONFIG="$TMPROOT/cap-agy-bad-70" OPENCODE_CONFIG="$TMPROOT/cap-oc-70" "$INSTALL" --profile-file "$TMPROOT/prose-big-70.md" --target antigravity >"$TMPROOT/cap-agy-70.out" 2>"$TMPROOT/cap-agy-70.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/cap-agy-70.err" >&2; fail "oversized antigravity rule exits 2 (got $rc)"; }
+grep -qF 'exceeds 24000 bytes' "$TMPROOT/cap-agy-70.err" || fail "oversized antigravity rule reports the 24000-byte limit"
+[ ! -e "$TMPROOT/cap-agy-bad-70/plugins/oneshot-harness/.harness-manifest" ] || fail "refused antigravity install writes no manifest"
+
+{
+  cat "$ROOT/providers/tri.md"
+  awk 'BEGIN { for (i = 0; i < 400; i++) printf "# comment heading %04d ..............................\n", i }'
+} >"$TMPROOT/table-big-70.md"
+rc=0
+CODEX_HOME="$TMPROOT/cap-cx-bad-70" OPENCODE_CONFIG="$TMPROOT/cap-oc-70" "$INSTALL" --profile-file "$TMPROOT/table-big-70.md" --target codex >"$TMPROOT/cap-bad-70.out" 2>"$TMPROOT/cap-bad-70.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/cap-bad-70.err" >&2; fail "post-compaction oversize profile exits 2 (got $rc)"; }
+grep -qF 'exceeds 32768 bytes' "$TMPROOT/cap-bad-70.err" || fail "post-compaction oversize profile reports the 32768-byte limit"
+[ ! -e "$TMPROOT/cap-cx-bad-70/.harness-manifest" ] || fail "refused codex install writes no manifest"
+pass "size-cap guards compact prose with a note and refuse oversized Antigravity and post-compaction Codex/Claude files with exit 2"
+
+# 71. Directory locks and ambient preflight variables must not prevent safe installs.
+mkdir -p "$TMPROOT/lk-oc-71/state/quota-ledger.lock" "$TMPROOT/lk-cx-71/state/quota-ledger.lock"
+touch -t 202001010000 "$TMPROOT/lk-oc-71/state/quota-ledger.lock" "$TMPROOT/lk-cx-71/state/quota-ledger.lock"
+printf 'agy-opus\tantigravity\t2026-11-09T10:00:00Z\t2026-11-09T15:00:00Z\treviewer-b\t429\n' >"$TMPROOT/lk-cx-71/state/quota-ledger.tsv"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/lk-oc-71" CODEX_HOME="$TMPROOT/lk-cx-71" "$INSTALL" --force --target codex >"$TMPROOT/lk-71.out" 2>"$TMPROOT/lk-71.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/lk-71.err" >&2; fail "stale ledger directory locks are broken (got $rc)"; }
+[ -L "$TMPROOT/lk-cx-71/state" ] || fail "stale lock migration links target state"
+[ ! -e "$TMPROOT/lk-oc-71/state/quota-ledger.lock" ] || fail "shared ledger lock is released"
+grep -q "$(printf '^agy-opus\t')" "$TMPROOT/lk-oc-71/state/quota-ledger.tsv" || fail "stale lock migration preserves ledger row"
+
+mkdir -p "$TMPROOT/act-oc-71/state" "$TMPROOT/act-cx-71/state/quota-ledger.lock"
+printf 'agy-opus\tantigravity\t2026-11-09T10:00:00Z\t2026-11-09T15:00:00Z\treviewer-b\t429\n' >"$TMPROOT/act-cx-71/state/quota-ledger.tsv"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/act-oc-71" CODEX_HOME="$TMPROOT/act-cx-71" "$INSTALL" --force --target codex >"$TMPROOT/act-71.out" 2>"$TMPROOT/act-71.err" || rc=$?
+[ "$rc" -eq 1 ] || fail "active ledger directory lock refuses installation (got $rc)"
+[ -f "$TMPROOT/act-cx-71/state/quota-ledger.tsv" ] || fail "active lock refusal preserves source ledger"
+[ ! -L "$TMPROOT/act-cx-71/state" ] || fail "active lock refusal leaves source state unlinked"
+
+rc=0
+HARNESS_INTERNAL_PREFLIGHT=1 OPENCODE_CONFIG="$TMPROOT/amb1-71" "$INSTALL" >"$TMPROOT/amb1-71.out" 2>"$TMPROOT/amb1-71.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/amb1-71.err" >&2; fail "ambient preflight=1 install exits 0 (got $rc)"; }
+[ -f "$TMPROOT/amb1-71/.harness-manifest" ] || fail "ambient preflight=1 installs manifest"
+[ ! -s "$TMPROOT/amb1-71.err" ] || fail "ambient preflight=1 emits no errors"
+rc=0
+HARNESS_INTERNAL_PREFLIGHT=yes OPENCODE_CONFIG="$TMPROOT/amb2-71" "$INSTALL" >"$TMPROOT/amb2-71.out" 2>"$TMPROOT/amb2-71.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/amb2-71.err" >&2; fail "ambient preflight=yes install exits 0 (got $rc)"; }
+[ -f "$TMPROOT/amb2-71/.harness-manifest" ] || fail "ambient preflight=yes installs manifest"
+[ ! -s "$TMPROOT/amb2-71.err" ] || fail "ambient preflight=yes emits no errors"
+
+mkdir -p "$TMPROOT/race-oc-71/state" "$TMPROOT/race-cx-71/state/quota-ledger.lock"
+printf 'agy-opus\tantigravity\t2026-11-09T10:00:00Z\t2026-11-09T15:00:00Z\treviewer-b\t429\n' >"$TMPROOT/race-cx-71/state/quota-ledger.tsv"
+touch -t 202001010000 "$TMPROOT/race-cx-71/state/quota-ledger.lock"
+(
+  for ((attempt = 0; attempt < 5000; attempt++)); do
+    if mkdir "$TMPROOT/race-cx-71/state/quota-ledger.lock" 2>/dev/null; then
+      ledger="$TMPROOT/race-cx-71/state/quota-ledger.tsv"
+      { [ ! -f "$ledger" ] || cat "$ledger"; printf 'codex-race\tcodex\t2026-11-09T14:00:00Z\t2026-11-09T19:00:00Z\treviewer-a\t429\n'; } >"$ledger.writer-tmp"
+      mv -f "$ledger.writer-tmp" "$ledger"
+      rmdir "$TMPROOT/race-cx-71/state/quota-ledger.lock"
+      exit 0
+    fi
+  done
+  exit 1
+) &
+writer_pid=$!
+rc=0
+OPENCODE_CONFIG="$TMPROOT/race-oc-71" CODEX_HOME="$TMPROOT/race-cx-71" "$INSTALL" --force --target codex >"$TMPROOT/race-71.out" 2>"$TMPROOT/race-71.err" || rc=$?
+writer_rc=0
+wait "$writer_pid" || writer_rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/race-71.err" >&2; fail "concurrent ledger migration exits 0 (got $rc)"; }
+[ "$writer_rc" -eq 0 ] || fail "concurrent ledger writer acquires lock"
+[ -L "$TMPROOT/race-cx-71/state" ] || fail "concurrent ledger migration links target state"
+grep -q "$(printf '^agy-opus\t')" "$TMPROOT/race-oc-71/state/quota-ledger.tsv" || fail "concurrent ledger migration preserves source row"
+grep -q "$(printf '^codex-race\t')" "$TMPROOT/race-oc-71/state/quota-ledger.tsv" || fail "concurrent ledger migration preserves writer row"
+[ ! -e "$TMPROOT/race-oc-71/state/quota-ledger.lock" ] || fail "concurrent ledger migration releases shared lock"
+pass "ledger directory locks (stale break, active refusal, release) and ambient preflight env immunity"
+
+printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

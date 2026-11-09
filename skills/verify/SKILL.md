@@ -130,8 +130,8 @@ Compiled from recorded failure memories:
 
 ## Pipeline Integration
 
-- Oneshot Phase 4 invokes this skill. Main session runs the checks itself or dispatches a fresh subagent to run them; failures route to the debug skill. Never proceed on failures.
-- Council fix loops: after every fix round, re-run these checks (tests, lint, typecheck, build) before re-review. This skill wins every argument with speed.
+- Oneshot Phase 4 (and standalone `verify`) dispatches the `tester` seat as a script runner through the AGENTS.md Dispatch Adapter to run the test suite, lint, typecheck, build, and project scripts, then acts on its compressed pass/fail report (exit codes, pass/fail counts, failing test or check names, and first-error excerpts - never dumping full raw logs into the main session). Failures route to the debug skill. Never proceed on failures.
+- Council fix loops: after every fix round, re-run these checks via `tester` (tests, lint, typecheck, build) before re-review. This skill wins every argument with speed.
 - Receiving council findings: verifying each finding against real code before acting is the same discipline on the input side. Invoke the council skill via the skill tool for receiving-side rigor.
 - tdd supplies the red-green discipline for regression tests. Invoke the tdd skill via the skill tool before writing tests-first.
 

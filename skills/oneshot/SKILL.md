@@ -17,9 +17,9 @@ Autonomous end-to-end SDLC: task -> spec -> plan -> implementation -> verificati
 
 **Visibility:** The whole pipeline runs in the main session. Announce every phase transition. Stream every subagent result back into main as it returns.
 
-**Context hygiene:** Main orchestrates. Main never writes implementation code inline. Per-task and per-round work is dispatched to fresh subagents via the `subagent` tool (some builds register this tool as `task`; use whichever the session exposes). Never delegate a whole phase or the whole pipeline to one subagent.
+**Context hygiene:** Main orchestrates. Main never writes implementation code inline. Per-task and per-round work is dispatched to fresh subagents through the AGENTS.md Dispatch Adapter (the adapter picks the native or `delegate_task` path per rung). Never delegate a whole phase or the whole pipeline to one subagent.
 
-**Model routing:** Skills never hardcode models. Role rows and fallback ladders live in AGENTS.md ("Model Tank"); every seat agent pins its primary in its agent file. On a usage-limit or 429-style provider error, re-dispatch the same seat agent with an explicit model override along that role's ladder and announce it. Routing-file note: the installed copy of this file is `HARNESS.md`; `<dest>/AGENTS.md` is the user's own file and is never overwritten.
+**Model routing:** Skills never hardcode models. Role rows, optional `## Quota pools`, and optional `## Backup ladder` live in the active provider profile (`PROVIDERS.md`); the AGENTS.md Routing Rules (quota pools & ledger `<dest>/state/quota-ledger.tsv`, failure classes, soft cap & reserve, backup ladder walk, and budget stop & resume) and Dispatch Adapter govern how a role becomes a running subagent. On a usage-limit or 429-style provider error (`exhausted`, written to the quota ledger), an `unreachable` rung, a failed `transient` retry, or a soft-cap reserved pool, re-dispatch the same role on the next eligible rung of its ladder (followed by sibling implementation hand-off and `## Backup ladder`), announce it (`backup: <role> -> <provider>/<model>` on backup rungs), or stop with `budget stop: <role>` when no eligible rung remains. Routing-file note: the installed copy of this file is `HARNESS.md`; `<dest>/AGENTS.md` is the user's own file and is never overwritten.
 
 ## Pipeline Overview
 
@@ -50,7 +50,7 @@ Run phases sequentially 1 -> 7 in the main session. No skipping. Validate the pr
 **Skill:** `shape`
 **Output:** `docs/specs/YYYY-MM-DD-<topic>-design.md` (spec)
 
-1. Ensure the working directory (main checkout or git worktree) is on a feature branch (e.g. `feat/<topic>`). If the tree sits on the default branch (`master`/`main`), either switch to a new `feat/<topic>` branch or create and move into a feature worktree (`tools.opencode.worktree_create` + `tools.opencode.session_move`). When already inside a dedicated feature worktree/branch (such as a T3 Code worktree thread), reuse its branch. This is the FIRST step, before the shape skill runs: shape writes and commits the spec, so the feature branch must be active before it runs. All pipeline commits after this point happen on a feature branch.
+1. Ensure the working directory (main checkout or git worktree) is on a feature branch (e.g. `feat/<topic>`). If the tree sits on the default branch (`master`/`main`), either switch to a new `feat/<topic>` branch or create and move into a feature worktree (use the host's worktree tool, e.g. OpenCode `tools.opencode.worktree_create` + `session_move`, or a T3 Code worktree thread). When already inside a dedicated feature worktree/branch (such as a T3 Code worktree thread), reuse its branch. This is the FIRST step, before the shape skill runs: shape writes and commits the spec, so the feature branch must be active before it runs. All pipeline commits after this point happen on a feature branch.
 2. Invoke the `shape` skill via the `skill` tool. Follow its Socratic design checklist: purpose, constraints, success criteria, 2-3 approaches with trade-offs, user-approved design. Shape invokes `domain-modeling` when the design introduces or renames domain concepts, and `codebase-design` when it changes a module interface. The shape skill writes and commits the spec onto that branch.
 3. The spec commit is owned by shape (step 2). Oneshot only verifies the spec artifact exists at `docs/specs/YYYY-MM-DD-<topic>-design.md` and proceeds. Do not run `git add` or `git commit` here.
 4. Gate 1: user approves the design (skip under bypass; verify the `auto-approve: true` header line shape wrote before committing, do not edit the spec here). One owner for plan handoff: shape returns control to the controller at the end of Phase 1, and the controller will invoke plan exactly once in Phase 2. Shape never invokes plan when running under oneshot, and plan is invoked only by the controller.
@@ -83,10 +83,11 @@ If the path IS ignored, record the local path and never use `git add -f`.
 
 1. Invoke `dispatch` and `tdd` via the `skill` tool.
 2. Work on the active feature branch (in the current checkout or dedicated worktree from Phase 1). Clean `git status` first; create the feature branch or worktree here only if Phase 1 was skipped (e.g. resume into Phase 3).
-3. For each plan task, dispatch one of the default implementation seats (`implementer` or `implementer-b`, or `implementer-deep` for tasks flagged complex) via the `subagent` tool with the task brief from `dispatch/implementer-prompt.md`. When a GLOSSARY.md exists, the task brief carries the name of any glossary term the task must honor. The implementer seat follows TDD: failing test -> minimal implementation -> green -> commit (unless Parallel mode: stage only, main commits serially) -> receipt. Seat models and effort levels are pinned in the agent files; fallback rungs live in the AGENTS.md implementation rows.
-4. Independent tasks run in parallel as separate fresh subagents (parallel fan-out lives inside `dispatch`).
+3. For each plan task with behaviour to test, dispatch `tester` first through the AGENTS.md Dispatch Adapter with the red-step brief from `dispatch/tester-prompt.md` (writes failing tests in the working tree, runs them to confirm the failure reason, never writes production code, never commits). Then dispatch `implementer` (or `implementer-deep` for tasks flagged complex) through the AGENTS.md Dispatch Adapter with the task brief from `dispatch/implementer-prompt.md` and the `tester`'s report: `implementer` starts from the `tester`-written red tests, writes the minimal implementation to turn them green, refactors, runs the suite, and commits tests + implementation together (unless Parallel mode: stage only, main commits serially). Mechanical tasks with no new behaviour to test skip `tester` and dispatch `implementer` directly. When a GLOSSARY.md exists, the task brief carries the name of any glossary term the task must honor. Seat models and effort levels come from the active provider profile (native pin rendered at install for seats with an `opencode` rung; seats without one are reached only through `delegate_task`, see the Dispatch Adapter); fallback rungs live in the profile's role ladders.
+4. Independent tasks run in parallel as separate fresh `implementer` subagent instances (parallel fan-out lives inside `dispatch`).
 5. Stream task results to the user as they return (task name, pass/fail, key outputs).
 6. Task failure routes to `debug`: root cause first, then re-dispatch (escalating to `implementer-deep` when a bug resists standard fixes). Unfixable after the debug loop: escalate to user with failure context.
+7. Record the author family per task: after each task commit, append the commit sha, task, and the implementing rung's family (plus the `tester` rung's family when `tester`-written tests are committed in that commit; `family` column of the active provider profile) to the state artifact. In parallel mode the driver commits staged child work serially; record the child's rung family, not the driver's. Driver commits of spec, plan, or docs-only state record nothing (AGENTS.md Council Contract).
 
 Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug`. Debug gets at most 2 rotations; past that, STOP and escalate to the user with context. Escalation after exhausting caps is an explicit allowed stop point - the no-pause rule never overrides budget exhaustion.
 
@@ -97,7 +98,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 **Skill:** `verify`
 
 1. Invoke `verify` via the `skill` tool.
-2. Run test suite, lint, typecheck, build. If no suite exists, run what the project docs define and note it.
+2. Dispatch `tester` as a script runner through the AGENTS.md Dispatch Adapter to run the test suite, lint, typecheck, build, and project scripts (if no suite exists, run what the project docs define and note it), and act on its compressed pass/fail report (failing test/check names and first-error excerpts, never full raw logs in the main session).
 3. Cross-check implementation against the spec checklist.
 4. Fix failures or route to `debug`. Never proceed on failures.
 
@@ -108,7 +109,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 **Skill:** `land`
 
 1. Invoke `land` via the `skill` tool.
-2. Push the feature branch, create the PR: body leads with the problem, not the change inventory (`## Summary`, `## Changes`, `## Test plan`). Reference local spec/plan paths when they are gitignored.
+2. Push the feature branch, create the PR: body leads with the problem, not the change inventory (`## Summary`, `## Changes`, `## Test plan`, `## Budget`). The `## Budget` block reports pools hit, demotions, backup rungs used, and any degraded seats (updated again in Phase 7 if CI or council rounds trigger further budget events). Reference local spec/plan paths when they are gitignored.
 3. Save the PR URL.
 
 ---
@@ -118,25 +119,26 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 **Skill:** `make-ci-green`
 
 1. Invoke `make-ci-green` via the `skill` tool (skip if the repo has no CI/review bots; say "no CI to babysit" and move on).
-2. Watch checks and bot reviews. Real finding -> fresh fixer subagent -> rerun CI. No new information -> no rerun. No blind loops, no flake chasing.
+2. Watch checks and bot reviews. Failing check logs and local reruns are inspected via `tester` (script runner, compressed failure report). Real finding -> fresh fixer subagent (`implementer`, or `implementer-deep` for hard clusters) -> rerun CI (record the fixer rung's family per commit in the state artifact, as in Phase 3). No new information -> no rerun. No blind loops, no flake chasing.
 
 ---
 
 ## Phase 6: COUNCIL (consensus, max 3 rounds)
 
 **Skills:** `council`
-**Gate to Phase 7:** consensus PASS from at least 2 of 3 reviewers **AND** tests green. Both required.
+**Gate to Phase 7:** consensus PASS from at least 2 of 3 reviewers **AND** tests green. Both required. The author-family PASS rule applies as well (AGENTS.md Council Contract): the state artifact holds the author families recorded per commit since Phase 3.
 
 1. Invoke `council` via the `skill` tool.
-2. Dispatch three fresh reviewer subagents on three independent model families (`reviewer-a`, `reviewer-b`, `reviewer-c` agents, seat models pinned in their files). Each assumes the code is broken, hunts for bugs: spec compliance, edges, error handling, security, diff-vs-plan, regressions.
+2. Dispatch three fresh reviewer subagents on three independent model families (`reviewer-a`, `reviewer-b`, `reviewer-c` roles, rungs from the active provider profile). Each assumes the code is broken, hunts for bugs: spec compliance, edges, error handling, security, diff-vs-plan, regressions.
 3. Findings merge into one line per item: `path:line: emoji severity: problem. fix.`
 4. Round loop (max 3 rounds, never stops mid-loop):
-   - FAIL -> dispatch fresh implementation-seat fixer subagents (`implementer` or `implementer-b`, one per problem cluster, max 2 files each; see `AGENTS.md` Review contracts for fixer seat routing) -> push -> re-review next round.
+   - FAIL -> dispatch fresh implementation-seat fixer subagents (`implementer`, or `implementer-deep` for hard clusters, one per problem cluster, max 2 files each; see `AGENTS.md` Review contracts for fixer seat routing; record each fixer commit's rung family in the state artifact) -> push -> re-review next round.
    - PASS + green -> break, proceed to Phase 7.
    - CI freshness gate: if any council fix round pushed commits after the last green `make-ci-green` receipt, re-enter Phase 6.5 on the final HEAD before Phase 7. A stale green receipt never satisfies the gate.
    - If that 6.5 re-entry itself pushes further CI-repair commits, the final HEAD needs one delta council round on the changed files (counted against the 3-round budget); when the round budget is exhausted alongside red CI, STOP and escalate instead of landing unreviewed.
-5. Rounds exhausted -> one escalation review with the AGENTS.md escalation row -> still failing -> STOP, escalate to user with round count, findings, test output. Do not proceed.
-6. No test suite: see `AGENTS.md` Review contracts for the `no-tests` gate rule. Label a `no-tests` PASS `provisional: no-tests` in the verdict, and have the reviewer flag `no tests` as yellow. Record any `no-tests decision: proceed` in the state artifact; for a standalone council run the state artifact is `$(git rev-parse --git-dir)/info/oneshot-state.md` in the target repo or worktree, created if missing (`mkdir -p "$(git rev-parse --git-dir)/info"`).
+5. Rounds exhausted -> one escalation review on the `reviewer-esc` rung of the active provider profile -> still failing -> STOP, escalate to user with round count, findings, test output. Do not proceed.
+6. Author-family vote: before declaring PASS, check that at least one PASS comes from a council seat whose family is not an author family. If every seat's family is an author family, dispatch `reviewer-esc` for the non-author vote on a rung whose family is neither a council-seat nor an author family (AGENTS.md Council Contract; one extra dispatch against the 14-dispatch budget); if that is impossible, STOP with `yellow: degraded council`.
+7. No test suite: see `AGENTS.md` Review contracts for the `no-tests` gate rule. Label a `no-tests` PASS `provisional: no-tests` in the verdict, and have the reviewer flag `no tests` as yellow. Record any `no-tests decision: proceed` in the state artifact; for a standalone council run the state artifact is `$(git rev-parse --git-dir)/info/oneshot-state.md` in the target repo or worktree, created if missing (`mkdir -p "$(git rev-parse --git-dir)/info"`).
 
 **Rules:** Reviewer never fixes, fixer never reviews. Fresh subagents every round. Rounds 1-2 never pause for user input; stream results in passing. Verify every finding against real code before acting.
 
@@ -147,7 +149,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 **Skill:** `land` (Gate 3)
 
 1. Verify tests pass on final state (or satisfy the `no-tests` gate rule in `AGENTS.md` Review contracts).
-2. Landed options: merge PR and clean up, keep PR open, keep branch, discard. Present options (skip under bypass: default keep PR open).
+2. Refresh the PR body's `## Budget` block and include a **Budget** summary block in the final report (pools hit, demotions, backup rungs used, and any degraded seats; `AGENTS.md` Routing Rules, budget stop & resume). Landed options: merge PR and clean up, keep PR open, keep branch, discard. Present options (skip under bypass: default keep PR open).
 3. `land` executes the user choice. It reuses the standard flow: create-PR-if-none, merge open PR, checkout default, pull (the "next feature" handoff).
 4. Record it with the memory tool: mode "add", content "oneshot completed: [task] on [branch]". Remove the state artifact at the end of the run.
 
@@ -155,7 +157,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 
 ## State Artifact
 
-At every phase transition, update `$(git rev-parse --git-dir)/info/oneshot-state.md` (run `mkdir -p "$(git rev-parse --git-dir)/info"` first so both standard checkouts where `.git` is a directory and linked git worktrees where `.git` is a file work cleanly; append or rewrite in place): phase, branch, PR URL, tests status, council round count, standing red findings (one line each). On interrupt, resume from the state artifact plus the spec and plan; the state file is the truth for round counters and standing findings - never re-open a closed round or re-spend a burnt budget. `$(git rev-parse --git-dir)/info/oneshot-state.md` is the only state location: it is machine-local and worktree-local, never committed, never `git add -f`'d, and removed at the end of Phase 7.
+At every phase transition (and on any budget event), update `$(git rev-parse --git-dir)/info/oneshot-state.md` (run `mkdir -p "$(git rev-parse --git-dir)/info"` first so both standard checkouts where `.git` is a directory and linked git worktrees where `.git` is a file work cleanly; append or rewrite in place): phase, branch, PR URL, tests status, council round count, standing red findings (one line each), `soft_cap_counts` (per-pool dispatch counts in this pipeline run for soft-cap enforcement), and `earliest_resume` (earliest reset timestamp across exhausted pools when stopped on `budget stop: <role>`). On interrupt or after a budget stop, resume from the state artifact plus `<dest>/state/quota-ledger.tsv`, the spec, and the plan; the state file is the truth for round counters, `soft_cap_counts`, `earliest_resume`, and standing findings - never re-open a closed round or re-spend a burnt budget. `$(git rev-parse --git-dir)/info/oneshot-state.md` is the only per-run state location: it is machine-local and worktree-local, never committed, never `git add -f`'d, and removed at the end of Phase 7.
 
 ## Error Handling
 
@@ -167,7 +169,7 @@ At every phase transition, update `$(git rev-parse --git-dir)/info/oneshot-state
 | Council FAIL (round 3+ or escalation fails) | User | Stop, present findings + test output |
 | Spec incomplete | Phase 1 | Fix gaps, re-approve |
 | Plan has gaps | Phase 2 | Add missing tasks |
-| Reviewer model exhausted | AGENTS.md ladder | Demote role, announce, continue |
+| Model / pool exhausted or soft-capped | Active provider profile ladder + `## Backup ladder` (`AGENTS.md` Routing Rules) | Record pool in `quota-ledger.tsv` on exhaustion, demote or walk backup ladder (`backup: <role> -> <provider>/<model>`), announce, continue; if no rung left, report `budget stop: <role>` with `earliest_resume` |
 | User interrupts | Resume | Restart from state artifact + spec + plan |
 
 ## Red Flags - Never
@@ -178,7 +180,7 @@ At every phase transition, update `$(git rev-parse --git-dir)/info/oneshot-state
 - Pause, ask, or present options mid-loop after a FAIL round (1-2 in council, all rounds in task loop)
 - Delegate the whole pipeline or a whole phase to one subagent
 - Run silently: no transition announcements, no streamed results
-- Hardcode a model ID; route by role through AGENTS.md
+- Hardcode a model ID; route by role through the active provider profile and AGENTS.md routing rules
 - Run the council on 1 healthy reviewer and call it consensus
 - `git add -f` a gitignored path
 - Exceed caps: 3 council rounds, silence after escalation
@@ -191,4 +193,4 @@ At every phase transition, update `$(git rev-parse --git-dir)/info/oneshot-state
 - **Visible:** every phase change and subagent result announced in main
 - **TDD always:** failing test before production code, per task
 - **Consensus over single gatekeeper:** council, independent families, honest degradation
-- **Model-agnostic skills:** routing lives only in AGENTS.md
+- **Model-agnostic skills:** routing rules live only in AGENTS.md and the model table only in the provider profile

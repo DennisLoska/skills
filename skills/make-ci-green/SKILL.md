@@ -7,7 +7,7 @@ description: Use when a PR should be watched through CI and review bots until gr
 
 Watch a PR through CI checks and bot reviews. Fix real findings. Kill flakes with evidence, not reruns.
 
-**Model routing:** fixer subagents come from the AGENTS.md implementation role ladder. This skill never calls a model directly.
+**Model routing:** `tester` (script runner) reads CI logs and reruns checks locally to return a compressed pass/fail report; fixer subagents come from the implementation seats (`implementer`, or `implementer-deep` for hard clusters) in the active provider profile (`PROVIDERS.md`), dispatched through the AGENTS.md Dispatch Adapter. This skill never calls a model directly.
 
 ## Loop
 
@@ -16,11 +16,11 @@ while checks not green (bounded poll: run `gh pr checks <id>` in a loop with a 3
   read state: gh pr checks <id>, gh pr view <id> --json reviews,labels
   classifier, for each failing/blocked item:
     - bot review finding -> real finding?
-    - failing check -> root cause in log?
+    - failing check -> dispatch `tester` (script runner) to read CI logs / reproduce locally and return a compressed report (failing check/test names + first-error excerpt) -> root cause in log?
     - infra flake (network timeouts, rate limits, runner died on rerun) -> flake
   real finding:
-    dispatch fresh fixer subagent from an implementation seat (`implementer` or `implementer-b`) (max 2 files), fixer runs tests before done
-    verify checker: tests/lint/typecheck/build locally
+    dispatch fresh fixer subagent from an implementation seat (`implementer`, or `implementer-deep` for hard clusters) (max 2 files), fixer runs tests before done
+    verify checker: dispatch `tester` to run tests/lint/typecheck/build locally
     push fix: one commit per finding cluster, conventional message
     CI reruns automatically on push; no manual rerun needed
   flake:
@@ -41,7 +41,7 @@ Counter `fix_rounds`: initialized at 0, incremented once per fix commit. Stop at
 - Blind rerun loops (no rerun without pointing at what changed)
 - Chasing flakes with silence (evidence comment required)
 - Faking green (skip: no disable-checks, no WIP labels, no [skip ci] commits)
-- Fixer scope creep (2 files max; fixers come from the implementation seats (`implementer` or `implementer-b`); allow `patch` only for a finding that needs a 1-2 file edit with no test run)
+- Fixer scope creep (2 files max; fixers come from the implementation seats (`implementer`, or `implementer-deep` for hard clusters); allow `patch` only for a finding that needs a 1-2 file edit with no test run)
 - Silent reds (announcement each poll: state summary in one line)
 
 ## Exit

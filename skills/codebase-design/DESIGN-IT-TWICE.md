@@ -8,7 +8,7 @@ Write a user-facing brief first: constraints any interface must satisfy, depende
 
 ## 2. Spawn 3+ fresh subagents in parallel
 
-Dispatch each via the `subagent` tool with an explicit model or named seat from `AGENTS.md` (never an inherited main-session model). Give each one technical brief (paths, coupling, dependency category, what hides behind the seam), one differing design constraint each:
+Dispatch each alternative through the AGENTS.md Dispatch Adapter (Design alternatives: general-purpose subagent with an explicit `model` natively, never the `implementer-deep` seat agent; delegate role `design`) on distinct-family rungs from the active provider profile (`PROVIDERS.md`): `implementer-deep` rungs first, then `implementer` rungs, privacy gate applying (never an inherited main-session model). With fewer distinct reachable families than alternatives, run what is available and announce `degraded design: N families`. The brief is read-only (no edits, no commits). Give each one technical brief (paths, coupling, dependency category, what hides behind the seam), one differing design constraint each:
 
 - Agent 1: minimize the interface, 1 to 3 entry points max, max leverage each.
 - Agent 2: maximize flexibility, many use cases and extension.
