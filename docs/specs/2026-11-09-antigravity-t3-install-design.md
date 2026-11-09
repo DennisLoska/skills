@@ -1,6 +1,6 @@
 # Antigravity & T3 Code Dual-Mode Installer (`with` and `without` T3 Code) — Design
 
-Status: draft (Gate 1 pending user approval, 2026-11-09). Supersedes Section 1.2 (Antigravity bullet) and Section 2.C of [2026-11-09-multi-host-install-design.md](./2026-11-09-multi-host-install-design.md).
+Status: approved (2026-11-09). Supersedes Section 1.2 (Antigravity bullet) and Section 2.C of [2026-11-09-multi-host-install-design.md](./2026-11-09-multi-host-install-design.md).
 
 ## 1. Problem & Live Empirical Findings
 
@@ -81,17 +81,28 @@ To upgrade existing `--target antigravity` installations cleanly:
      - Remove `$DEST/plugins/oneshot-harness/.harness-manifest`, then `rmdir` empty directories depth-first inside `$DEST/plugins/oneshot-harness` and `$DEST/plugins` (`2>/dev/null || true`, leaving any user-owned files or sibling plugins untouched).
      - Count the legacy manifest as a previous manifest so `pruned N stale file(s)` is printed instead of `no previous manifest; prune skipped`.
 
-### 3.4 Runtime Routing & Contract Lookup (`AGENTS.md` & Skills)
+### 3.4 Standalone Any-Provider Dispatch, Profiles, & Strict 3-Way Decoupling
 
-1. **`AGENTS.md` Dispatch Adapter (Path 2) & `skills/dispatch/{implementer,tester}-prompt.md`:**
-   - Update the `Role contract:` path rule: for `provider` `antigravity`, the controller writes literal `<skills-dir>/_harness/agents/<seat>.md (<skills-dir> is the parent of oneshot/SKILL.md in your <skills> list)` instead of substituting the driver's `<harness-dir>/agents/<seat>.md`. For all other providers (`opencode`, `codex`, `claudeAgent`), `<harness-dir>/agents/<seat>.md` (`<harness-dir>` holds `HARNESS.md`) is unchanged.
-2. **`skills/oneshot/SKILL.md`, `skills/dispatch/SKILL.md`, `skills/council/SKILL.md`, `skills/codebase-design/DESIGN-IT-TWICE.md`:**
-   - Add a concise lookup note where `HARNESS.md` / `PROVIDERS.md` are referenced: when `HARNESS.md` and `PROVIDERS.md` are not already pre-loaded in context (as in Antigravity ACP), read `../_harness/HARNESS.md` and `../_harness/PROVIDERS.md` relative to the skill directory (with the shared quota ledger at `../../state/quota-ledger.tsv`).
+1. **Strict 3-way decoupling (`skills` ↔ `providers` ↔ `T3 Code` / host):**
+   - `skills/**` and `agents/*.md` name **zero** concrete providers (`opencode`, `codex`, `antigravity`, `claude`), **zero** T3 Code tools or host names (`T3 Code`, `t3-code`, `delegate_task`, `orchestrator_capabilities`), and **zero** model IDs.
+   - Replace the 9 existing host-specific lines in `skills/oneshot/SKILL.md`, `skills/dispatch/SKILL.md`, `skills/council/SKILL.md`, and `skills/land/SKILL.md` with host-neutral adapter and worktree wording, and use `<contract-path>` (defined solely in `AGENTS.md`) in `skills/dispatch/{implementer,tester}-prompt.md`.
+   - Host-neutral fallback in `skills/{oneshot,dispatch,council}/SKILL.md` and `skills/codebase-design/DESIGN-IT-TWICE.md`: if `HARNESS.md` and `PROVIDERS.md` are not already in context, read `../_harness/HARNESS.md` and `../_harness/PROVIDERS.md` (or `../../HARNESS.md` and `../../PROVIDERS.md`) relative to the skill directory, with quota ledger at `../../state/quota-ledger.tsv`.
+2. **`AGENTS.md` Dispatch Adapter — standalone native dispatch on all four hosts (Path 3) + T3 cross-provider dispatch (Path 2):**
+   - **Path 2 (T3 Code `delegate_task` available):** `<contract-path>` is `<skills-dir>/_harness/agents/<seat>.md` (`<skills-dir>` = parent of `oneshot/SKILL.md` in the child's `<skills>` list) when `provider` is `antigravity`, and `<harness-dir>/agents/<seat>.md` (`<harness-dir>` holds `HARNESS.md`) for all other providers.
+   - **Path 3 (Standalone same-provider native dispatch when T3 tools are absent and `rung.provider` matches the active host):**
+     - `opencode` host: `subagent`/`task` with explicit `model` override (`<model>`, plus `#<value>` when effort id is `variant`; `type general` for `task-reviewer`/`design`).
+     - `codex` host: native `spawn_agent` (+ `wait`) with explicit `model` (`<model>`) and `reasoning_effort` when effort is `reasoningEffort=<value>`.
+     - `claudeAgent` host: native `Agent` (`run_in_background: false`, seat subagent or general-purpose for `task-reviewer`/`design`) with explicit `model` (`<model>`).
+     - `antigravity` host: native `invoke_subagent` (`self` for write-capable seats, `research` for read-only seats/`task-reviewer`/`design`) with `<skills-dir>/_harness/agents/<seat>.md` contract line, mapping `<model>` to `Model: inherit` (when `<model>` equals the session model) or tier `flash_lite|flash|pro` **only** when the rung's `family` matches the active session's family; cross-family rungs without T3 tools hit Path 4 (`unreachable`) so model-family accounting never lies.
+   - **Single-family standalone `task-reviewer` fallback:** in `AGENTS.md` Routing Rules (Author independence), if skipping the author/`tester` family leaves zero reachable `task-reviewer` rungs **solely because every non-author family is `unreachable` on a standalone single-family host** (never when skipped for `exhausted` quota or soft-cap), fall back to the first reachable same-family `task-reviewer` rung and announce `degraded task-review: single-family host (<family>)`. Council (`>= 2` independent families, else `yellow: degraded council`) remains strict.
+3. **Standalone single-provider profiles + multi-provider backup rungs (`providers/*.md`):**
+   - Add validated standalone profiles `providers/codex.md` (`--profile codex`), `providers/antigravity.md` (`--profile antigravity`), and `providers/claude.md` (`--profile claude`) alongside `providers/opencode-go.md`, `providers/tri.md`, and `providers/quad.md`.
+   - Extend `## Backup ladder` in `providers/tri.md` (`*` rows on `codex` and `antigravity`) and `providers/quad.md` (`*` rows on `codex`, `antigravity`, and `claudeAgent`) so even an unchanged `tri`/`quad` install has a reachable native backup rung for every role when opened standalone without T3 Code.
 
 ### 3.5 Documentation Updates
 
 - `docs/specs/2026-11-09-multi-host-install-design.md`: add an explicit supersede note on Sections 1.2 and 2.C correcting the T3 `GEMINI_HOME` behavior and pointing to this spec.
-- `README.md`, `providers/tri.md`, `providers/quad.md`, and `install.sh` `--help`: update `--target antigravity` documentation to describe the flat layout (`skills/`, `skills/_harness/`, `agents/`, `rules/`, `state/`), `T3_USERDATA_DIR` auto-detection for setups with and without T3 Code, and standalone vs T3 runtime behavior.
+- `README.md`, `providers/*.md`, and `install.sh` `--help`: document the flat Antigravity layout (`skills/`, `skills/_harness/`, `agents/`, `rules/`, `state/`), `T3_USERDATA_DIR` auto-detection, standalone single-provider profiles (`opencode-go`, `codex`, `antigravity`, `claude`), and standalone vs T3 runtime behavior.
 
 ## 4. Error Handling Matrix
 
@@ -104,17 +115,18 @@ To upgrade existing `--target antigravity` installations cleanly:
 | Explicit `T3_USERDATA_DIR` is empty, `/`, `.`, `..`, `$HOME`, inside `$SRC`, dangling symlink, or non-dir | Refuses with `install.sh: refusing unsafe T3 userdata directory: ...` (exit `1`) before writing |
 | Symlinked `$T3_CANON/providers[/antigravity]` or `<id>` | Refuses with exit `1` before writing |
 | `ANTIGRAVITY_CONFIG` set without `T3_USERDATA_DIR` | Installs only to `$ANTIGRAVITY_CONFIG`; never touches `$HOME/.t3/userdata` |
-| Oversized Antigravity rule (`>= 24000` bytes) | Exits `2` before writing any file in standalone or T3 roots |
+| Oversized Antigravity rule (`>= 24000` bytes) or post-compaction Codex/Claude doc (`>= 32768` bytes) | Exits `2` before writing any file in standalone or T3 roots |
 
 ## 5. Verification & Test Plan (`test/install.sh`)
 
 1. Unset `CODEX_HOME`, `ANTIGRAVITY_CONFIG`, `CLAUDE_CONFIG_DIR`, and `T3_USERDATA_DIR` at top of `test/install.sh` alongside `OPENCODE_CONFIG`.
-2. Update existing cases 63, 65, 67, 68, 70 for the flat Antigravity layout (`$AGY/skills/oneshot/SKILL.md`, `$AGY/skills/_harness/{HARNESS.md,PROVIDERS.md,agents/implementer.md}`, `$AGY/agents/implementer.md`, `$AGY/rules/{HARNESS,PROVIDERS}.md`, `$AGY/state`, `$AGY/.harness-manifest`, no `plugin.json`, no `SKILL.md` under `skills/_harness`).
+2. Update existing cases 40 (available profiles list), 63, 65, 67, 68, 70 for the flat Antigravity layout and new standalone profiles.
 3. Add new hermetic contract cases:
    - **Setup without T3 Code:** `HOME="$TMPROOT/no-t3-home"` `--target antigravity` and `--target all` succeed with no `.t3` directory present and do not create `.t3`.
-   - **Setup with T3 Code (multi-instance):** `HOME="$TMPROOT/with-t3-home"` with two provider hash dirs `providers/antigravity/hash-a` and `providers/antigravity/hash-b` (plus a stray non-dir file in `providers/antigravity/`) populates `~/.gemini/config`, `hash-a/config`, and `hash-b/config` with real files (no symlinks under `skills/`), shared `state/quota-ledger.tsv`, and per-root `.harness-manifest`.
+   - **Setup with T3 Code (multi-instance):** `HOME="$TMPROOT/with-t3-home"` with `providers/antigravity/hash-a` and `providers/antigravity/hash-b` (plus a stray non-dir file) populates `~/.gemini/config`, `hash-a/config`, and `hash-b/config` with real files, shared `state/quota-ledger.tsv`, and per-root `.harness-manifest`.
    - **Env isolation:** `ANTIGRAVITY_CONFIG="$TMPROOT/custom-agy"` with a populated `$HOME/.t3/userdata/providers/antigravity/hash-x` leaves `hash-x` untouched unless `T3_USERDATA_DIR` is also passed.
    - **Atomic preflight across T3 instances:** a pre-existing colliding file inside `hash-b/config` aborts `--target antigravity` and `--target all` with exit `1` before `~/.gemini/config`, `hash-a/config`, or `opencode` is modified.
    - **Symlinked skill directory repair:** symlinked `config/skills/oneshot -> /outside` refuses without `--force` and converts cleanly to a real directory of real files under `--force` without mutating `/outside`.
-   - **Legacy `plugins/oneshot-harness` upgrade & `--prune`:** pre-existing `plugins/oneshot-harness` with `# profile quad` (plus a sibling `plugins/user-plugin/keep.json`) inherits `quad` on `--force --prune --target antigravity`, removes `oneshot-harness` cleanly, and preserves `plugins/user-plugin/keep.json`.
+   - **Legacy `plugins/oneshot-harness` upgrade & `--prune`:** pre-existing `plugins/oneshot-harness` with `# profile quad` (plus `plugins/user-plugin/keep.json`) inherits `quad` on `--force --prune --target antigravity`, removes `oneshot-harness` cleanly, and preserves `plugins/user-plugin/keep.json`.
    - **Unsafe `T3_USERDATA_DIR` and symlinked instance refusals:** exit `1` with zero writes.
+   - **Standalone profiles & 3-way decoupling:** `--profile codex`, `--profile antigravity`, and `--profile claude` pass installer validation across `--target all`, and `skills/**` + `agents/*.md` contain zero provider names, zero T3 Code references, and zero model IDs.
