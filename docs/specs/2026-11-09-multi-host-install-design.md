@@ -4,6 +4,7 @@ Status: approved (2026-11-09). Builds on
 [2026-11-09-provider-decoupling-design.md](./2026-11-09-provider-decoupling-design.md),
 [2026-11-09-role-rebalance-design.md](./2026-11-09-role-rebalance-design.md), and
 [2026-11-09-budget-fallback-design.md](./2026-11-09-budget-fallback-design.md).
+**Superseded in part (2026-11-09):** Section 1.2 (Antigravity bullet) and Section 2.C are superseded by [2026-11-09-antigravity-t3-install-design.md](./2026-11-09-antigravity-t3-install-design.md) — T3 Code sets `GEMINI_HOME=~/.t3/userdata/providers/antigravity/<id>` per instance rather than mounting `~/.gemini/config`, Antigravity ACP ignores `plugins/`, and `view_file` sandboxes symlinks and paths outside `<GEMINI_HOME>/config/skills`.
 
 ## 1. Architecture question: Does T3 Code have its own skills/agents directory, or does it load them from each provider?
 
@@ -13,7 +14,7 @@ Status: approved (2026-11-09). Builds on
 2. **Each provider loads skills, rules/instructions, and agents from its own global config directory** (both when run standalone in its CLI/desktop app AND when run as a thread inside T3 Code):
    - **OpenCode (`opencode`):** `${OPENCODE_CONFIG:-$HOME/.config/opencode}` (`agents/`, `skills/`, `HARNESS.md`, `PROVIDERS.md`, `state/`, registered in `opencode.json` `"instructions"`).
    - **Codex (`codex`):** `${CODEX_HOME:-$HOME/.codex}` — discovers skills from `$CODEX_HOME/skills/*/SKILL.md` and global instructions from `$CODEX_HOME/AGENTS.md` (with `HARNESS.md`, `PROVIDERS.md`, `agents/`, and `state/` alongside so seat contracts and the quota ledger are always reachable).
-   - **Antigravity (`antigravity`):** `${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config}` — discovers global plugins from `plugins/<name>/` (`plugin.json`, `skills/*/SKILL.md`, `agents/*.md` converted to Antigravity frontmatter, and `rules/HARNESS.md` + `rules/PROVIDERS.md` with `trigger: always_on`, capped at 24 KB per rule file). When T3 Code spawns an Antigravity session, it mounts `<appDataDir>/config/skills` from `~/.gemini/config`.
+   - **Antigravity (`antigravity`):** *(Superseded by [2026-11-09-antigravity-t3-install-design.md](./2026-11-09-antigravity-t3-install-design.md): T3 Code sets `GEMINI_HOME=~/.t3/userdata/providers/antigravity/<id>` rather than mounting `~/.gemini/config`, `plugins/` is inert in Antigravity ACP, and `view_file` sandboxes symlinks and paths outside `config/skills`.)* `${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config}` — discovers global plugins from `plugins/<name>/` (`plugin.json`, `skills/*/SKILL.md`, `agents/*.md` converted to Antigravity frontmatter, and `rules/HARNESS.md` + `rules/PROVIDERS.md` with `trigger: always_on`, capped at 24 KB per rule file). When T3 Code spawns an Antigravity session, it mounts `<appDataDir>/config/skills` from `~/.gemini/config`.
    - **Claude Code (`claude`):** `${CLAUDE_CONFIG_DIR:-$HOME/.claude}` — discovers skills from `skills/*/SKILL.md`, subagents from `agents/*.md` (Claude Code frontmatter), and global instructions from `CLAUDE.md` (or `@HARNESS.md` / `@PROVIDERS.md` imports).
 
 ### Best Architectural Decision
@@ -36,7 +37,10 @@ Unchanged: `agents/*.md` (with rendered `model:` pins from first `opencode` rung
 - `AGENTS.md` — combined global instruction file (`HARNESS.md` + `PROVIDERS.md`, with `<harness-dir>` pointing to `$CODEX_HOME`) so standalone Codex CLI/app and T3 Codex threads load the harness and active profile automatically when no existing user `AGENTS.md` blocks it (collision-checked like every other target file).
 - `NOTICE`, `LICENSE`, `state/`, and `.harness-manifest`.
 
-### C. `antigravity` (`${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config}/plugins/oneshot-harness`)
+### C. `antigravity` (`${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config}/plugins/oneshot-harness`) — *Superseded*
+
+> **Superseded by [2026-11-09-antigravity-t3-install-design.md](./2026-11-09-antigravity-t3-install-design.md):** T3 Code sets `GEMINI_HOME=~/.t3/userdata/providers/antigravity/<id>` rather than mounting `~/.gemini/config`, Antigravity ACP leaves `plugins/oneshot-harness` inert, and Antigravity's `view_file` `realpath` sandbox rejects symlinks and paths outside `<GEMINI_HOME>/config/skills`. `--target antigravity` now installs a flat layout (`skills/`, `skills/_harness/`, `agents/`, `rules/`, `HARNESS.md`, `PROVIDERS.md`, `state/`, `.harness-manifest` with no `plugin.json`) into both `${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config}` and every discovered `${T3_USERDATA_DIR:-$HOME/.t3/userdata}/providers/antigravity/<id>/config`.
+
 Packaged as a self-contained, reversible Antigravity plugin (`plugins/oneshot-harness/`), per Antigravity's plugin specification:
 - `plugin.json` — `{"name":"oneshot-harness","displayName":"Oneshot Cybernetic Harness","version":"1.0.0","description":"Multi-provider cybernetic SDLC harness, 12 skills, and 9 role seats."}`.
 - `skills/<name>/...` — all 12 skills (every `SKILL.md` already has valid `name` matching the folder name and non-empty `description`).

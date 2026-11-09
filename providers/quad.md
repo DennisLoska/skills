@@ -90,8 +90,8 @@ No Google or OpenAI (`gpt-*`) model is routed through OpenCode Go in `quad`: all
 
 The `driver` row stays advisory; the installer validates it when present, never requires it, and never renders it. Two setups are supported:
 
-1. **OpenCode host:** native seats (for seats with an `opencode` rung), plus `delegate_task` when OpenCode runs inside T3 Code. Under `quad`, `implementer`, `implementer-deep`, `reviewer-a`, and `reviewer-b` have no `opencode` rung on their 3-rung ladder, so they are installed with no `model:` pin and never dispatched via Path 1 (they are reached via `delegate_task`, or via Path 3 with an explicit `model` override when falling back to an `opencode` backup rung).
-2. **Any T3 Code provider session** (for example Codex `gpt-6.1-sol`, Claude Code `claude-sonnet-5-5`, or Antigravity `gemini-4-argon`): install into all hosts with `./install.sh --target all` (or tell the session to load `<dest>/HARNESS.md`, `<dest>/PROVIDERS.md`, and the skills from `<dest>/skills/`). It dispatches via `delegate_task`, and permissions are self-enforced by the children.
+1. **Standalone host (without T3 Code):** OpenCode, Codex, Antigravity, or Claude Code runs same-provider rungs natively via Dispatch Adapter Path 1/Path 3 (falling back to the matching `*` row in `## Backup ladder` when primary rungs sit on other providers; single-provider users can also bind `--profile opencode-go|codex|antigravity|claude`). Under `quad` on OpenCode, `implementer`, `implementer-deep`, `reviewer-a`, and `reviewer-b` have no `opencode` ladder rung and install unpinned (never using Path 1).
+2. **Any T3 Code provider session:** `./install.sh --target all` populates standalone roots and any T3 Antigravity instances (`skills/_harness/`), dispatching across all connected providers via `delegate_task` with child-enforced permissions.
 
 ## Privacy
 

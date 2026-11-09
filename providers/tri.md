@@ -98,10 +98,10 @@ Provider load split and council budget notes:
 
 ## Supported driver setups
 
-The `driver` row stays advisory; the installer validates it when present, never requires it, and never renders it. Two setups are supported:
+The `driver` row is advisory. Two setups are supported:
 
-1. **OpenCode host:** native seats (for seats with an `opencode` rung), plus `delegate_task` when OpenCode runs inside T3 Code. Under `tri`, `implementer`, `implementer-deep`, and `reviewer-a` have no `opencode` rung on their 3-rung ladder, so they are installed with no `model:` pin and dispatched via `delegate_task`.
-2. **Any T3 Code provider session** (for example Codex `gpt-6.1-sol` or Antigravity `claude-sonnet-5-5`): install into all hosts with `./install.sh --target all` (or tell the session to load `<dest>/HARNESS.md`, `<dest>/PROVIDERS.md`, and the skills from `<dest>/skills/`). It dispatches via `delegate_task`, and permissions are self-enforced by the children.
+1. **Standalone host (without T3 Code):** OpenCode, Codex, Antigravity, or Claude Code runs same-provider rungs natively via Dispatch Adapter Path 1/Path 3 (falling back to the matching `*` row in `## Backup ladder` when primary rungs sit on other providers; single-provider users can also bind `--profile opencode-go|codex|antigravity|claude`). Under `tri` on OpenCode, `implementer`, `implementer-deep`, and `reviewer-a` have no `opencode` ladder rung and install unpinned.
+2. **Any T3 Code provider session:** `./install.sh --target all` populates standalone roots and any T3 Antigravity instances (`skills/_harness/`), dispatching across all connected providers via `delegate_task` with child-enforced permissions.
 
 ## Privacy
 
