@@ -45,14 +45,14 @@ while read -r seat pin; do
   ' "$ROOT/agents/$seat.md" >"$TMPROOT/tri-agents/$seat.md"
 done <<'PINS'
 scout opencode-go/mimo-v2.6-flash
-implementer opencode-go/gemini-4-argon#high
+implementer -
 implementer-deep -
 patch opencode-go/deepseek-v4.1-flash#high
 tester opencode-go/deepseek-v4.1-flash#high
-reviewer-a opencode-go/gemini-4-argon#high
+reviewer-a -
 reviewer-b opencode-go/claude-haiku-5-5#high
-reviewer-c -
-reviewer-esc opencode-go/kimi-k3.1-pro#high
+reviewer-c opencode-go/deepseek-v4-pro
+reviewer-esc opencode-go/mimo-v2.6-pro
 PINS
 
 # 1. clean install into an empty HOME
@@ -612,16 +612,19 @@ pass "./ and <symlink-to-src>/missing/./sub exit 1 and create nothing"
 cmp -s "$ROOT/providers/tri.md" "$DEST/PROVIDERS.md" || fail "default selects tri"
 grep -qx 'PROVIDERS.md' "$MANIFEST" || fail "manifest owns PROVIDERS.md"
 [ "$(sed -n '2p' "$MANIFEST")" = '# profile tri' ] || fail "manifest line 2 names tri"
-if grep -q '^model:' "$DEST/agents/implementer-deep.md"; then
-  fail "tri implementer-deep has no native pin"
-fi
-grep -qxF 'note: implementer-deep has no opencode rung; dispatch it through delegate_task only' "$TMPROOT/case1.out" || fail "tri reports delegate-only seat"
-if grep -q '^model:' "$DEST/agents/reviewer-c.md"; then
-  fail "tri reviewer-c has no native pin"
-fi
-grep -qxF 'note: reviewer-c has no opencode rung; dispatch it through delegate_task only' "$TMPROOT/case1.out" || fail "tri reports the reviewer-c delegate-only seat"
-grep -qxF 'model: opencode-go/gemini-4-argon#high' "$DEST/agents/implementer.md" || fail "tri implementer uses its OpenCode fallback"
-pass "default tri profile, manifest metadata, native pin and delegate-only notes"
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$DEST/agents/scout.md" || fail "tri scout pin"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$DEST/agents/tester.md" || fail "tri tester pin"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$DEST/agents/patch.md" || fail "tri patch pin"
+grep -qxF 'model: opencode-go/claude-haiku-5-5#high' "$DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
+grep -qxF 'model: opencode-go/deepseek-v4-pro' "$DEST/agents/reviewer-c.md" || fail "tri reviewer-c pin"
+grep -qxF 'model: opencode-go/mimo-v2.6-pro' "$DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
+for seat in implementer implementer-deep reviewer-a; do
+  if grep -q '^model:' "$DEST/agents/$seat.md"; then
+    fail "tri $seat has no native pin"
+  fi
+  grep -qxF "note: $seat has no opencode rung; dispatch it through delegate_task only" "$TMPROOT/case1.out" || fail "tri reports the $seat delegate-only seat"
+done
+pass "default tri profile, manifest metadata, Revision 3 native pins and delegate-only notes"
 
 # 39. legacy profile preserves historical pin values and line positions
 LEGACY_DEST="$TMPROOT/legacy-install"
@@ -927,27 +930,24 @@ grep -q 'invalid row: scout last-resort: invalid privacy' "$TMPROOT/profile-inva
 [ ! -e "$TMPROOT/profile-invalid-dest" ] || fail "an invalid profile file writes nothing"
 pass "--profile-file conflicts with --profile and shares named-profile validation"
 
-# 51. the default tri profile renders the Revision 2 native pins
+# 51. the default tri profile renders the Revision 3 native pins
 PINS_DEST="$TMPROOT/rebalance-pins"
 rc=0
 OPENCODE_CONFIG="$PINS_DEST" "$INSTALL" >"$TMPROOT/pins.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/pins.out" >&2; fail "fresh tri install exits 0"; }
 grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$PINS_DEST/agents/scout.md" || fail "tri scout pin"
-grep -qxF 'model: opencode-go/gemini-4-argon#high' "$PINS_DEST/agents/implementer.md" || fail "tri implementer pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$PINS_DEST/agents/tester.md" || fail "tri tester pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$PINS_DEST/agents/patch.md" || fail "tri patch pin"
-grep -qxF 'model: opencode-go/gemini-4-argon#high' "$PINS_DEST/agents/reviewer-a.md" || fail "tri reviewer-a pin"
 grep -qxF 'model: opencode-go/claude-haiku-5-5#high' "$PINS_DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
-grep -qxF 'model: opencode-go/kimi-k3.1-pro#high' "$PINS_DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
-if grep -q '^model:' "$PINS_DEST/agents/implementer-deep.md"; then
-  fail "tri implementer-deep has no native pin"
-fi
-if grep -q '^model:' "$PINS_DEST/agents/reviewer-c.md"; then
-  fail "tri reviewer-c has no native pin"
-fi
-grep -qxF 'note: implementer-deep has no opencode rung; dispatch it through delegate_task only' "$TMPROOT/pins.out" || fail "tri reports the implementer-deep delegate-only seat"
-grep -qxF 'note: reviewer-c has no opencode rung; dispatch it through delegate_task only' "$TMPROOT/pins.out" || fail "tri reports the reviewer-c delegate-only seat"
-pass "default tri renders the Revision 2 native pins"
+grep -qxF 'model: opencode-go/deepseek-v4-pro' "$PINS_DEST/agents/reviewer-c.md" || fail "tri reviewer-c pin"
+grep -qxF 'model: opencode-go/mimo-v2.6-pro' "$PINS_DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
+for seat in implementer implementer-deep reviewer-a; do
+  if grep -q '^model:' "$PINS_DEST/agents/$seat.md"; then
+    fail "tri $seat has no native pin"
+  fi
+  grep -qxF "note: $seat has no opencode rung; dispatch it through delegate_task only" "$TMPROOT/pins.out" || fail "tri reports the $seat delegate-only seat"
+done
+pass "default tri renders the Revision 3 native pins"
 
 # 52. quad installs cleanly with the camelCase Claude Code provider id
 QUAD_DEST="$TMPROOT/quad-install"
@@ -956,13 +956,15 @@ rc=0
 OPENCODE_CONFIG="$QUAD_DEST" "$INSTALL" --profile quad >"$TMPROOT/quad.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/quad.out" >&2; fail "quad install exits 0 (claudeAgent provider id accepted)"; }
 cmp -s "$ROOT/providers/quad.md" "$QUAD_DEST/PROVIDERS.md" || fail "quad PROVIDERS.md is a byte copy of providers/quad.md"
-if grep -q '^model:' "$QUAD_DEST/agents/reviewer-b.md"; then
-  fail "quad reviewer-b has no native pin"
-fi
-if grep -q '^model:' "$QUAD_DEST/agents/implementer-deep.md"; then
-  fail "quad implementer-deep has no native pin"
-fi
-pass "quad installs cleanly and leaves both Claude-Code-only seats unpinned"
+grep -qxF 'model: opencode-go/deepseek-v4-pro' "$QUAD_DEST/agents/reviewer-c.md" || fail "quad reviewer-c pin"
+grep -qxF 'model: opencode-go/mimo-v2.6-pro' "$QUAD_DEST/agents/reviewer-esc.md" || fail "quad reviewer-esc pin"
+for seat in implementer implementer-deep reviewer-a reviewer-b; do
+  if grep -q '^model:' "$QUAD_DEST/agents/$seat.md"; then
+    fail "quad $seat has no native pin"
+  fi
+  grep -qxF "note: $seat has no opencode rung; dispatch it through delegate_task only" "$TMPROOT/quad.out" || fail "quad reports the $seat delegate-only seat"
+done
+pass "quad installs cleanly and leaves its delegate-only seats unpinned"
 
 # 53. provider ids accept camelCase but reject underscores and a leading hyphen
 CHARSET_BASE="$TMPROOT/charset.md"
@@ -983,13 +985,13 @@ for bad_provider in bad_id -x; do
 done
 pass "provider ids accept camelCase and reject underscore and leading-hyphen ids"
 
-# 54. tri and quad carry no OpenAI model through OpenCode Go
-[ -f "$ROOT/providers/quad.md" ] || fail "providers/quad.md is missing; cannot check opencode-go/gpt rows (expected red)"
-if grep -n 'opencode-go/gpt' "$ROOT/providers/tri.md" "$ROOT/providers/quad.md" >"$TMPROOT/opencode-gpt.out" 2>&1; then
+# 54. tri and quad carry no OpenAI or Google model through OpenCode Go
+[ -f "$ROOT/providers/quad.md" ] || fail "providers/quad.md is missing; cannot check opencode-go/gpt or opencode-go/gemini rows (expected red)"
+if grep -nE 'opencode-go/(gpt|gemini)' "$ROOT/providers/tri.md" "$ROOT/providers/quad.md" >"$TMPROOT/opencode-gpt.out" 2>&1; then
   cat "$TMPROOT/opencode-gpt.out" >&2
-  fail "tri and quad contain no opencode-go/gpt rows"
+  fail "tri and quad contain no opencode-go/gpt or opencode-go/gemini rows"
 fi
-pass "tri and quad carry no OpenAI model through OpenCode Go"
+pass "tri and quad carry no OpenAI or Google model through OpenCode Go"
 
 # 55. --profile-file may point at the installed PROVIDERS.md (directly or via a
 # symlink) without deleting or corrupting the file it is reading.
@@ -1142,5 +1144,81 @@ rc=0
 OPENCODE_CONFIG="$TMPROOT/pool-named-pool-ok" "$INSTALL" --profile-file "$TMPROOT/pool-named-pool.md" >"$TMPROOT/pool-named-pool-ok.out" 2>"$TMPROOT/pool-named-pool-ok.err" || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/pool-named-pool-ok.err" >&2; fail "a valid pool literally named pool under GFM alignment separators exits 0 (got $rc)"; }
 pass "a pool literally named pool is validated and GFM alignment separators are accepted"
+
+# 62. --target codex installs into ${CODEX_HOME:-$HOME/.codex}
+rc=0
+CODEX_HOME="$TMPROOT/codex-dest" "$INSTALL" --target codex >"$TMPROOT/codex.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/codex.out" >&2; fail "--target codex install exits 0"; }
+[ -f "$TMPROOT/codex-dest/skills/oneshot/SKILL.md" ] || fail "codex target writes skills/oneshot/SKILL.md"
+[ -f "$TMPROOT/codex-dest/agents/implementer.md" ] || fail "codex target writes agents/implementer.md"
+[ -f "$TMPROOT/codex-dest/HARNESS.md" ] || fail "codex target writes HARNESS.md"
+[ -f "$TMPROOT/codex-dest/PROVIDERS.md" ] || fail "codex target writes PROVIDERS.md"
+[ -f "$TMPROOT/codex-dest/AGENTS.md" ] || fail "codex target writes AGENTS.md"
+[ -d "$TMPROOT/codex-dest/state" ] || fail "codex target writes state/"
+[ -f "$TMPROOT/codex-dest/.harness-manifest" ] || fail "codex target writes .harness-manifest"
+grep -qxF '## Dispatch Adapter' "$TMPROOT/codex-dest/AGENTS.md" || fail "codex AGENTS.md carries the harness rules"
+grep -qxF '## Quota pools' "$TMPROOT/codex-dest/AGENTS.md" || fail "codex AGENTS.md carries the active profile"
+pass "--target codex installs skills, agents, HARNESS.md, PROVIDERS.md, and combined AGENTS.md"
+
+# 63. --target antigravity installs the oneshot-harness plugin
+# under ${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config}/plugins/oneshot-harness
+rc=0
+ANTIGRAVITY_CONFIG="$TMPROOT/agy-config" "$INSTALL" --target antigravity >"$TMPROOT/agy.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/agy.out" >&2; fail "--target antigravity install exits 0"; }
+AGY_PLUGIN="$TMPROOT/agy-config/plugins/oneshot-harness"
+[ -f "$AGY_PLUGIN/plugin.json" ] || fail "antigravity target writes plugin.json"
+[ -f "$AGY_PLUGIN/skills/oneshot/SKILL.md" ] || fail "antigravity target writes skills/oneshot/SKILL.md"
+[ -f "$AGY_PLUGIN/agents/implementer.md" ] || fail "antigravity target writes agents/implementer.md"
+[ -f "$AGY_PLUGIN/rules/HARNESS.md" ] || fail "antigravity target writes rules/HARNESS.md"
+[ -f "$AGY_PLUGIN/rules/PROVIDERS.md" ] || fail "antigravity target writes rules/PROVIDERS.md"
+[ -f "$AGY_PLUGIN/HARNESS.md" ] || fail "antigravity target writes plugin-root HARNESS.md"
+[ -f "$AGY_PLUGIN/PROVIDERS.md" ] || fail "antigravity target writes plugin-root PROVIDERS.md"
+[ -d "$AGY_PLUGIN/state" ] || fail "antigravity target writes state/"
+[ -f "$AGY_PLUGIN/.harness-manifest" ] || fail "antigravity target writes .harness-manifest"
+grep -qxF 'trigger: always_on' "$AGY_PLUGIN/rules/HARNESS.md" || fail "antigravity rules/HARNESS.md is always_on"
+grep -qxF 'trigger: always_on' "$AGY_PLUGIN/rules/PROVIDERS.md" || fail "antigravity rules/PROVIDERS.md is always_on"
+[ "$(wc -c <"$AGY_PLUGIN/rules/HARNESS.md")" -lt 24000 ] || fail "antigravity rules/HARNESS.md is under 24KB"
+[ "$(wc -c <"$AGY_PLUGIN/rules/PROVIDERS.md")" -lt 24000 ] || fail "antigravity rules/PROVIDERS.md is under 24KB"
+grep -qxF 'subagent: true' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer is a subagent"
+grep -qxF 'mainAgent: false' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer is not a main agent"
+grep -q '^tools:' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer carries a tools frontmatter line"
+pass "--target antigravity installs oneshot-harness plugin with always_on rules (<24KB) and Antigravity subagent frontmatter"
+
+# 64. --target claude installs into ${CLAUDE_CONFIG_DIR:-$HOME/.claude}
+rc=0
+CLAUDE_CONFIG_DIR="$TMPROOT/claude-dest" "$INSTALL" --target claude >"$TMPROOT/claude.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/claude.out" >&2; fail "--target claude install exits 0"; }
+[ -f "$TMPROOT/claude-dest/skills/oneshot/SKILL.md" ] || fail "claude target writes skills/oneshot/SKILL.md"
+[ -f "$TMPROOT/claude-dest/agents/implementer.md" ] || fail "claude target writes agents/implementer.md"
+[ -f "$TMPROOT/claude-dest/HARNESS.md" ] || fail "claude target writes HARNESS.md"
+[ -f "$TMPROOT/claude-dest/PROVIDERS.md" ] || fail "claude target writes PROVIDERS.md"
+[ -f "$TMPROOT/claude-dest/CLAUDE.md" ] || fail "claude target writes CLAUDE.md"
+[ -d "$TMPROOT/claude-dest/state" ] || fail "claude target writes state/"
+[ -f "$TMPROOT/claude-dest/.harness-manifest" ] || fail "claude target writes .harness-manifest"
+grep -qxF 'name: implementer' "$TMPROOT/claude-dest/agents/implementer.md" || fail "claude implementer carries a name frontmatter line"
+grep -q '^tools:' "$TMPROOT/claude-dest/agents/implementer.md" || fail "claude implementer carries a tools frontmatter line"
+pass "--target claude installs skills, Claude subagent frontmatter, and combined CLAUDE.md"
+
+# 65. --target all installs all four targets and --force --prune works across targets
+rc=0
+OPENCODE_CONFIG="$TMPROOT/all-oc" CODEX_HOME="$TMPROOT/all-codex" ANTIGRAVITY_CONFIG="$TMPROOT/all-agy" CLAUDE_CONFIG_DIR="$TMPROOT/all-claude" \
+  "$INSTALL" --target all >"$TMPROOT/all.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/all.out" >&2; fail "--target all install exits 0"; }
+for manifest in "$TMPROOT/all-oc/.harness-manifest" "$TMPROOT/all-codex/.harness-manifest" "$TMPROOT/all-agy/plugins/oneshot-harness/.harness-manifest" "$TMPROOT/all-claude/.harness-manifest"; do
+  [ -f "$manifest" ] || fail "--target all writes $manifest"
+done
+rc=0
+OPENCODE_CONFIG="$TMPROOT/all-oc" CODEX_HOME="$TMPROOT/all-codex" ANTIGRAVITY_CONFIG="$TMPROOT/all-agy" CLAUDE_CONFIG_DIR="$TMPROOT/all-claude" \
+  "$INSTALL" --target all --force --prune >"$TMPROOT/all-refresh.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/all-refresh.out" >&2; fail "--target all --force --prune exits 0"; }
+pass "--target all installs and refreshes all four provider targets"
+
+# 66. unknown --target value exits 2 without writing
+rc=0
+OPENCODE_CONFIG="$TMPROOT/bad-target-dest" "$INSTALL" --target bogus >"$TMPROOT/bad-target.out" 2>"$TMPROOT/bad-target.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/bad-target.err" >&2; fail "unknown --target exits 2 (got $rc)"; }
+[ ! -e "$TMPROOT/bad-target-dest" ] || fail "unknown --target writes nothing"
+grep -qF 'install.sh: unknown target: bogus' "$TMPROOT/bad-target.err" || { cat "$TMPROOT/bad-target.err" >&2; fail "unknown --target diagnostic"; }
+pass "unknown --target exits 2 without writing"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

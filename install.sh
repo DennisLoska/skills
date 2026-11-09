@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh - install agents/, skills/, and HARNESS.md into ${OPENCODE_CONFIG:-$HOME/.config/opencode}
+# install.sh - install agents/, skills/, and HARNESS.md into target host config directories
 # Collision-safe: preflights every target path and refuses to overwrite without --force.
 # Prune is manifest-scoped: it only removes files this installer recorded writing,
 # so personal agents and skills sharing the destination are never touched.
@@ -22,15 +22,17 @@ available_profiles() {
 
 usage() {
   cat <<'EOF'
-usage: install.sh [--force] [--prune] [--profile NAME | --profile-file PATH]
+usage: install.sh [--force] [--prune] [--profile NAME | --profile-file PATH] [--target TARGETS]
 
 Installs agents/, skills/, AGENTS.md (as HARNESS.md), PROVIDERS.md, NOTICE, and LICENSE into
-${OPENCODE_CONFIG:-$HOME/.config/opencode}, and records every installed
-path in <dest>/.harness-manifest.
+the selected host target(s) (default: opencode at ${OPENCODE_CONFIG:-$HOME/.config/opencode}),
+and records every installed path in <dest>/.harness-manifest.
 
 options:
   --profile NAME       bind providers/NAME.md (also --profile=NAME; default: previous binding, else tri)
   --profile-file PATH  bind an external profile file (also --profile-file=PATH; mutually exclusive with --profile)
+  --target TARGETS     comma-separated host targets: opencode, codex, antigravity, claude, or all
+                       (also --target=TARGETS; default: opencode)
   --force              overwrite files that already exist in the destination
   --prune              remove files recorded in a previous .harness-manifest that
                        this run no longer produces; files the installer never wrote
@@ -43,12 +45,19 @@ EOF
   printf '\navailable profiles: %s\n' "$(available_profiles)"
 }
 
+unknown_target() {
+  printf 'install.sh: unknown target: %s (available: opencode codex antigravity claude all)\n' "$1" >&2
+  exit 2
+}
+
 force=0
 prune=0
 profile=tri
 profile_given=0
 profile_file_arg=""
 profile_file_given=0
+target_arg="opencode"
+target_given=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --force) force=1 ;;
@@ -75,6 +84,17 @@ while [ "$#" -gt 0 ]; do
       [ -n "$profile_file_arg" ] || { usage >&2; exit 2; }
       profile_file_given=1
       ;;
+    --target)
+      if [ "$#" -lt 2 ] || [ -z "$2" ]; then unknown_target ""; fi
+      target_given=1
+      target_arg="$2"
+      shift
+      ;;
+    --target=*)
+      target_arg="${1#--target=}"
+      [ -n "$target_arg" ] || unknown_target ""
+      target_given=1
+      ;;
     -h|--help)
       usage
       exit 0
@@ -92,16 +112,85 @@ if [ "$profile_given" -eq 1 ] && [ "$profile_file_given" -eq 1 ]; then
   exit 2
 fi
 
+# Parse and validate --target before touching anything.
+case "$target_arg" in
+  ''|,*|*,|*,,*) unknown_target "$target_arg" ;;
+esac
+selected_targets=()
+add_target() {
+  local t="$1" existing
+  if [ "${#selected_targets[@]}" -gt 0 ]; then
+    for existing in "${selected_targets[@]}"; do
+      [ "$existing" = "$t" ] && return 0
+    done
+  fi
+  selected_targets+=("$t")
+}
+OLD_IFS="$IFS"
+IFS=','
+set -f
+for tok in $target_arg; do
+  case "$tok" in
+    opencode|codex|antigravity|claude)
+      add_target "$tok"
+      ;;
+    all)
+      add_target "opencode"
+      add_target "codex"
+      add_target "antigravity"
+      add_target "claude"
+      ;;
+    *)
+      IFS="$OLD_IFS"
+      set +f
+      unknown_target "$tok"
+      ;;
+  esac
+done
+IFS="$OLD_IFS"
+set +f
+if [ "${#selected_targets[@]}" -eq 0 ]; then
+  unknown_target "$target_arg"
+fi
+
+# When multiple targets are selected, run each target in its own clean invocation
+# so per-target destination validation, manifest tracking, and temp cleanup stay isolated.
+if [ "${#selected_targets[@]}" -gt 1 ]; then
+  sub_args=()
+  [ "$force" -eq 1 ] && sub_args+=("--force")
+  [ "$prune" -eq 1 ] && sub_args+=("--prune")
+  if [ "$profile_given" -eq 1 ]; then
+    sub_args+=("--profile" "$profile")
+  elif [ "$profile_file_given" -eq 1 ]; then
+    sub_args+=("--profile-file" "$profile_file_arg")
+  fi
+  for t in "${selected_targets[@]}"; do
+    if [ "${#sub_args[@]}" -gt 0 ]; then
+      "${BASH_SOURCE[0]}" "${sub_args[@]}" --target "$t"
+    else
+      "${BASH_SOURCE[0]}" --target "$t"
+    fi
+  done
+  exit 0
+fi
+
+TARGET_HOST="${selected_targets[0]}"
+
 # Destination validation. Runs before any path is created or removed, and
 # before the trailing slash is stripped, so a hostile or degenerate
-# OPENCODE_CONFIG never reaches the install or prune loops: a value made only
+# config variable never reaches the install or prune loops: a value made only
 # of whitespace and slashes names no directory at all, "/" and "//" are the
 # filesystem root, "." under --force can unlink files out of the source tree,
 # a destination inside the source checkout can overwrite it, and a whitespace
 # value silently installs into a relative directory. Only an unset variable
 # falls back to the default, so an explicitly empty value is caught instead of
 # being replaced.
-DEST_RAW="${OPENCODE_CONFIG-$HOME/.config/opencode}"
+case "$TARGET_HOST" in
+  opencode)    DEST_RAW="${OPENCODE_CONFIG-$HOME/.config/opencode}" ;;
+  codex)       DEST_RAW="${CODEX_HOME-$HOME/.codex}" ;;
+  antigravity) DEST_RAW="${ANTIGRAVITY_CONFIG-$HOME/.gemini/config}" ;;
+  claude)      DEST_RAW="${CLAUDE_CONFIG_DIR-$HOME/.claude}" ;;
+esac
 
 # Degenerate values: strip whitespace and slashes; nothing left means there is
 # no directory component to install into (empty, " ", "/", "//", "/ /").
@@ -204,7 +293,11 @@ if [ "$DEST_CANON" = "$HOME_PHYS" ] ||
   refuse_dest "the HOME directory"
 fi
 
-DEST="$DEST_CANON"
+if [ "$TARGET_HOST" = "antigravity" ]; then
+  DEST="$DEST_CANON/plugins/oneshot-harness"
+else
+  DEST="$DEST_CANON"
+fi
 MANIFEST="$DEST/.harness-manifest"
 if [ -L "$MANIFEST" ] || { [ -e "$MANIFEST" ] && [ ! -f "$MANIFEST" ]; }; then
   printf 'install.sh: manifest path is not a regular file: %s\n' "$MANIFEST" >&2
@@ -402,11 +495,11 @@ native_pin() {
 
 TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
 staged_profile=""
-rendered_agents=()
+rendered_files=()
 cleanup() {
   rm -f -- "$TMP_MANIFEST" ${staged_profile:+"$staged_profile"}
-  if [ "${#rendered_agents[@]}" -gt 0 ]; then
-    rm -f -- "${rendered_agents[@]}"
+  if [ "${#rendered_files[@]}" -gt 0 ]; then
+    rm -f -- "${rendered_files[@]}"
   fi
 }
 trap cleanup EXIT
@@ -435,34 +528,153 @@ rels+=("LICENSE")
 srcs+=("$staged_profile")
 rels+=("PROVIDERS.md")
 
+if [ "$TARGET_HOST" = "codex" ]; then
+  combined_doc="$(mktemp "${TMPDIR:-/tmp}/harness-codex-agents.XXXXXXXX")"
+  rendered_files+=("$combined_doc")
+  { cat "$SRC/AGENTS.md"; printf '\n\n'; cat "$PROFILE_FILE"; } >"$combined_doc"
+  srcs+=("$combined_doc")
+  rels+=("AGENTS.md")
+elif [ "$TARGET_HOST" = "claude" ]; then
+  combined_doc="$(mktemp "${TMPDIR:-/tmp}/harness-claude-md.XXXXXXXX")"
+  rendered_files+=("$combined_doc")
+  { cat "$SRC/AGENTS.md"; printf '\n\n'; cat "$PROFILE_FILE"; } >"$combined_doc"
+  srcs+=("$combined_doc")
+  rels+=("CLAUDE.md")
+elif [ "$TARGET_HOST" = "antigravity" ]; then
+  plugin_json="$(mktemp "${TMPDIR:-/tmp}/harness-agy-plugin.XXXXXXXX")"
+  rendered_files+=("$plugin_json")
+  cat <<'EOF' >"$plugin_json"
+{
+  "name": "oneshot-harness",
+  "displayName": "Oneshot Cybernetic Harness",
+  "version": "1.0.0",
+  "description": "Multi-provider cybernetic SDLC harness, 12 skills, and 9 role seats."
+}
+EOF
+  srcs+=("$plugin_json")
+  rels+=("plugin.json")
+
+  rule_harness="$(mktemp "${TMPDIR:-/tmp}/harness-agy-rule-h.XXXXXXXX")"
+  rendered_files+=("$rule_harness")
+  { printf -- '---\ntrigger: always_on\n---\n\n'; cat "$SRC/AGENTS.md"; } >"$rule_harness"
+  srcs+=("$rule_harness")
+  rels+=("rules/HARNESS.md")
+
+  rule_providers="$(mktemp "${TMPDIR:-/tmp}/harness-agy-rule-p.XXXXXXXX")"
+  rendered_files+=("$rule_providers")
+  { printf -- '---\ntrigger: always_on\n---\n\n'; cat "$PROFILE_FILE"; } >"$rule_providers"
+  srcs+=("$rule_providers")
+  rels+=("rules/PROVIDERS.md")
+fi
+
 # Render every agent before any destination mutation, including --force repairs.
 for i in "${!rels[@]}"; do
   case "${rels[$i]}" in
     agents/*.md)
       seat="${rels[$i]#agents/}"
       seat="${seat%.md}"
-      pin="$(native_pin "$seat")"
-      if [ -z "$pin" ]; then
-        printf 'note: %s has no opencode rung; dispatch it through delegate_task only\n' "$seat"
+      if [ "$TARGET_HOST" = "opencode" ]; then
+        pin="$(native_pin "$seat")"
+        if [ -z "$pin" ]; then
+          printf 'note: %s has no opencode rung; dispatch it through delegate_task only\n' "$seat"
+        fi
+        rendered="$(mktemp "${TMPDIR:-/tmp}/harness-agent.XXXXXXXX")"
+        rendered_files+=("$rendered")
+        cp -p "${srcs[$i]}" "$rendered"
+        if ! NATIVE_PIN="$pin" awk '
+          BEGIN { pin = ENVIRON["NATIVE_PIN"] }
+          NR == 1 { frontmatter = ($0 == "---") }
+          NR > 1 && frontmatter && $0 == "---" { frontmatter = 0 }
+          { print }
+          frontmatter && !inserted && /^mode: subagent$/ && pin != "" {
+            print "model: " pin
+            inserted = 1
+          }
+          END { if (pin != "" && !inserted) exit 1 }
+        ' "${srcs[$i]}" >"$rendered"; then
+          printf 'install.sh: cannot insert native pin: %s\n' "$seat" >&2
+          exit 1
+        fi
+        srcs[$i]="$rendered"
+      elif [ "$TARGET_HOST" = "antigravity" ]; then
+        case "$seat" in
+          scout|reviewer-a|reviewer-b|reviewer-c|reviewer-esc)
+            agy_tools="[read_file, run_command]"
+            ;;
+          patch)
+            agy_tools="[read_file, edit_file, write_file]"
+            ;;
+          implementer|implementer-deep|tester)
+            agy_tools="[read_file, edit_file, write_file, run_command, manage_task, search_web]"
+            ;;
+          *)
+            agy_tools="[read_file]"
+            ;;
+        esac
+        rendered="$(mktemp "${TMPDIR:-/tmp}/harness-agent.XXXXXXXX")"
+        rendered_files+=("$rendered")
+        cp -p "${srcs[$i]}" "$rendered"
+        SEAT_NAME="$seat" AGY_TOOLS="$agy_tools" awk '
+          NR == 1 && $0 == "---" { in_fm = 1; next }
+          in_fm && /^description:[[:space:]]*/ {
+            desc = $0
+            sub(/^description:[[:space:]]*/, "", desc)
+            next
+          }
+          in_fm && $0 == "---" {
+            in_fm = 0
+            print "---"
+            print "name: " ENVIRON["SEAT_NAME"]
+            print "description: " desc
+            print "subagent: true"
+            print "mainAgent: false"
+            print "tools: " ENVIRON["AGY_TOOLS"]
+            print "---"
+            next
+          }
+          in_fm { next }
+          { print }
+        ' "${srcs[$i]}" >"$rendered"
+        srcs[$i]="$rendered"
+      elif [ "$TARGET_HOST" = "claude" ]; then
+        case "$seat" in
+          scout|reviewer-a|reviewer-b|reviewer-c|reviewer-esc)
+            cc_tools="Read, Glob, Grep, Bash"
+            ;;
+          patch)
+            cc_tools="Read, Edit, Write, Glob, Grep"
+            ;;
+          implementer|implementer-deep|tester)
+            cc_tools="Read, Edit, Write, Glob, Grep, Bash"
+            ;;
+          *)
+            cc_tools="Read, Glob, Grep"
+            ;;
+        esac
+        rendered="$(mktemp "${TMPDIR:-/tmp}/harness-agent.XXXXXXXX")"
+        rendered_files+=("$rendered")
+        cp -p "${srcs[$i]}" "$rendered"
+        SEAT_NAME="$seat" CC_TOOLS="$cc_tools" awk '
+          NR == 1 && $0 == "---" { in_fm = 1; next }
+          in_fm && /^description:[[:space:]]*/ {
+            desc = $0
+            sub(/^description:[[:space:]]*/, "", desc)
+            next
+          }
+          in_fm && $0 == "---" {
+            in_fm = 0
+            print "---"
+            print "name: " ENVIRON["SEAT_NAME"]
+            print "description: " desc
+            print "tools: " ENVIRON["CC_TOOLS"]
+            print "---"
+            next
+          }
+          in_fm { next }
+          { print }
+        ' "${srcs[$i]}" >"$rendered"
+        srcs[$i]="$rendered"
       fi
-      rendered="$(mktemp "${TMPDIR:-/tmp}/harness-agent.XXXXXXXX")"
-      rendered_agents+=("$rendered")
-      cp -p "${srcs[$i]}" "$rendered"
-      if ! NATIVE_PIN="$pin" awk '
-        BEGIN { pin = ENVIRON["NATIVE_PIN"] }
-        NR == 1 { frontmatter = ($0 == "---") }
-        NR > 1 && frontmatter && $0 == "---" { frontmatter = 0 }
-        { print }
-        frontmatter && !inserted && /^mode: subagent$/ && pin != "" {
-          print "model: " pin
-          inserted = 1
-        }
-        END { if (pin != "" && !inserted) exit 1 }
-      ' "${srcs[$i]}" >"$rendered"; then
-        printf 'install.sh: cannot insert native pin: %s\n' "$seat" >&2
-        exit 1
-      fi
-      srcs[$i]="$rendered"
       ;;
   esac
 done
@@ -476,7 +688,7 @@ for i in "${!rels[@]}"; do
   fi
 done
 
-# Preflight: walk every parent component of each target between $DEST and the
+# Preflight: walk every parent component of each target between $DEST_CANON and the
 # file. mkdir -p follows a symlinked parent under $DEST, so a copy could land
 # outside $DEST. Refuse (or repair under --force) before anything is copied.
 # A parent component that exists as a regular file (not a directory, not a
@@ -487,14 +699,14 @@ for i in "${!rels[@]}"; do
   target="$DEST/${rels[$i]}"
   parent="$(dirname "$target")"
   walk=0
-  while [ "$parent" != "$DEST" ]; do
+  while [ "$parent" != "$DEST_CANON" ]; do
     walk=$((walk + 1))
     if [ "$walk" -gt 64 ]; then
       printf 'install.sh: parent walk did not converge: %s\n' "$parent" >&2
       exit 1
     fi
     case "$parent" in
-      "$DEST"/*) ;;
+      "$DEST_CANON"/*) ;;
       *) break ;;
     esac
     if [ -L "$parent" ]; then

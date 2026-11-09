@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Skills-12%20Pipeline%20Units-1AD1A5?style=flat-square" alt="12 Pipeline Skills" />
   <img src="https://img.shields.io/badge/Council-3%20Independent%20Families-FF6B35?style=flat-square" alt="3-Family Council" />
   <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
-  <img src="https://img.shields.io/badge/Tests-94%2F94%20Passing-2ECC71?style=flat-square" alt="94/94 Tests Passing" />
+  <img src="https://img.shields.io/badge/Tests-99%2F99%20Passing-2ECC71?style=flat-square" alt="99/99 Tests Passing" />
 </p>
 
 <p align="center">
@@ -314,7 +314,7 @@ The harness is split into three layers so providers can be swapped or mixed with
 | --- | --- | --- |
 | Harness (provider-neutral) | pipeline, loops, caps, gates, council contract, permission policy, role contracts, the Dispatch Adapter, the routing *rules* (ladder walk, family independence, privacy gate, budget guard) | `skills/**`, `agents/*.md` (no `model:` line), [`AGENTS.md`](./AGENTS.md) |
 | Provider (swappable) | which provider instance, model, and effort runs each role; fallback ladders; model families; privacy class; quotas and provider notes | `providers/<profile>.md` or external file |
-| Install (binding) | binds one profile to one install: copies it as `<dest>/PROVIDERS.md` and renders each seat's native pin | `install.sh --profile <name>` / `--profile-file <path>` |
+| Install (binding) | binds one profile to one or more host targets (`opencode`, `codex`, `antigravity`, `claude`, or `all`): copies it as `<dest>/PROVIDERS.md` and renders host-native agent files and instructions | `install.sh --profile <name>` / `--profile-file <path>` `--target <targets>` |
 
 No harness file names a concrete model ID, provider quota, or provider-specific effort value. The Dispatch Adapter in [`AGENTS.md`](./AGENTS.md) turns a role into a running subagent: the controller walks each role's rungs in ladder order. For the current rung it dispatches natively with no override when the rung is the seat's installed native pin on an OpenCode host; otherwise through T3 Code `delegate_task` (provider instance, model, and the rung's effort option, or `{}` for `-`) for any provider, including non-pinned `opencode` rungs; or, on an OpenCode host without T3 tools, natively with an explicit `model` override (best-effort if the build ignores overrides). Before the first dispatch the controller calls `orchestrator_capabilities` once; a provider, model, or option it does not list, a disabled provider, or a `delegate_task` rejection makes the rung unreachable. A rung none of these can reach is skipped like an exhausted one (skips cost no council budget). A seat whose ladder has no `opencode` rung installs with no `model:` line and is never dispatched natively. An implementation seat (`implementer`, `implementer-deep`) with no reachable rung hands its task to the other implementation seat (`implementer-deep` <-> `implementer`, never revisiting an exhausted seat); with all exhausted, or `scout`/`tester`/`patch` with none, the dispatch stops and reports, never running on the driver model. Design alternatives run on distinct-family `implementer-deep`, then `implementer` rungs (announcing `degraded design: N families` when too few are reachable).
 
@@ -323,8 +323,8 @@ No harness file names a concrete model ID, provider quota, or provider-specific 
 | Subscriptions you have | Profile to install | Command |
 | --- | --- | --- |
 | **Only OpenCode Go** | `opencode-go` | `./install.sh --profile opencode-go` |
-| **Antigravity + Codex + OpenCode Go** | `tri` (default) | `./install.sh` (or `./install.sh --profile tri`) |
-| **Antigravity + Codex + OpenCode Go + Claude Code** | `quad` | `./install.sh --profile quad` |
+| **Antigravity + Codex + OpenCode Go** | `tri` (default) | `./install.sh` (or `./install.sh --profile tri --target all`) |
+| **Antigravity + Codex + OpenCode Go + Claude Code** | `quad` | `./install.sh --profile quad --target all` |
 | **Any other mix** (e.g., Codex + Claude Code, or Antigravity + OpenCode Go) | Custom profile file | Copy the closest `providers/*.md`, edit rows, and run `./install.sh --profile-file <path>` |
 
 - **Council family minimum:** the council requires **>= 2 independent model families** across `reviewer-a`, `reviewer-b`, and `reviewer-c` (single-family setups cannot reach consensus and stop with `yellow: degraded council`).
@@ -334,7 +334,7 @@ No harness file names a concrete model ID, provider quota, or provider-specific 
 
 | Provider | Instance ID (`provider` column) | Effort Option ID & Values (`effort` column) | Example Model IDs (`model` column) | Where to See Limits |
 | --- | --- | --- | --- | --- |
-| **OpenCode Go** | `opencode` | `variant` (`low\|medium\|high\|xhigh\|max`, or `-` for single-tier models) | `opencode-go/deepseek-v4.1-flash`, `opencode-go/mimo-v2.6-flash`, `opencode-go/gemini-4-argon`, `opencode-go/kimi-k3.1-pro`, `opencode-go/claude-haiku-5-5` | `opencode.ai/docs/go` console (5h cap = 20% of monthly dollar limit per model) |
+| **OpenCode Go** | `opencode` | `variant` (`low\|medium\|high\|xhigh\|max`, or `-` for single-tier models) | `opencode-go/deepseek-v4.1-flash`, `opencode-go/mimo-v2.6-flash`, `opencode-go/deepseek-v4-pro`, `opencode-go/mimo-v2.6-pro`, `opencode-go/minimax-m3`, `opencode-go/kimi-k3.1-pro`, `opencode-go/claude-haiku-5-5` | `opencode.ai/docs/go` console (5h cap = 20% of monthly dollar limit per model) |
 | **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-argon`, `gemini-3.8-flash`, `claude-opus-5-5`, `claude-sonnet-5-5` | `/status` in Antigravity (rolling 5-hour windows per plan) |
 | **Codex / ChatGPT** | `codex` | `reasoningEffort` (`low\|medium\|high\|xhigh`) | `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-luna`, `gpt-6-sol` | `/status` in Codex (rolling 5-hour windows per plan) |
 | **Claude Code / Anthropic** | `claudeAgent` | `effort` (`low\|medium\|high\|xhigh\|max\|ultracode\|ultrathink`) | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1` | `/status` in Claude Code (rolling 5-hour windows per plan) |
@@ -386,7 +386,7 @@ flowchart TD
 ```
 
 - **Worked Antigravity-Claude example (`antigravity-claude`):** in `tri` and `quad`, Antigravity's `claude-opus-5-5` and `claude-sonnet-5-5` share a single 5-hour subscription bucket declared in `## Quota pools` as `antigravity-claude` (`provider: antigravity`, `models: claude-*`, `window: 5h`, `soft-cap: 6`, `reserve: reviewer-b`).
-  1. **Soft-cap reserve:** `implementer-deep` may use `antigravity-claude` for up to 6 dispatches in a pipeline run (`soft_cap_counts` in `oneshot-state.md`). On its 7th dispatch, the pool counts as **reserved** for `reviewer-b`: `implementer-deep` skips straight to its Codex fallback (`gpt-6-astra`) without writing a ledger row, preserving the remaining Anthropic quota for council Seat B where frontier review judgment matters most.
+  1. **Soft-cap reserve:** `implementer-deep` (and `implementer` fallback in `tri`) may use `antigravity-claude` for up to 6 dispatches in a pipeline run (`soft_cap_counts` in `oneshot-state.md`). On the 7th dispatch, the pool counts as **reserved** for `reviewer-b`: non-reserved roles skip straight to their next rung (`codex/gpt-6-astra` or `codex/gpt-6.1-sol`) without writing a ledger row, preserving the remaining Anthropic quota for council Seat B where frontier review judgment matters most.
   2. **Shared-pool exhaustion across dispatches:** if `reviewer-b` primary (`antigravity/claude-opus-5-5`) hits a 429 / usage-limit error, the controller writes `antigravity-claude` to `<dest>/state/quota-ledger.tsv` with its `retry_after` timestamp. When `reviewer-b` walks to its fallback (`antigravity/claude-sonnet-5-5`), that rung maps to the same `antigravity-claude` pool and is skipped immediately without a wasted network call, landing directly on `opencode-go/claude-haiku-5-5` (and subsequent dispatches in any repo on the same machine also skip `antigravity-claude` until `retry_after`).
   3. **Backup ladder & budget stop:** when all 3 rungs of a role's ladder (plus the `implementer <-> implementer-deep` sibling hand-off for implementation seats) are exhausted, unreachable, or reserved, the controller walks `## Backup ladder` (`backup: <role> -> <provider>/<model>`), enforcing all family-independence, author-family, privacy-gate, and never-on-driver rules. If no rung remains, it stops with `budget stop: <role>`, records `earliest_resume` in `oneshot-state.md`, and tells you the earliest reset time to rerun `oneshot`.
 - **Inspecting or clearing the machine-local quota ledger:** the ledger lives at `<dest>/state/quota-ledger.tsv` (default `~/.config/opencode/state/quota-ledger.tsv`) with columns `pool  provider  exhausted_at  retry_after  source_role  note`. Expired rows are pruned automatically on read, and a successful dispatch on a pool clears its row. If you upgrade your plan or reset a quota early, inspect or clear it manually:
@@ -396,35 +396,37 @@ cat ~/.config/opencode/state/quota-ledger.tsv
 rm -f ~/.config/opencode/state/quota-ledger.tsv
 ```
 
-### Hosts
+### Hosts (T3 Code + Standalone Multi-Host Architecture)
 
-The `driver` row in a profile is advisory; you can run `oneshot` or any standalone skill from two host setups:
+T3 Code has **no separate `skills/` or `agents/` directory in `~/.t3/userdata`**; instead, each provider runtime loads skills, subagents, and global instructions from its own native config directory (both when run standalone in its CLI/desktop app AND when spawned as a thread inside T3 Code). Installing with `./install.sh --target all` (or a comma-separated subset of `opencode,codex,antigravity,claude`) provisions every host at once:
 
-1. **OpenCode natively:** seats that have an `opencode` rung in the active profile are pinned via their rendered `model:` line in `<dest>/agents/<seat>.md` (and when OpenCode runs inside T3 Code, non-`opencode` rungs are dispatched via `delegate_task`).
-2. **A T3 Code thread on ANY provider (`codex`, `claudeAgent`, `antigravity`, or `opencode`) as driver:** start a thread on your preferred driver model (e.g., Codex `gpt-6.1-sol` or Claude Code `claude-sonnet-5-5`) and tell it to load `<dest>/HARNESS.md`, `<dest>/PROVIDERS.md`, and the skills from `<dest>/skills/`. It dispatches every role through `delegate_task`, and each child self-enforces the seat's permission block.
+1. **OpenCode (`--target opencode`, default `${OPENCODE_CONFIG:-$HOME/.config/opencode}`):** seats with an `opencode` rung in the active profile are pinned via their rendered `model:` line in `<dest>/agents/<seat>.md` (and when OpenCode runs inside T3 Code, non-`opencode` rungs are dispatched via `delegate_task`).
+2. **Codex (`--target codex`, `${CODEX_HOME:-$HOME/.codex}`):** installs `skills/**`, `agents/<seat>.md`, `HARNESS.md`, `PROVIDERS.md`, and a combined `AGENTS.md` (`HARNESS.md` + `PROVIDERS.md`) so standalone Codex CLI/app and T3 Code Codex threads load both automatically.
+3. **Antigravity (`--target antigravity`, `${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config}/plugins/oneshot-harness`):** installs a self-contained Antigravity plugin (`plugin.json`, `skills/**`, `agents/<seat>.md` rendered with Antigravity subagent frontmatter and tool lists, and `rules/HARNESS.md` + `rules/PROVIDERS.md` with `trigger: always_on`, each under Antigravity's 24 KB per-rule-file limit).
+4. **Claude Code (`--target claude`, `${CLAUDE_CONFIG_DIR:-$HOME/.claude}`):** installs `skills/**`, `agents/<seat>.md` rendered with Claude Code subagent frontmatter and tool lists, `HARNESS.md`, `PROVIDERS.md`, and a combined `CLAUDE.md`.
 
-### Default profile `tri`
+### Default profile `tri` (Revision 3)
 
-Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI models), and OpenCode Go (open-weight long tail, cheap high-allowance quota). No OpenAI model is routed through OpenCode Go in `tri`/`quad`: all `gpt-*` models come from Codex.
+Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI models), and OpenCode Go (open-weight long tail, cheap high-allowance quota). Zero Google or OpenAI (`gpt-*`) models are routed through OpenCode Go in `tri`/`quad`: all Google models come from Antigravity and all `gpt-*` models come from Codex.
 
-- **Antigravity:** carries `implementer` primary (`gemini-4-argon`), `implementer-deep` primary (`claude-opus-5-5`), `reviewer-a` primary (`gemini-4-argon`), and `reviewer-b` primary/fallback (`claude-opus-5-5` / `claude-sonnet-5-5`). Keeping `driver`, `scout`, and `tester` off Antigravity primaries leaves room for Argon and the frontier review seats. Antigravity's Claude limits are low; if you also have a Claude Code subscription, use [`providers/quad.md`](./providers/quad.md) (`--profile quad`).
-- **Codex:** carries `driver` (`gpt-6.1-sol` medium), per-task review `task-reviewer` (`gpt-6.1-terra` high), council Seat C `reviewer-c` (`gpt-6-astra` -> `gpt-6.1-sol` -> `gpt-6-sol` high), `implementer-deep` fallback/last-resort (`gpt-6-astra` / `gpt-6.1-sol` high), and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
-- **OpenCode Go:** carries the high-volume cheap roles (`scout` on `mimo-v2.6-flash` ~30.1k req/5h and `deepseek-v4.1-flash` ~43.3k req/5h; `tester` and `patch` on `deepseek-v4.1-flash` high; `compaction` on `claude-haiku-5-5` low), `reviewer-esc` (`kimi-k3.1-pro` ~147 req/5h -> `deepseek-v4-pro` ~1,040/5h -> `mimo-v2.6-pro` ~3,250/5h), and cross-provider fallbacks (`opencode-go/gemini-4-argon` is a separate ~440 req/5h pool from Antigravity's Argon quota).
-- **Council & escalation rationale:** the council gets the strongest model of each frontier family at `high` effort (`gemini-4-argon` Google on Seat A, `claude-opus-5-5` Anthropic on Seat B, `gpt-6-astra` OpenAI on Seat C). Review is short output with the highest stakes (<= 3 rounds × 3 seats + 1 escalation per PR), so frontier tokens pay off most here. While Argon authors the code under `tri`, the author-family PASS rule is satisfied by a non-author PASS vote from Opus (Seat B) or Astra (Seat C). Escalation (`reviewer-esc`) uses the best open-weight families unused by any council seat (`kimi-k3.1-pro`'s ~147 req/5h is plenty for single-dispatch escalation).
+- **Antigravity:** carries `implementer` primary (`gemini-4-argon` at `high`) and fallback (`claude-sonnet-5-5` at `medium`), `implementer-deep` primary (`claude-opus-5-5` at `high`), and `reviewer-b` primary/fallback (`claude-opus-5-5` / `claude-sonnet-5-5`). Keeping `driver`, `scout`, `tester`, `reviewer-a`, and `reviewer-c` off Antigravity primaries leaves room for Argon and the Anthropic review seat (`antigravity-claude` is soft-capped at 6 dispatches and reserved for `reviewer-b`). Antigravity's Claude limits are low; if you also have a Claude Code subscription, use [`providers/quad.md`](./providers/quad.md) (`--profile quad`).
+- **Codex:** carries `driver` (`gpt-6.1-sol` medium), per-task review `task-reviewer` (`gpt-6.1-terra` high), council Seat A `reviewer-a` (`gpt-6-astra` -> `gpt-6.1-sol` -> `gpt-6-sol` high), `implementer` last-resort (`gpt-6.1-sol` medium), `implementer-deep` fallback/last-resort (`gpt-6-astra` / `gpt-6.1-sol` high), and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
+- **OpenCode Go:** carries the high-volume cheap roles (`scout` on `mimo-v2.6-flash` ~30.1k req/5h and `deepseek-v4.1-flash` ~43.3k req/5h; `tester` and `patch` on `deepseek-v4.1-flash` high; `compaction` on `claude-haiku-5-5` low), council Seat C `reviewer-c` (`deepseek-v4-pro` ~1,040 req/5h -> `mimo-v2.6-pro` ~3,250 req/5h -> `minimax-m3` ~3,200 req/5h), and `reviewer-esc` (`mimo-v2.6-pro` ~3,250 req/5h -> `minimax-m3` ~3,200 req/5h -> `kimi-k3.1-pro` high ~147 req/5h).
+- **Council & escalation rationale:** Argon (`gemini-4-argon`) never reviews its own code. Seat A runs OpenAI frontier (`gpt-6-astra` -> `gpt-6.1-sol` -> `gpt-6-sol`), Seat B runs Anthropic frontier (`claude-opus-5-5` -> `claude-sonnet-5-5` -> `opencode-go/claude-haiku-5-5`), and Seat C runs high-budget Open-weight Pro (`opencode-go/deepseek-v4-pro` -> `opencode-go/mimo-v2.6-pro` -> `opencode-go/minimax-m3`). While Argon authors the code under `tri`, all three council seats are non-author families, and `reviewer-esc` (`mimo-v2.6-pro` -> `minimax-m3` -> `kimi-k3.1-pro`) starts on high-allowance Pro models independent of the three primary council families.
 
 | role | primary | fallback | last-resort |
 | --- | --- | --- | --- |
 | driver (advisory) | codex `gpt-6.1-sol` medium | antigravity `claude-sonnet-5-5` medium | - |
 | scout | opencode `mimo-v2.6-flash` - | opencode `deepseek-v4.1-flash` low | antigravity `gemini-3.8-flash` low |
-| implementer | antigravity `gemini-4-argon` medium | opencode `gemini-4-argon` high | codex `gpt-6.1-sol` medium |
+| implementer | antigravity `gemini-4-argon` high | antigravity `claude-sonnet-5-5` medium | codex `gpt-6.1-sol` medium |
 | implementer-deep | antigravity `claude-opus-5-5` high | codex `gpt-6-astra` high | codex `gpt-6.1-sol` high |
 | tester | opencode `deepseek-v4.1-flash` high | codex `gpt-6-luna` medium | antigravity `gemini-3.8-flash` medium |
 | patch | opencode `deepseek-v4.1-flash` high | codex `gpt-6-luna` medium | antigravity `gemini-3.8-flash` medium |
 | task-reviewer | codex `gpt-6.1-terra` high | opencode `glm-5.3-flash` high | antigravity `gemini-3.8-flash` high |
-| reviewer-a (Google) | antigravity `gemini-4-argon` high | opencode `gemini-4-argon` high | opencode `qwen3.8-max` - |
+| reviewer-a (OpenAI) | codex `gpt-6-astra` high | codex `gpt-6.1-sol` high | codex `gpt-6-sol` high |
 | reviewer-b (Anthropic) | antigravity `claude-opus-5-5` high | antigravity `claude-sonnet-5-5` high | opencode `claude-haiku-5-5` high |
-| reviewer-c (OpenAI) | codex `gpt-6-astra` high | codex `gpt-6.1-sol` high | codex `gpt-6-sol` high |
-| reviewer-esc | opencode `kimi-k3.1-pro` high | opencode `deepseek-v4-pro` - | opencode `mimo-v2.6-pro` - |
+| reviewer-c (Open-weight Pro) | opencode `deepseek-v4-pro` - | opencode `mimo-v2.6-pro` - | opencode `minimax-m3` - |
+| reviewer-esc | opencode `mimo-v2.6-pro` - | opencode `minimax-m3` - | opencode `kimi-k3.1-pro` high |
 | compaction (advisory) | opencode `claude-haiku-5-5` low | codex `gpt-6-luna` low | - |
 
 `muse-spark-*` (trains on request data) is excluded from `tri`. See [`providers/tri.md`](./providers/tri.md) for the full 7-column machine-readable routing table, `## Quota pools`, `## Backup ladder`, and budget tables.
@@ -436,6 +438,7 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 | role | primary | fallback | last-resort |
 | --- | --- | --- | --- |
 | driver (advisory) | codex `gpt-6.1-sol` medium | claudeAgent `claude-sonnet-5-5` medium | - |
+| implementer | antigravity `gemini-4-argon` high | claudeAgent `claude-sonnet-5-5` medium | codex `gpt-6.1-sol` medium |
 | implementer-deep | claudeAgent `claude-opus-5-5` high | codex `gpt-6-astra` high | antigravity `claude-opus-5-5` high |
 | reviewer-b (Anthropic) | claudeAgent `claude-opus-5-5` high | antigravity `claude-opus-5-5` high | claudeAgent `claude-sonnet-5-5` high |
 
@@ -458,7 +461,7 @@ cp providers/tri.md ~/.config/oneshot/my-profile.md
 
 - **Binding and refresh:** `--profile-file <path>` (also `--profile-file=<path>`) validates your file, copies it byte for byte to `<dest>/PROVIDERS.md`, renders each seat's native pin from its first `opencode` rung, and records `# profile-file <absolute path>` on line 2 of `<dest>/.harness-manifest`. Subsequent `./install.sh --force` refreshes automatically reuse that recorded `# profile-file` path (if the file was removed, `install.sh` exits 2 with `install.sh: profile file not found: <path>`). `--profile` and `--profile-file` are mutually exclusive (passing both exits 2).
 - **Custom profile checklist:** when building a profile for a subset of subscriptions (e.g., Codex + Claude Code), replace every row whose `provider` you do not have connected, ensure all 10 required roles keep a reachable `primary` row, and verify connected provider instance IDs via `orchestrator_capabilities`.
-- **One-row override example** (for example, swapping `reviewer-esc` primary from `kimi-k3.1-pro` to `opencode-go/qwen3.8-max` in `~/.config/oneshot/my-profile.md`):
+- **One-row override example** (for example, swapping `reviewer-esc` primary from `mimo-v2.6-pro` to `opencode-go/qwen3.8-max` in `~/.config/oneshot/my-profile.md`):
 
 ```text
 | role | rung | provider | model | effort | family | privacy |
@@ -494,9 +497,9 @@ skills/           12 pipeline skills:          oneshot, shape, plan, dispatch,
 providers/        swappable provider profiles: tri (default), quad (tri + Claude Code),
                                                opencode-go (legacy)
 docs/             design specs and plans:      docs/specs/, docs/plans/
-test/install.sh   93-assertion contract suite  (runs in throwaway HOME on Bash >=3.2)
-AGENTS.md         harness routing instructions (installed as ~/.config/opencode/HARNESS.md)
-install.sh        collision-safe installer     (manifest-scoped prune, symlink guards)
+test/install.sh   99-assertion contract suite  (runs in throwaway HOME on Bash >=3.2)
+AGENTS.md         harness routing instructions (installed as <dest>/HARNESS.md)
+install.sh        multi-host installer         (opencode, codex, antigravity, claude, all)
 NOTICE            upstream MIT attribution     (mattpocock/skills)
 LICENSE           MIT license
 ```
@@ -505,24 +508,32 @@ LICENSE           MIT license
 
 ## 🛠️ Installation (For Agents and Humans)
 
-Requires OpenCode V2 or a T3 Code driver session as the host. Connect whichever providers your chosen profile uses: `tri` expects Antigravity, Codex, and OpenCode Go; `quad` adds Claude Code (`claudeAgent`); `--profile opencode-go` needs only OpenCode Go (`/connect`). Profiles with non-`opencode` rungs (`tri`, `quad`) need T3 Code orchestration (`delegate_task`) to reach `antigravity`, `codex`, and `claudeAgent`; for standalone OpenCode (no T3 Code), install with `--profile opencode-go`. Config reloads automatically without a restart.
+Requires OpenCode V2, T3 Code, Codex, Antigravity, or Claude Code as the host. Connect whichever providers your chosen profile uses: `tri` expects Antigravity, Codex, and OpenCode Go; `quad` adds Claude Code (`claudeAgent`); `--profile opencode-go` needs only OpenCode Go (`/connect`). Profiles with non-`opencode` rungs (`tri`, `quad`) need T3 Code orchestration (`delegate_task`) to reach `antigravity`, `codex`, and `claudeAgent`; for standalone OpenCode (no T3 Code), install with `--profile opencode-go`. Config reloads automatically without a restart.
 
 ### 1. Clone and run `./install.sh`
 
 ```sh
 git clone https://github.com/DennisLoska/skills.git
 cd skills
-./install.sh
+./install.sh                  # default: installs into OpenCode (${OPENCODE_CONFIG:-$HOME/.config/opencode})
+./install.sh --target all     # installs into OpenCode, Codex, Antigravity, and Claude Code at once
 ```
 
-`./install.sh` copies `agents/`, `skills/`, `NOTICE`, and `LICENSE` into `${OPENCODE_CONFIG:-$HOME/.config/opencode}` and writes [`AGENTS.md`](./AGENTS.md) to `<dest>/HARNESS.md` so any existing `AGENTS.md` is never overwritten. The selected provider profile is copied byte for byte to `<dest>/PROVIDERS.md` (the active routing table that `HARNESS.md` points to); `providers/` itself is not installed. It also creates `<dest>/state/` (where the machine-local `<dest>/state/quota-ledger.tsv` lives across runs) and records every installed file in `<dest>/.harness-manifest` (`state/` and `quota-ledger.tsv` are never listed in `.harness-manifest`, so `--prune` never touches them): line 1 is `# harness <sha>`, line 2 is `# profile <name>` (or `# profile-file <abs path>` when installed with `--profile-file`), followed by one relative path per line.
+`./install.sh` installs into one or more host targets selected via `--target` (default `opencode`):
+- **`opencode` (`${OPENCODE_CONFIG:-$HOME/.config/opencode}`):** copies `agents/*.md` (with rendered `model:` pins from the first `opencode` rung), `skills/**`, `NOTICE`, `LICENSE`, `HARNESS.md`, and `PROVIDERS.md`.
+- **`codex` (`${CODEX_HOME:-$HOME/.codex}`):** copies `agents/*.md` as-is, `skills/**`, `NOTICE`, `LICENSE`, `HARNESS.md`, `PROVIDERS.md`, and a combined `AGENTS.md` (`AGENTS.md` + `PROVIDERS.md`).
+- **`antigravity` (`${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config}/plugins/oneshot-harness`):** installs a self-contained Antigravity plugin with `plugin.json`, `skills/**`, `agents/*.md` rewritten with Antigravity subagent frontmatter (`subagent: true`, `mainAgent: false`, `tools: [...]`), `rules/HARNESS.md` and `rules/PROVIDERS.md` (`trigger: always_on`, each `< 24 KB`), plus `HARNESS.md`, `PROVIDERS.md`, `NOTICE`, and `LICENSE`.
+- **`claude` (`${CLAUDE_CONFIG_DIR:-$HOME/.claude}`):** copies `skills/**`, `agents/*.md` rewritten with Claude Code subagent frontmatter (`name`, `description`, `tools`), `HARNESS.md`, `PROVIDERS.md`, `NOTICE`, `LICENSE`, and a combined `CLAUDE.md`.
 
-**Native pin rule:** source `agents/<seat>.md` files carry no `model:` line. At install, a seat's native pin is the first rung (in ladder order) of its profile whose `provider` is `opencode`; the installer writes `model: <model>` (plus `#<value>` when the effort id is `variant`) directly after the `mode: subagent` line so a natively dispatched seat never inherits the main session model; the pin is passed to the rewrite safely (no escape interpretation) and inserted only in the first frontmatter block. A seat with no `opencode` rung is installed without a `model:` line, is never dispatched natively (it would inherit the driver's model), and the installer prints `note: <seat> has no opencode rung; dispatch it through delegate_task only`.
+In every target `<dest>`, `./install.sh` also creates `<dest>/state/` (where `<dest>/state/quota-ledger.tsv` lives across runs) and records every installed file in `<dest>/.harness-manifest` (`state/` and `quota-ledger.tsv` are never listed in `.harness-manifest`, so `--prune` never touches them): line 1 is `# harness <sha>`, line 2 is `# profile <name>` (or `# profile-file <abs path>` when installed with `--profile-file`), followed by one relative path per line.
+
+**Native pin rule (`opencode` target):** source `agents/<seat>.md` files carry no `model:` line. At install, a seat's native pin is the first rung (in ladder order) of its profile whose `provider` is `opencode`; the installer writes `model: <model>` (plus `#<value>` when the effort id is `variant`) directly after the `mode: subagent` line so a natively dispatched seat never inherits the main session model; the pin is passed to the rewrite safely (no escape interpretation) and inserted only in the first frontmatter block. A seat with no `opencode` rung (`implementer`, `implementer-deep`, and `reviewer-a` under `tri`, plus `reviewer-b` under `quad`) is installed without a `model:` line, is never dispatched natively (it would inherit the driver's model), and the installer prints `note: <seat> has no opencode rung; dispatch it through delegate_task only`.
 
 The copy is collision-safe. Before touching anything, the installer runs preflight checks in strict refusal order: destination checks first (refusing empty/whitespace paths, paths equal to `/`, `.`, `..`, `$HOME`, or the repo root, and a destination that exists but is not a directory; an existing symlinked destination is resolved and the install lands in the real directory), then parent-path checks under the destination (exiting immediately on any symlinked or file parent directory before scanning targets, or replacing a symlinked parent with a real directory under `--force`), and finally target collision checks (printing one `collision: <dest path>` line per conflict plus `refusing to overwrite; rerun with --force` and exiting 1 before copying). Preflight refusal is atomic; a mid-copy failure can leave a partial tree, which rerunning the installer repairs. Content is not compared, so a second run always needs `--force`, even when nothing changed.
 
 | Flag | Effect |
 | --- | --- |
+| `--target <targets>` | comma-separated host targets: `opencode`, `codex`, `antigravity`, `claude`, or `all` (also `--target=<targets>`; default `opencode`). An unknown or empty target exits 2 with `install.sh: unknown target: <token> (available: opencode codex antigravity claude all)` before writing anything |
 | `--profile <name>` | bind the install to `providers/<name>.md` (also `--profile=<name>`; default `tri`, available: `tri`, `quad`, `opencode-go`). Mutually exclusive with `--profile-file` (exit 2). Without `--profile` or `--profile-file`, the previous manifest's `# profile` or `# profile-file` is reused (else `tri`); a previous install that predates profiles (a manifest with entries but no `# profile` line, or `HARNESS.md` with no manifest) keeps `opencode-go` and prints `profile: opencode-go (previous install predates profiles)`; an explicit change prints `profile changed: X -> Y`. An unknown profile exits 2 with `install.sh: unknown profile: <name> (available: ...)`; an incomplete or invalid profile exits 1 with `install.sh: profile <name> incomplete: <role>` (a dispatched role without a `primary` row), `install.sh: profile <name> invalid row: <role> <rung>: <reason>`, `install.sh: profile <name> invalid pool row: <pool>: <reason>`, or `install.sh: profile <name> invalid backup row: <order>: <reason>`; all are checked before anything is written |
 | `--profile-file <path>` | bind the install to an external profile file at `<path>` (also `--profile-file=<path>`), recorded in `<dest>/.harness-manifest` line 2 as `# profile-file <abs path>` and reused on subsequent refreshes. Mutually exclusive with `--profile` (exit 2). If `<path>` (or a recorded `# profile-file` on refresh) does not exist, exits 2 with `install.sh: profile file not found: <path>` before writing anything; validates with the same `incomplete` / `invalid row` / `invalid pool row` / `invalid backup row` rules as `--profile` |
 | `--force` | overwrite files that already exist in the destination, and repair any symlinked parent directory under the destination by replacing the link with a real directory (warning: this removes the link) |
@@ -532,16 +543,17 @@ The copy is collision-safe. Before touching anything, the installer runs preflig
 Reinstall after pulling changes (upgraders from older revisions should run `./install.sh --force --prune` once so removed upstream seats such as `agents/implementer-b.md` are pruned from `<dest>/agents/`):
 
 ```sh
-./install.sh --force              # refresh the harness files (reuses recorded profile or profile-file)
-./install.sh --force --profile quad          # switch to tri + Claude Code (claudeAgent)
-./install.sh --force --profile opencode-go   # switch to the legacy single-provider profile
+./install.sh --force                        # refresh OpenCode (reuses recorded profile or profile-file)
+./install.sh --force --target all           # refresh OpenCode, Codex, Antigravity, and Claude Code
+./install.sh --force --profile quad         # switch to tri + Claude Code (claudeAgent)
+./install.sh --force --profile opencode-go  # switch to the legacy single-provider profile
 ./install.sh --force --profile-file ~/.config/oneshot/my-profile.md   # bind a custom profile file
-./install.sh --force --prune      # also drop harness files removed upstream
+./install.sh --force --prune                # also drop harness files removed upstream
 ```
 
 `--prune` is scoped to `<dest>/.harness-manifest`, so it only removes files this installer previously wrote. Anything else under the destination, including your own agents and skills, is left alone. `--force` replaces a destination file symlink instead of writing through it to a file outside the destination, and also repairs a symlinked parent directory under the destination by replacing the link with a real directory (warning: this removes the link).
 
-Set `OPENCODE_CONFIG` to install anywhere other than `~/.config/opencode`:
+Override any target's config root via its environment variable (`OPENCODE_CONFIG`, `CODEX_HOME`, `ANTIGRAVITY_CONFIG`, `CLAUDE_CONFIG_DIR`):
 
 ```sh
 OPENCODE_CONFIG="$HOME/.config/opencode-v2" ./install.sh
@@ -581,7 +593,7 @@ grep -q 'HARNESS.md' ~/.config/opencode/opencode.json &&
 
 ## 🧪 Testing
 
-Run the 94-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
+Run the 99-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
 
 ```sh
 bash -n install.sh && bash -n test/install.sh

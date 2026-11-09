@@ -105,23 +105,23 @@ The `driver` row stays advisory. (1) OpenCode host: native seats, plus `delegate
 - Degraded council, round caps, 14-dispatch budget guard, no-tests rule, privacy gate (skip `privacy: trains` rungs on confidential work), fixer seat routing: unchanged.
 - The active routing table is `PROVIDERS.md` next to `HARNESS.md` (in this repo: `providers/<profile>.md`). Skills say "the active provider profile", never a provider name.
 
-## Default profile `tri`
+## Default profile `tri` (Revision 3)
 
-Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI models), OpenCode Go (open-weight long tail, cheap high-allowance quota). See [`2026-11-09-role-rebalance-design.md`](./2026-11-09-role-rebalance-design.md) for the rebalanced rationale and budget tables.
+Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI models), OpenCode Go (open-weight long tail, cheap high-allowance quota). Zero Google or OpenAI (`gpt-*`) models are routed through OpenCode Go in `tri`/`quad`. See [`2026-11-09-role-rebalance-design.md`](./2026-11-09-role-rebalance-design.md) and [`2026-11-09-multi-host-install-design.md`](./2026-11-09-multi-host-install-design.md) for the Revision 3 rationale and budget tables.
 
 | role | primary | fallback | last-resort |
 | --- | --- | --- | --- |
 | driver (advisory) | codex `gpt-6.1-sol` medium | antigravity `claude-sonnet-5-5` medium | - |
 | scout | opencode `mimo-v2.6-flash` - | opencode `deepseek-v4.1-flash` low | antigravity `gemini-3.8-flash` low |
-| implementer | antigravity `gemini-4-argon` medium | opencode `gemini-4-argon` high | codex `gpt-6.1-sol` medium |
+| implementer | antigravity `gemini-4-argon` high | antigravity `claude-sonnet-5-5` medium | codex `gpt-6.1-sol` medium |
 | implementer-deep | antigravity `claude-opus-5-5` high | codex `gpt-6-astra` high | codex `gpt-6.1-sol` high |
 | tester | opencode `deepseek-v4.1-flash` high | codex `gpt-6-luna` medium | antigravity `gemini-3.8-flash` medium |
 | patch | opencode `deepseek-v4.1-flash` high | codex `gpt-6-luna` medium | antigravity `gemini-3.8-flash` medium |
 | task-reviewer | codex `gpt-6.1-terra` high | opencode `glm-5.3-flash` high | antigravity `gemini-3.8-flash` high |
-| reviewer-a (Google) | antigravity `gemini-4-argon` high | opencode `gemini-4-argon` high | opencode `qwen3.8-max` - |
+| reviewer-a (OpenAI) | codex `gpt-6-astra` high | codex `gpt-6.1-sol` high | codex `gpt-6-sol` high |
 | reviewer-b (Anthropic) | antigravity `claude-opus-5-5` high | antigravity `claude-sonnet-5-5` high | opencode `claude-haiku-5-5` high |
-| reviewer-c (OpenAI) | codex `gpt-6-astra` high | codex `gpt-6.1-sol` high | codex `gpt-6-sol` high |
-| reviewer-esc | opencode `kimi-k3.1-pro` high | opencode `deepseek-v4-pro` - | opencode `mimo-v2.6-pro` - |
+| reviewer-c (Open-weight Pro) | opencode `deepseek-v4-pro` - | opencode `mimo-v2.6-pro` - | opencode `minimax-m3` - |
+| reviewer-esc | opencode `mimo-v2.6-pro` - | opencode `minimax-m3` - | opencode `kimi-k3.1-pro` high |
 | compaction (advisory) | opencode `claude-haiku-5-5` low | codex `gpt-6-luna` low | - |
 
 `muse-spark-*` (trains on request data) is dropped from `tri`; it stays in the legacy profile.
@@ -135,9 +135,9 @@ Model ids are verified against `opencode models` and `~/.codex/models_cache.json
 ## Success criteria
 
 1. Harness-layer grep above returns nothing; no skill names a provider.
-2. `bash test/install.sh` green, including new cases: default profile is `tri`; `--profile opencode-go` installs agents with their expected `opencode-go/*` pins; `--profile-file` binds, records, reuses, and validates external profile files; `PROVIDERS.md` byte-identical to the profile and in the manifest; manifest line 2 is `# profile <name>` or `# profile-file <abs path>`; unknown profile or missing profile file exits 2 and writes nothing; incomplete profile exits 1 and writes nothing; under `tri`, `implementer-deep` (no opencode rung) installs with no `model:` line and the install prints its `note:` line, while `implementer` installs with `model: opencode-go/gemini-4-argon#high` and `tester` with `model: opencode-go/deepseek-v4.1-flash#high`.
+2. `bash test/install.sh` green, including new cases: default profile is `tri`; `--profile opencode-go` installs agents with their expected `opencode-go/*` pins; `--profile-file` binds, records, reuses, and validates external profile files; `PROVIDERS.md` byte-identical to the profile and in the manifest; manifest line 2 is `# profile <name>` or `# profile-file <abs path>`; unknown profile or missing profile file exits 2 and writes nothing; incomplete profile exits 1 and writes nothing; under Revision 3 `tri`, `implementer`, `implementer-deep`, and `reviewer-a` (no opencode rung) install with no `model:` line and the install prints their `note:` lines, while `tester` installs with `model: opencode-go/deepseek-v4.1-flash#high`, `reviewer-c` with `model: opencode-go/deepseek-v4-pro`, and `reviewer-esc` with `model: opencode-go/mimo-v2.6-pro`.
 3. Skills reference roles and "the active provider profile"; council and dispatch describe the dispatch adapter by reference to AGENTS.md, not by restating it.
-4. README documents layers, profiles, `--profile`, `--profile-file`, and the `tri` table with its rationale.
+4. README documents layers, profiles, `--profile`, `--profile-file`, `--target`, and the `tri` table with its rationale.
 
 ## Non-goals
 

@@ -160,3 +160,16 @@ The other `tri` rows stay as listed above. qwen=alibaba, kimi=moonshot, mimo=xia
   - `implementer-deep` and `reviewer-c` get no pin; the install prints their `note:` lines.
 - **`quad` installs cleanly** (validation accepts `claudeAgent`). `reviewer-b` and `implementer-deep` get no pin there.
 - **No OpenCode GPT rows:** `grep -n 'opencode-go/gpt' providers/tri.md providers/quad.md` returns nothing.
+
+## Revision 3 (see `2026-11-09-multi-host-install-design.md`)
+
+Supersedes the `implementer`, council, and escalation rows in Revision 2:
+
+1. **`implementer`:** Antigravity `gemini-4-argon` (`thinking_level=high`) -> Antigravity `claude-sonnet-5-5` (`thinking_level=medium`, or `claudeAgent` `claude-sonnet-5-5` `effort=medium` in `quad`) -> Codex `gpt-6.1-sol` (`reasoningEffort=medium`).
+2. **Zero Google or OpenAI models on OpenCode Go in `tri`/`quad`:** `opencode-go/gemini-4-argon` is removed from `tri` and `quad` (`grep -nE 'opencode-go/(gpt|gemini)' providers/tri.md providers/quad.md` is empty).
+3. **Council & Escalation (Argon never reviews its own code):**
+   - `reviewer-a` (OpenAI frontier lead / tie-breaker): Codex `gpt-6-astra` (`high`) -> `gpt-6.1-sol` (`high`) -> `gpt-6-sol` (`high`).
+   - `reviewer-b` (Anthropic frontier): `claude-opus-5-5` (`high`) -> `claude-sonnet-5-5` (`high`) -> `opencode-go/claude-haiku-5-5` (`high`) in `tri` (`claudeAgent` `claude-opus-5-5` -> `antigravity` `claude-opus-5-5` -> `claudeAgent` `claude-sonnet-5-5` in `quad`).
+   - `reviewer-c` (Open-weight Pro — high budget): `opencode-go/deepseek-v4-pro` (`-`) -> `opencode-go/mimo-v2.6-pro` (`-`) -> `opencode-go/minimax-m3` (`-`).
+   - `reviewer-esc` (Escalation): `opencode-go/mimo-v2.6-pro` (`-`) -> `opencode-go/minimax-m3` (`-`) -> `opencode-go/kimi-k3.1-pro` (`variant=high`).
+4. **Native pins in Revision 3 `tri`:** `scout` (`opencode-go/mimo-v2.6-flash`), `tester` and `patch` (`opencode-go/deepseek-v4.1-flash#high`), `reviewer-b` (`opencode-go/claude-haiku-5-5#high`), `reviewer-c` (`opencode-go/deepseek-v4-pro`), `reviewer-esc` (`opencode-go/mimo-v2.6-pro`). `implementer`, `implementer-deep`, and `reviewer-a` have no `opencode` rung on their 3-rung ladder (and `reviewer-b` also has none in `quad`) and print the `note:` line.
