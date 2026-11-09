@@ -6,8 +6,8 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 - **Discovery** is read-heavy, write-light: a long-context flash model at low effort. Output is a compressed `path:line` table, so the expensive part is input, which flash models price lowest.
 - **Implementation** produces the bulk of all output tokens: strong mid-tier coders at medium effort; frontier only for `implementer-deep`.
 - **Per-task review** runs once per task, often: a flash model from a family that did not write the code.
-- **Council** outputs are short and decide the merge: one frontier model per family (Google, Anthropic, OpenAI) at equal `high` effort so votes are comparable. Each seat demotes inside its own family first (across providers where possible), then out of family.
-- **Escalation** is a fourth family none of the seats uses, so its verdict stays independent.
+- **Council** outputs are short and decide the merge: one frontier model per family (Google, Anthropic, OpenAI) at equal `high` effort so votes are comparable. Each council seat demotes inside its own family first, then out of family; every seat's last resort sits on a different provider than its primary, so one provider outage never empties a seat (the exception is `reviewer-esc`, whose whole ladder is OpenCode Go).
+- **Escalation** is a fourth family none of the seats uses, so its verdict stays independent. It needs a family unused this PR: `reviewer-a`'s last resort (zhipu) consumes one escalation rung if it is reached, leaving moonshot and deepseek.
 
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -46,8 +46,19 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 | compaction | primary | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |
 | compaction | fallback | opencode | opencode-go/claude-haiku-5-5 | variant=low | anthropic | ok |
 
+## Supported driver setups
+
+The `driver` row stays advisory; the installer does not validate or render it. Two setups are supported:
+
+1. **OpenCode host:** native seats, plus `delegate_task` when OpenCode runs inside T3 Code.
+2. **Any T3 Code provider session** (for example Antigravity `claude-opus-5-5`): tell the session to load `<dest>/HARNESS.md`, `<dest>/PROVIDERS.md`, and the skills from `<dest>/skills/`. It dispatches only via `delegate_task`, and permissions are self-enforced by the children.
+
 ## Privacy
 
 The `ok` marks for Antigravity (`antigravity`) and Codex (`codex`) assume the account has model-training opt-out enabled. Confirm that account setting before dispatch. OpenCode Go rows use the legacy profile’s non-training privacy classes. `muse-spark-*` trains on request data and is excluded from this profile.
 
 Driver and compaction rows are advisory host recommendations; the installer does not validate or render them.
+
+## Catalog
+
+Model ids were checked against the T3 Code catalog on 2026-11-09; re-check with orchestrator_capabilities after catalog changes (opencode-go/gpt-6-luna is carried over from the legacy profile).

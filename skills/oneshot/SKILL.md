@@ -17,7 +17,7 @@ Autonomous end-to-end SDLC: task -> spec -> plan -> implementation -> verificati
 
 **Visibility:** The whole pipeline runs in the main session. Announce every phase transition. Stream every subagent result back into main as it returns.
 
-**Context hygiene:** Main orchestrates. Main never writes implementation code inline. Per-task and per-round work is dispatched to fresh subagents through the AGENTS.md Dispatch Adapter (the native `subagent` tool, which some builds register as `task`, is one adapter path). Never delegate a whole phase or the whole pipeline to one subagent.
+**Context hygiene:** Main orchestrates. Main never writes implementation code inline. Per-task and per-round work is dispatched to fresh subagents through the AGENTS.md Dispatch Adapter (the adapter picks the native or `delegate_task` path per rung). Never delegate a whole phase or the whole pipeline to one subagent.
 
 **Model routing:** Skills never hardcode models. Role rows and fallback ladders live in the active provider profile (`PROVIDERS.md`); the AGENTS.md Routing Rules and Dispatch Adapter govern how a role becomes a running subagent. On a usage-limit or 429-style provider error, or an unreachable rung, re-dispatch the same role on the next rung of its ladder and announce it. Routing-file note: the installed copy of this file is `HARNESS.md`; `<dest>/AGENTS.md` is the user's own file and is never overwritten.
 
@@ -83,7 +83,7 @@ If the path IS ignored, record the local path and never use `git add -f`.
 
 1. Invoke `dispatch` and `tdd` via the `skill` tool.
 2. Work on the active feature branch (in the current checkout or dedicated worktree from Phase 1). Clean `git status` first; create the feature branch or worktree here only if Phase 1 was skipped (e.g. resume into Phase 3).
-3. For each plan task, dispatch one of the default implementation seats (`implementer` or `implementer-b`, or `implementer-deep` for tasks flagged complex) through the AGENTS.md Dispatch Adapter with the task brief from `dispatch/implementer-prompt.md`. When a GLOSSARY.md exists, the task brief carries the name of any glossary term the task must honor. The implementer seat follows TDD: failing test -> minimal implementation -> green -> commit (unless Parallel mode: stage only, main commits serially) -> receipt. Seat models and effort levels come from the active provider profile (native pin rendered at install); fallback rungs live in its implementation rows.
+3. For each plan task, dispatch one of the default implementation seats (`implementer` or `implementer-b`, or `implementer-deep` for tasks flagged complex) through the AGENTS.md Dispatch Adapter with the task brief from `dispatch/implementer-prompt.md`. When a GLOSSARY.md exists, the task brief carries the name of any glossary term the task must honor. The implementer seat follows TDD: failing test -> minimal implementation -> green -> commit (unless Parallel mode: stage only, main commits serially) -> receipt. Seat models and effort levels come from the active provider profile (native pin rendered at install for seats with an `opencode` rung; seats without one are reached only through `delegate_task`, see the Dispatch Adapter); fallback rungs live in its implementation rows.
 4. Independent tasks run in parallel as separate fresh subagents (parallel fan-out lives inside `dispatch`).
 5. Stream task results to the user as they return (task name, pass/fail, key outputs).
 6. Task failure routes to `debug`: root cause first, then re-dispatch (escalating to `implementer-deep` when a bug resists standard fixes). Unfixable after the debug loop: escalate to user with failure context.
@@ -125,7 +125,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 ## Phase 6: COUNCIL (consensus, max 3 rounds)
 
 **Skills:** `council`
-**Gate to Phase 7:** consensus PASS from at least 2 of 3 reviewers **AND** tests green. Both required.
+**Gate to Phase 7:** consensus PASS from at least 2 of 3 reviewers **AND** tests green. Both required. The author-family PASS rule applies as well (AGENTS.md Council Contract): record the families of the rungs that produced commits on this branch in the state artifact.
 
 1. Invoke `council` via the `skill` tool.
 2. Dispatch three fresh reviewer subagents on three independent model families (`reviewer-a`, `reviewer-b`, `reviewer-c` roles, rungs from the active provider profile). Each assumes the code is broken, hunts for bugs: spec compliance, edges, error handling, security, diff-vs-plan, regressions.

@@ -30,7 +30,7 @@
 
 > **License:** MIT - see [LICENSE](LICENSE) and [NOTICE](NOTICE) (upstream MIT attribution for `domain-modeling` and `codebase-design` adapted from `mattpocock/skills`).
 
-Autonomous software delivery for **OpenCode V2**. Orchestrates **12 composable pipeline skills** and **9 role-contract subagent seats** across four closed feedback loops (**L1 Task**, **L2 Branch Council**, **L3 CI**, **L4 Meta**). The harness is provider-neutral: which provider, model, and effort runs each role comes from a swappable provider profile (default `tri`, legacy `opencode-go`), and every dispatch names a rung so subagents never inherit the main session model. Every seat enforces last-match-wins permission guardrails so subagents never leak secrets.
+Autonomous software delivery for **OpenCode V2**. Orchestrates **12 composable pipeline skills** and **9 role-contract subagent seats** across four closed feedback loops (**L1 Task**, **L2 Branch Council**, **L3 CI**, **L4 Meta**). The harness is provider-neutral: which provider, model, and effort runs each role comes from a swappable provider profile (default `tri`, legacy `opencode-go`), and every dispatch names a rung so subagents never inherit the main session model (a seat with no `opencode` rung has no native pin and is reached only through `delegate_task`). Every seat enforces last-match-wins permission guardrails so subagents never leak secrets.
 
 ---
 
@@ -267,7 +267,7 @@ The harness is split into three layers so providers can be swapped or mixed with
 | Provider (swappable) | which provider instance, model, and effort runs each role; fallback ladders; model families; privacy class; quotas and provider notes | `providers/<profile>.md` |
 | Install (binding) | binds one profile to one install: copies it as `<dest>/PROVIDERS.md` and renders each seat's native pin | `install.sh --profile <name>` |
 
-No harness file names a concrete model ID, provider quota, or provider-specific effort value. The Dispatch Adapter in [`AGENTS.md`](./AGENTS.md) turns a role into a running subagent: natively through the OpenCode `subagent` tool for `opencode` rungs, or through T3 Code `delegate_task` (provider instance, model, and effort options from the profile) for any other provider; a rung neither path can reach is skipped like an exhausted one.
+No harness file names a concrete model ID, provider quota, or provider-specific effort value. The Dispatch Adapter in [`AGENTS.md`](./AGENTS.md) turns a role into a running subagent: the controller walks each role's rungs in ladder order. For the current rung it dispatches natively with no override when the rung is the seat's installed native pin on an OpenCode host; otherwise through T3 Code `delegate_task` (provider instance, model, and the rung's effort option, or `{}` for `-`) for any provider, including non-pinned `opencode` rungs; or, on an OpenCode host without T3 tools, natively with an explicit `model` override (best-effort if the build ignores overrides). A rung none of these can reach is skipped like an exhausted one. A seat whose ladder has no `opencode` rung installs with no `model:` line and is never dispatched natively. An implementation seat with no reachable rung hands its task to the next implementation seat; `scout` and `patch` with none stop the dispatch.
 
 ### Default profile `tri`
 
@@ -277,8 +277,13 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 - **Discovery** is read-heavy, write-light: a long-context flash model at low effort. Output is a compressed `path:line` table, so the expensive part is input, which flash models price lowest.
 - **Implementation** produces the bulk of all output tokens: strong mid-tier coders at medium effort; frontier only for `implementer-deep`.
 - **Per-task review** runs once per task, often: a flash model from a family that did not write the code.
-- **Council** outputs are short and decide the merge: one frontier model per family (Google, Anthropic, OpenAI) at equal `high` effort so votes are comparable. Each seat demotes inside its own family first (across providers where possible), then out of family.
-- **Escalation** is a fourth family none of the seats uses, so its verdict stays independent.
+- **Council** outputs are short and decide the merge: one frontier model per family (Google, Anthropic, OpenAI) at equal `high` effort so votes are comparable. Each council seat demotes inside its own family first, then out of family; every seat's last resort sits on a different provider than its primary, so one provider outage never empties a seat (the exception is `reviewer-esc`, whose whole ladder is OpenCode Go).
+- **Escalation** is a fourth family none of the seats uses, so its verdict stays independent. It needs a family unused this PR: `reviewer-a`'s last resort (zhipu) consumes one escalation rung if it is reached, leaving moonshot and deepseek.
+
+Supported driver setups (the `driver` row stays advisory):
+
+1. **OpenCode host:** native seats, plus `delegate_task` when OpenCode runs inside T3 Code.
+2. **Any T3 Code provider session** (for example Antigravity `claude-opus-5-5`): tell it to load `<dest>/HARNESS.md`, `<dest>/PROVIDERS.md`, and the skills from `<dest>/skills/`; it dispatches only via `delegate_task`, and permissions are self-enforced.
 
 | role | primary | fallback | last-resort |
 | --- | --- | --- | --- |
@@ -299,7 +304,7 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 
 ### Legacy profile `opencode-go`
 
-[`providers/opencode-go.md`](./providers/opencode-go.md) carries the original single-provider setup unchanged: every seat on `opencode-go/*`, the same models, efforts, ladders, request quotas, privacy footnotes, and off-peak note, plus `task-reviewer`, advisory `driver`, and `compaction` rows. Install it with `./install.sh --profile opencode-go`; the installed agent files are byte-identical to the pre-decoupling seat files.
+[`providers/opencode-go.md`](./providers/opencode-go.md) carries the original single-provider setup unchanged: every seat on `opencode-go/*`, the same models, efforts, ladders, request quotas, privacy footnotes, and off-peak note, plus `task-reviewer`, advisory `driver`, and `compaction` rows. Install it with `./install.sh --profile opencode-go`; the installed `model:` lines and their position match the pre-decoupling seat files.
 
 ### Writing a new profile
 
@@ -315,6 +320,7 @@ Copy an existing profile to `providers/<name>.md` (the name matches `[a-z0-9][a-
 - `provider` is the provider instance id (`antigravity`, `codex`, `opencode`, ...); `opencode` is the only value an OpenCode host can dispatch natively.
 - `model` is the id exactly as that provider's catalog names it; `effort` is `<option-id>=<value>` in the provider's own vocabulary (`thinking_level=high`, `reasoningEffort=medium`, `variant=max`) or `-` for the provider default.
 - `family` drives the independence rules; the same family on two providers is the same family. `privacy` is `ok` or `trains`.
+- The installer validates rows strictly: exactly 7 non-empty cells, `privacy` is `ok` or `trains`, no duplicate role+rung, and charset checks on `model`, `effort`, and `family`. Rows inside fenced ``` blocks are ignored, so examples in prose are safe.
 
 ---
 
@@ -353,13 +359,13 @@ cd skills
 
 `./install.sh` copies `agents/`, `skills/`, `NOTICE`, and `LICENSE` into `${OPENCODE_CONFIG:-$HOME/.config/opencode}` and writes [`AGENTS.md`](./AGENTS.md) to `<dest>/HARNESS.md` so any existing `AGENTS.md` is never overwritten. The selected provider profile is copied byte for byte to `<dest>/PROVIDERS.md` (the active routing table that `HARNESS.md` points to); `providers/` itself is not installed. It also records every path it installed in `<dest>/.harness-manifest`: line 1 is `# harness <sha>`, line 2 is `# profile <name>`, followed by one relative path per line.
 
-**Native pin rule:** source `agents/<seat>.md` files carry no `model:` line. At install, a seat's native pin is the first rung (in ladder order) of its profile whose `provider` is `opencode`; the installer writes `model: <model>` (plus `#<value>` when the effort id is `variant`) directly after the `mode: subagent` line so a natively dispatched seat never inherits the main session model. A seat with no `opencode` rung is installed without a `model:` line and the installer prints `note: <seat> has no opencode rung; dispatch it through delegate_task only`.
+**Native pin rule:** source `agents/<seat>.md` files carry no `model:` line. At install, a seat's native pin is the first rung (in ladder order) of its profile whose `provider` is `opencode`; the installer writes `model: <model>` (plus `#<value>` when the effort id is `variant`) directly after the `mode: subagent` line so a natively dispatched seat never inherits the main session model; the pin is passed to the rewrite safely (no escape interpretation) and inserted only in the first frontmatter block. A seat with no `opencode` rung is installed without a `model:` line, is never dispatched natively (it would inherit the driver's model), and the installer prints `note: <seat> has no opencode rung; dispatch it through delegate_task only`.
 
 The copy is collision-safe. Before touching anything, the installer runs preflight checks in strict refusal order: destination checks first (refusing empty/whitespace paths, paths equal to `/`, `.`, `..`, `$HOME`, or the repo root, and a destination that exists but is not a directory; an existing symlinked destination is resolved and the install lands in the real directory), then parent-path checks under the destination (exiting immediately on any symlinked or file parent directory before scanning targets, or replacing a symlinked parent with a real directory under `--force`), and finally target collision checks (printing one `collision: <dest path>` line per conflict plus `refusing to overwrite; rerun with --force` and exiting 1 before copying). Preflight refusal is atomic; a mid-copy failure can leave a partial tree, which rerunning the installer repairs. Content is not compared, so a second run always needs `--force`, even when nothing changed.
 
 | Flag | Effect |
 | --- | --- |
-| `--profile <name>` | bind the install to `providers/<name>.md` (also `--profile=<name>`; default `tri`). An unknown profile exits 2 with `install.sh: unknown profile: <name> (available: ...)`; an incomplete profile (a required role without a `primary` row, or an invalid `rung`) exits 1 with `install.sh: profile <name> incomplete: <role>`; both are checked before anything is written |
+| `--profile <name>` | bind the install to `providers/<name>.md` (also `--profile=<name>`; default `tri`). Without `--profile`, the previous manifest's `# profile` is reused (else `tri`); an explicit change prints `profile changed: X -> Y`. An unknown profile exits 2 with `install.sh: unknown profile: <name> (available: ...)`; an incomplete or invalid profile (a required role without a `primary` row, an invalid `rung`, or a row failing the strict validation above) exits 1 with `install.sh: profile <name> incomplete: <role>`; both are checked before anything is written |
 | `--force` | overwrite files that already exist in the destination, and repair any symlinked parent directory under the destination by replacing the link with a real directory (warning: this removes the link) |
 | `--prune` | after copying, remove files that the previous `<dest>/.harness-manifest` records as installed but this run no longer produces, then print `pruned N stale file(s)`. Files the installer never wrote are never removed, so personal agents and skills in the same directory survive. With no previous manifest it prints `no previous manifest; prune skipped` and removes nothing |
 | `-h`, `--help` | print usage and exit 0 without copying |
@@ -380,15 +386,16 @@ Set `OPENCODE_CONFIG` to install anywhere other than `~/.config/opencode`:
 OPENCODE_CONFIG="$HOME/.config/opencode-v2" ./install.sh
 ```
 
-### 2. Register `HARNESS.md` in `~/.config/opencode/opencode.json`
+### 2. Register `HARNESS.md` and `PROVIDERS.md` in `~/.config/opencode/opencode.json`
 
-OpenCode V2 loads `~/.config/opencode/AGENTS.md` automatically and then concatenates every file listed in `"instructions"`. Add `"~/.config/opencode/HARNESS.md"` to `"instructions"` in `~/.config/opencode/opencode.json`:
+OpenCode V2 loads `~/.config/opencode/AGENTS.md` automatically and then concatenates every file listed in `"instructions"`. Add both `"~/.config/opencode/HARNESS.md"` and `"~/.config/opencode/PROVIDERS.md"` to `"instructions"` in `~/.config/opencode/opencode.json`:
 
 ```jsonc
 {
   "$schema": "https://opencode.ai/config.json",
   "instructions": [
-    "~/.config/opencode/HARNESS.md"
+    "~/.config/opencode/HARNESS.md",
+    "~/.config/opencode/PROVIDERS.md"
   ]
 }
 ```
@@ -396,7 +403,9 @@ OpenCode V2 loads `~/.config/opencode/AGENTS.md` automatically and then concaten
 ### 3. Verify installation
 
 ```sh
-test -f ~/.config/opencode/HARNESS.md &&
+grep -q 'HARNESS.md' ~/.config/opencode/opencode.json &&
+  grep -q 'PROVIDERS.md' ~/.config/opencode/opencode.json &&
+  test -f ~/.config/opencode/HARNESS.md &&
   test -f ~/.config/opencode/PROVIDERS.md &&
   test -f ~/.config/opencode/agents/implementer.md &&
   test -f ~/.config/opencode/agents/implementer-b.md &&

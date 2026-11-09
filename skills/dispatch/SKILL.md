@@ -52,14 +52,14 @@ digraph process {
 
     subgraph cluster_per_task {
         label="Per Task";
-        "Dispatch implementer seat (agent: implementer, brief: implementer-prompt.md)" [shape=box];
+        "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md)" [shape=box];
         "Implementer asks questions?" [shape=diamond];
         "Answer questions, provide context" [shape=box];
         "Implementer implements, tests, commits or stages (parallel mode), self-reviews" [shape=box];
-        "Dispatch spec reviewer subagent (spec-reviewer-prompt.md)" [shape=box];
+        "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)" [shape=box];
         "Spec reviewer confirms code matches spec?" [shape=diamond];
         "Implementer fixes spec gaps" [shape=box];
-        "Dispatch quality reviewer subagent (quality-reviewer-prompt.md)" [shape=box];
+        "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" [shape=box];
         "Quality reviewer approves?" [shape=diamond];
         "Implementer fixes quality issues" [shape=box];
         "Mark task complete in the todo list" [shape=box];
@@ -67,29 +67,29 @@ digraph process {
 
     "Read plan once, extract all tasks with full text, create todo list" [shape=box];
     "More tasks remain?" [shape=diamond];
-    "Dispatch final reviewer subagent for entire implementation" [shape=box];
+    "Dispatch task-reviewer (final) through the AGENTS.md Dispatch Adapter" [shape=box];
     "Return to the controller with the final review verdict" [shape=box];
     "Oneshot: controller moves to verify (Phase 4), then land (Phase 5)" [shape=box style=filled fillcolor=lightgreen];
     "Standalone: run the verify skill yourself, then land" [shape=box];
 
-    "Read plan once, extract all tasks with full text, create todo list" -> "Dispatch the implementer seat agent with the brief from implementer-prompt.md";
-    "Dispatch the implementer seat agent with the brief from implementer-prompt.md" -> "Implementer asks questions?";
+    "Read plan once, extract all tasks with full text, create todo list" -> "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md)";
+    "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md)" -> "Implementer asks questions?";
     "Implementer asks questions?" -> "Answer questions, provide context" [label="yes"];
-    "Answer questions, provide context" -> "Dispatch the implementer seat agent with the brief from implementer-prompt.md";
+    "Answer questions, provide context" -> "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md)";
     "Implementer asks questions?" -> "Implementer implements, tests, commits, self-reviews" [label="no"];
-    "Implementer implements, tests, commits, self-reviews" -> "Dispatch spec reviewer subagent (spec-reviewer-prompt.md)";
-    "Dispatch spec reviewer subagent (spec-reviewer-prompt.md)" -> "Spec reviewer confirms code matches spec?";
+    "Implementer implements, tests, commits, self-reviews" -> "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)";
+    "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)" -> "Spec reviewer confirms code matches spec?";
     "Spec reviewer confirms code matches spec?" -> "Implementer fixes spec gaps" [label="no"];
-    "Implementer fixes spec gaps" -> "Dispatch spec reviewer subagent (spec-reviewer-prompt.md)" [label="re-review"];
-    "Spec reviewer confirms code matches spec?" -> "Dispatch quality reviewer subagent (quality-reviewer-prompt.md)" [label="yes"];
-    "Dispatch quality reviewer subagent (quality-reviewer-prompt.md)" -> "Quality reviewer approves?";
+    "Implementer fixes spec gaps" -> "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)" [label="re-review"];
+    "Spec reviewer confirms code matches spec?" -> "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" [label="yes"];
+    "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" -> "Quality reviewer approves?";
     "Quality reviewer approves?" -> "Implementer fixes quality issues" [label="no"];
-    "Implementer fixes quality issues" -> "Dispatch quality reviewer subagent (quality-reviewer-prompt.md)" [label="re-review"];
+    "Implementer fixes quality issues" -> "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" [label="re-review"];
     "Quality reviewer approves?" -> "Mark task complete in the todo list" [label="yes"];
     "Mark task complete in the todo list" -> "More tasks remain?";
-    "More tasks remain?" -> "Dispatch implementer seat (agent: implementer)" [label="yes"];
-    "More tasks remain?" -> "Dispatch final reviewer subagent for entire implementation" [label="no"];
-    "Dispatch final reviewer subagent for entire implementation" -> "Return to the controller with the final review verdict";
+    "More tasks remain?" -> "Dispatch implementer through the AGENTS.md Dispatch Adapter (brief: implementer-prompt.md)" [label="yes"];
+    "More tasks remain?" -> "Dispatch task-reviewer (final) through the AGENTS.md Dispatch Adapter" [label="no"];
+    "Dispatch task-reviewer (final) through the AGENTS.md Dispatch Adapter" -> "Return to the controller with the final review verdict";
     "Return to the controller with the final review verdict" -> "Oneshot: controller moves to verify (Phase 4), then land (Phase 5)" [label="running as Phase 3"];
     "Return to the controller with the final review verdict" -> "Standalone: run the verify skill yourself, then land" [label="no oneshot"];
 }
@@ -101,10 +101,10 @@ Standalone (no oneshot): after final review PASS, run the verify skill yourself,
 
 ## Model Routing
 
-Skills never hardcode model IDs. Route every subagent by role through the active provider profile (`PROVIDERS.md`) and the AGENTS.md Routing Rules, dispatching through the AGENTS.md Dispatch Adapter (the native `subagent` tool is one adapter path). Every dispatch names a rung so nothing inherits the main session model by accident.
+Skills never hardcode model IDs. Route every subagent by role through the active provider profile (`PROVIDERS.md`) and the AGENTS.md Routing Rules, dispatching through the AGENTS.md Dispatch Adapter (which chooses the native or `delegate_task` path per rung). Every dispatch names a rung so nothing inherits the main session model by accident.
 
 **Three implementation seats exist** (models and effort levels per the active provider profile; native pin rendered at install):
-- `implementer` and `implementer-b` - the two default high-allowance implementation seats (rungs from the active provider profile). Alternate or pick either for standard and mechanical tasks (`implementer` for confidential briefs).
+- `implementer` and `implementer-b` - the two default implementation seats (rungs from the active provider profile). Alternate or pick either for standard and mechanical tasks.
 - `implementer-deep` - the heavy-reasoning seat reserved for complex multi-file architecture tasks and difficult bugs escalated by `debug`.
 
 Per-task dispatch = one of the three seats + the brief from `implementer-prompt.md`, through the AGENTS.md Dispatch Adapter. On a usage-limit/429 error from a seat, or an unreachable rung: re-dispatch the same role on the next rung of its ladder in the active provider profile, announce the demotion, and continue.
@@ -117,7 +117,7 @@ Per-task dispatch = one of the three seats + the brief from `implementer-prompt.
 - Multi-file architecture, concurrency, or a bug that resisted one standard attempt -> `implementer-deep`.
 - 1-2 file surgical edits with no test run -> `patch`.
 
-Confidential briefs: when a task brief is marked confidential, the AGENTS.md Routing Rules privacy gate applies (`privacy: trains` rungs in the active provider profile auto-skip); demote straight to the next privacy-safe rung and announce.
+Confidential briefs: when a task brief is marked confidential, only the AGENTS.md Routing Rules privacy gate applies (`privacy: trains` rungs in the active provider profile auto-skip); demote straight to the next privacy-safe rung and announce. There is no seat preference for confidential work.
 
 ## Handling Implementer Status
 
@@ -164,7 +164,7 @@ Reviewer never fixes. Fixer never reviews. Fresh reviewer subagent every round.
 Task 1: Hook installation script
 
 [Get Task 1 text and context (already extracted)]
-[Dispatch the `implementer` seat agent with the brief from `implementer-prompt.md` (full task text + context)]
+[Dispatch `implementer` through the AGENTS.md Dispatch Adapter with the brief from `implementer-prompt.md` (full task text + context)]
 
 Implementer: "Before I begin - should the hook be installed at user or system level?"
 
@@ -177,17 +177,17 @@ Implementer: "Got it. Implementing now..."
   - Self-review: found I missed --force flag, added it
   - Committed (or staged in parallel mode)
 
-[Dispatch spec compliance reviewer]
+[Dispatch `task-reviewer` (spec) through the AGENTS.md Dispatch Adapter]
 Spec reviewer: PASS - all requirements met, nothing extra
 
-[Get git SHAs, dispatch code quality reviewer]
+[Get git SHAs, dispatch `task-reviewer` (quality) through the AGENTS.md Dispatch Adapter]
 Quality reviewer: Strengths: good test coverage, clean. Findings: none. Verdict: PASS.
 
 [Mark Task 1 complete on the feature branch]
 
 Task 2: Recovery modes
 
-[Dispatch the `implementer` seat agent with the brief from `implementer-prompt.md` (full task text + context)]
+[Dispatch `implementer` through the AGENTS.md Dispatch Adapter with the brief from `implementer-prompt.md` (full task text + context)]
 
 Implementer: [No questions, proceeds]
 Implementer:
@@ -196,7 +196,7 @@ Implementer:
   - Self-review: all good
   - Committed (or staged in parallel mode)
 
-[Dispatch spec compliance reviewer]
+[Dispatch `task-reviewer` (spec) through the AGENTS.md Dispatch Adapter]
 Spec reviewer: FAIL. Findings:
   - red: missing progress reporting (spec says "report every 100 items")
   - red: extra --json flag added, not requested
@@ -207,7 +207,7 @@ Implementer: Removed --json flag, added progress reporting
 [Spec reviewer reviews again]
 Spec reviewer: PASS
 
-[Dispatch code quality reviewer]
+[Dispatch `task-reviewer` (quality) through the AGENTS.md Dispatch Adapter]
 Quality reviewer: Strengths: solid. Findings: yellow: magic number (100)
 
 [Implementer fixes]
@@ -221,7 +221,7 @@ Quality reviewer: PASS
 ...
 
 [After all tasks]
-[Dispatch final reviewer for entire implementation (role `task-reviewer` from the active provider profile)]
+[Dispatch `task-reviewer` (final) through the AGENTS.md Dispatch Adapter for the entire implementation]
 Final reviewer: All requirements met, ready to merge
 
 [Return to the controller with the final review verdict]

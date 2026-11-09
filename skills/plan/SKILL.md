@@ -147,7 +147,7 @@ For standalone use only, offer the execution choice after saving the plan:
 
 **"Plan complete and saved to `docs/plans/<filename>.md`. Two execution options:**
 
-**1. Dispatched (recommended)** - fresh subagent per task (subagent tool), review between tasks, fast iteration
+**1. Dispatched (recommended)** - fresh subagent per task (dispatch the role through the AGENTS.md Dispatch Adapter), review between tasks, fast iteration
 
 **2. Inline** - execute the tasks in this session in batches, with checkpoint reviews
 

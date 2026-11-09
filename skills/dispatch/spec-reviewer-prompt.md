@@ -5,7 +5,7 @@ Use this template when dispatching a spec compliance reviewer subagent.
 **Purpose:** verify the implementer built what was requested (nothing more, nothing less)
 
 ```
-dispatch through the AGENTS.md Dispatch Adapter (ad-hoc, NOT a seat): role `task-reviewer` from the active provider profile (`PROVIDERS.md`), skipping any rung whose family wrote the code. ALWAYS name a rung. Never rely on inherit - it would run the main session model. Fresh subagent per review, fresh context per round.
+dispatch through the AGENTS.md Dispatch Adapter (ad-hoc, NOT a seat): role `task-reviewer` from the active provider profile (`PROVIDERS.md`), skipping any rung whose family wrote the code. ALWAYS name a rung. Never rely on inherit - it would run the main session model. Native path: a general-purpose subagent (`type general`) with an explicit `model`; delegate path: role `review`, no contract line (both per the Dispatch Adapter's `task-reviewer` rule). Fresh subagent per review, fresh context per round.
   description: "Review spec compliance for Task N"
   prompt: |
     You are reviewing whether an implementation matches its specification.
