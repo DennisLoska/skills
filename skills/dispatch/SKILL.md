@@ -106,7 +106,7 @@ Standalone (no oneshot): after final review PASS, run the verify skill yourself,
 
 ## Model Routing
 
-Skills never hardcode model IDs. Route every subagent by role through the active provider profile (`PROVIDERS.md`) and the AGENTS.md Routing Rules, dispatching through the AGENTS.md Dispatch Adapter (which selects the host dispatch path per rung; if `HARNESS.md` and `PROVIDERS.md` are not already in context, read `../_harness/HARNESS.md` and `../_harness/PROVIDERS.md` or `../../HARNESS.md` and `../../PROVIDERS.md` relative to this skill's directory; quota ledger at `../../state/quota-ledger.tsv`). Every dispatch names a rung so nothing inherits the main session model by accident.
+Skills never hardcode model IDs. Route every subagent by role through the active provider profile (`PROVIDERS.md`) and the AGENTS.md Routing Rules, dispatching through the AGENTS.md Dispatch Adapter (which selects the host dispatch path per rung; if `HARNESS.md` and `PROVIDERS.md` are not already in context, read `../_harness/HARNESS.md` and `../_harness/PROVIDERS.md` or `../../HARNESS.md` and `../../PROVIDERS.md` relative to this skill's directory; quota ledger read/updated via shell at `../../state/quota-ledger.tsv`). Every dispatch names a rung so nothing inherits the main session model by accident.
 
 **Testing and implementation seats** (models and effort levels per the active provider profile; native pin rendered at install):
 - `tester` - the red-step test author and script runner (rungs from the active provider profile). For any plan task with behaviour to test, dispatch `tester` first (`tester-prompt.md`) to write the failing tests, run them, confirm they fail for the right reason, and leave them uncommitted in the working tree.
