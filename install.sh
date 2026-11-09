@@ -1443,6 +1443,37 @@ if [ -n "$PREV_MANIFEST_SOURCE" ] && [ -f "$PREV_MANIFEST_SOURCE" ]; then
 fi
 
 if [ "$prune" -eq 1 ]; then
+  if [ "$TARGET_HOST" = "antigravity" ] &&
+     [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] && [ -d "$LEGACY_AGY_DIR" ]; then
+    if [ -L "$LEGACY_AGY_DIR/state" ]; then
+      rm -f -- "$LEGACY_AGY_DIR/state"
+    elif [ -d "$LEGACY_AGY_DIR/state" ] && [ "$LEGACY_AGY_DIR/state" != "$SHARED_STATE" ]; then
+      acquire_ledger_lock "$SHARED_STATE/quota-ledger.lock"
+      acquire_ledger_lock "$LEGACY_AGY_DIR/state/quota-ledger.lock"
+      if [ -L "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ] ||
+         { [ -e "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ] && [ ! -f "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ]; }; then
+        printf 'install.sh: ledger path is not a regular file: %s\n' "$LEGACY_AGY_DIR/state/quota-ledger.tsv" >&2
+        exit 1
+      fi
+      if [ -f "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ]; then
+        merge_inputs=()
+        if [ -f "$SHARED_STATE/quota-ledger.tsv" ]; then
+          merge_inputs+=("$SHARED_STATE/quota-ledger.tsv")
+        fi
+        merge_inputs+=("$LEGACY_AGY_DIR/state/quota-ledger.tsv")
+        ledger_tmp="$SHARED_STATE/.quota-ledger.$$.tmp"
+        rm -f -- "$ledger_tmp"
+        merge_ledgers "${merge_inputs[@]}" >"$ledger_tmp"
+        chmod 0644 "$ledger_tmp"
+        mv -f -- "$ledger_tmp" "$SHARED_STATE/quota-ledger.tsv"
+        ledger_tmp=""
+        rm -f -- "$LEGACY_AGY_DIR/state/quota-ledger.tsv"
+      fi
+      release_ledger_lock "$LEGACY_AGY_DIR/state/quota-ledger.lock"
+      release_ledger_lock "$SHARED_STATE/quota-ledger.lock"
+      rmdir "$LEGACY_AGY_DIR/state" 2>/dev/null || true
+    fi
+  fi
   had_any_manifest=0
   if [ -f "$MANIFEST" ]; then
     had_any_manifest=1
@@ -1461,40 +1492,15 @@ if [ "$prune" -eq 1 ]; then
     if [ "$TARGET_HOST" = "antigravity" ] &&
        [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] &&
        [ ! -L "$LEGACY_AGY_MANIFEST" ] && [ -f "$LEGACY_AGY_MANIFEST" ]; then
-      if [ -L "$LEGACY_AGY_DIR/state" ]; then
-        rm -f -- "$LEGACY_AGY_DIR/state"
-      elif [ -d "$LEGACY_AGY_DIR/state" ] && [ "$LEGACY_AGY_DIR/state" != "$SHARED_STATE" ]; then
-        acquire_ledger_lock "$SHARED_STATE/quota-ledger.lock"
-        acquire_ledger_lock "$LEGACY_AGY_DIR/state/quota-ledger.lock"
-        if [ -L "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ] ||
-           { [ -e "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ] && [ ! -f "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ]; }; then
-          printf 'install.sh: ledger path is not a regular file: %s\n' "$LEGACY_AGY_DIR/state/quota-ledger.tsv" >&2
-          exit 1
-        fi
-        if [ -f "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ]; then
-          merge_inputs=()
-          if [ -f "$SHARED_STATE/quota-ledger.tsv" ]; then
-            merge_inputs+=("$SHARED_STATE/quota-ledger.tsv")
-          fi
-          merge_inputs+=("$LEGACY_AGY_DIR/state/quota-ledger.tsv")
-          ledger_tmp="$SHARED_STATE/.quota-ledger.$$.tmp"
-          rm -f -- "$ledger_tmp"
-          merge_ledgers "${merge_inputs[@]}" >"$ledger_tmp"
-          chmod 0644 "$ledger_tmp"
-          mv -f -- "$ledger_tmp" "$SHARED_STATE/quota-ledger.tsv"
-          ledger_tmp=""
-          rm -f -- "$LEGACY_AGY_DIR/state/quota-ledger.tsv"
-        fi
-        release_ledger_lock "$LEGACY_AGY_DIR/state/quota-ledger.lock"
-        release_ledger_lock "$SHARED_STATE/quota-ledger.lock"
-        rmdir "$LEGACY_AGY_DIR/state" 2>/dev/null || true
-      fi
       prune_manifest_entries "$LEGACY_AGY_MANIFEST" "$LEGACY_AGY_DIR" 0
       rm -f -- "$LEGACY_AGY_MANIFEST"
-      find -P "$LEGACY_AGY_DIR" -depth -type d -exec rmdir {} \; 2>/dev/null || true
-      rmdir "$DEST/plugins" 2>/dev/null || true
     fi
     printf 'pruned %d stale file(s)\n' "$pruned"
+  fi
+  if [ "$TARGET_HOST" = "antigravity" ] &&
+     [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] && [ -d "$LEGACY_AGY_DIR" ]; then
+    find -P "$LEGACY_AGY_DIR" -depth -type d -exec rmdir {} \; 2>/dev/null || true
+    rmdir "$DEST/plugins" 2>/dev/null || true
   fi
 fi
 

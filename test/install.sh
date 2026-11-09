@@ -1486,6 +1486,18 @@ grep -q "$(printf '^agy-pool\t')" "$LSTATE_OC/state/quota-ledger.tsv" || fail "l
 grep -qF 'pruned 1 stale file(s)' "$TMPROOT/lstate-72.out" || { cat "$TMPROOT/lstate-72.out" >&2; fail "legacy state/quota-ledger.tsv is migrated rather than pruned"; }
 [ ! -e "$AGY_LSTATE/plugins" ] || fail "empty legacy plugins/ directory is removed when no sibling plugins exist"
 
+AGY_NOMANI="$TMPROOT/agy-nomani-72"
+NOMANI_OC="$TMPROOT/nomani-oc-72"
+mkdir -p "$AGY_NOMANI/plugins/oneshot-harness/state"
+printf 'nomani-pool\tantigravity\t2026-11-09T13:00:00Z\t2026-11-09T18:00:00Z\timplementer\t429\n' >"$AGY_NOMANI/plugins/oneshot-harness/state/quota-ledger.tsv"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_NOMANI" OPENCODE_CONFIG="$NOMANI_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/nomani-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/nomani-72.out" >&2; fail "manifestless legacy state/ ledger migration exits 0 (got $rc)"; }
+[ -f "$NOMANI_OC/state/quota-ledger.tsv" ] && grep -q "$(printf '^nomani-pool\t')" "$NOMANI_OC/state/quota-ledger.tsv" || fail "manifestless legacy state/ ledger merges into shared state"
+grep -qF 'no previous manifest; prune skipped' "$TMPROOT/nomani-72.out" || { cat "$TMPROOT/nomani-72.out" >&2; fail "manifestless legacy migration prints no previous manifest; prune skipped"; }
+[ ! -e "$AGY_NOMANI/plugins" ] || fail "manifestless legacy migration removes empty plugins/ directory"
+pass "legacy state/ ledger migrates and removes empty plugins/ under --prune even without a legacy manifest"
+
 printf 'state\n./state/quota-ledger.tsv\n' >>"$AGY_LSTATE/.harness-manifest"
 rc=0
 ANTIGRAVITY_CONFIG="$AGY_LSTATE" OPENCODE_CONFIG="$LSTATE_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/lstate-root-agy-72.out" 2>&1 || rc=$?
