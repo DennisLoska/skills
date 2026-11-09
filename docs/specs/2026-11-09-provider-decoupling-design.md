@@ -55,7 +55,7 @@ Columns:
 OpenCode agent files need a `model:` line so a natively dispatched seat never inherits the main session model. The pin is now derived, not authored:
 
 - Source `agents/<seat>.md` carries no `model:` line.
-- At install, the seat's native pin = the first rung (in ladder order) whose `provider` is `opencode`. The installer writes `model: <model>` plus `#<value>` when the effort id is `variant` (`model: opencode-go/deepseek-v4.1-flash#high`), inserted directly after the `mode: subagent` frontmatter line. That reproduces today's layout exactly, so `--profile opencode-go` installs agent files byte-identical to the pre-change `agents/*.md`.
+- At install, the seat's native pin = the first rung (in ladder order) whose `provider` is `opencode`. The installer writes `model: <model>` plus `#<value>` when the effort id is `variant` (`model: opencode-go/deepseek-v4.1-flash#high`), inserted directly after the `mode: subagent` frontmatter line. That reproduces today's layout exactly, so `--profile opencode-go` installs the same `model:` line in the same place as the pre-change `agents/*.md`.
 - A seat with no `opencode` rung is installed with no `model:` line, and the installer prints `note: <seat> has no opencode rung; dispatch it through delegate_task only`.
 
 ## Installer contract changes
