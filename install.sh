@@ -1331,40 +1331,42 @@ if [ "$TARGET_HOST" = "antigravity" ] && [ "$prune" -eq 1 ]; then
       printf 'install.sh: manifest path is not a regular file: %s\n' "$LEGACY_AGY_MANIFEST" >&2
       exit 1
     fi
-    if [ -d "$LEGACY_AGY_DIR/state" ] && [ ! -L "$LEGACY_AGY_DIR/state" ]; then
-      if [ -d "$SHARED_STATE" ] && [ ! -L "$SHARED_STATE" ]; then
-        if [ -L "$SHARED_STATE/quota-ledger.tsv" ] || { [ -e "$SHARED_STATE/quota-ledger.tsv" ] && [ ! -f "$SHARED_STATE/quota-ledger.tsv" ]; }; then
-          printf 'install.sh: ledger path is not a regular file: %s\n' "$SHARED_STATE/quota-ledger.tsv" >&2
-          exit 1
+    if [ -f "$LEGACY_AGY_MANIFEST" ]; then
+      if [ -d "$LEGACY_AGY_DIR/state" ] && [ ! -L "$LEGACY_AGY_DIR/state" ]; then
+        if [ -d "$SHARED_STATE" ] && [ ! -L "$SHARED_STATE" ]; then
+          if [ -L "$SHARED_STATE/quota-ledger.tsv" ] || { [ -e "$SHARED_STATE/quota-ledger.tsv" ] && [ ! -f "$SHARED_STATE/quota-ledger.tsv" ]; }; then
+            printf 'install.sh: ledger path is not a regular file: %s\n' "$SHARED_STATE/quota-ledger.tsv" >&2
+            exit 1
+          fi
+          check_lock_path_struct "$SHARED_STATE/quota-ledger.lock"
         fi
-        check_lock_path_struct "$SHARED_STATE/quota-ledger.lock"
-      fi
-      shopt -s nullglob dotglob
-      legacy_state_entries=("$LEGACY_AGY_DIR/state"/*)
-      shopt -u nullglob dotglob
-      if [ "${#legacy_state_entries[@]}" -gt 0 ]; then
-        for se in "${legacy_state_entries[@]}"; do
-          se_base="$(basename -- "$se")"
-          case "$se_base" in
-            quota-ledger.tsv)
-              if [ -L "$se" ] || [ ! -f "$se" ]; then
-                printf 'install.sh: ledger path is not a regular file: %s\n' "$se" >&2
+        shopt -s nullglob dotglob
+        legacy_state_entries=("$LEGACY_AGY_DIR/state"/*)
+        shopt -u nullglob dotglob
+        if [ "${#legacy_state_entries[@]}" -gt 0 ]; then
+          for se in "${legacy_state_entries[@]}"; do
+            se_base="$(basename -- "$se")"
+            case "$se_base" in
+              quota-ledger.tsv)
+                if [ -L "$se" ] || [ ! -f "$se" ]; then
+                  printf 'install.sh: ledger path is not a regular file: %s\n' "$se" >&2
+                  exit 1
+                fi
+                ;;
+              quota-ledger.lock)
+                check_lock_path_struct "$se"
+                ;;
+              *)
+                printf 'install.sh: refusing to replace state directory containing non-ledger files: %s\n' "$LEGACY_AGY_DIR/state" >&2
                 exit 1
-              fi
-              ;;
-            quota-ledger.lock)
-              check_lock_path_struct "$se"
-              ;;
-            *)
-              printf 'install.sh: refusing to replace state directory containing non-ledger files: %s\n' "$LEGACY_AGY_DIR/state" >&2
-              exit 1
-              ;;
-          esac
-        done
+                ;;
+            esac
+          done
+        fi
+      elif [ ! -L "$LEGACY_AGY_DIR/state" ] && [ -e "$LEGACY_AGY_DIR/state" ]; then
+        printf 'install.sh: parent path is not a directory: %s\n' "$LEGACY_AGY_DIR/state" >&2
+        exit 1
       fi
-    elif [ ! -L "$LEGACY_AGY_DIR/state" ] && [ -e "$LEGACY_AGY_DIR/state" ]; then
-      printf 'install.sh: parent path is not a directory: %s\n' "$LEGACY_AGY_DIR/state" >&2
-      exit 1
     fi
   fi
 fi
@@ -1415,7 +1417,8 @@ if [ "$TARGET_HOST" != "opencode" ] && [ "$DEST" != "$SHARED_OC_CANON" ] &&
 fi
 
 if [ "$TARGET_HOST" = "antigravity" ] && [ "$prune" -eq 1 ] &&
-   [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] &&
+   [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] && [ -d "$LEGACY_AGY_DIR" ] &&
+   [ ! -L "$LEGACY_AGY_MANIFEST" ] && [ -f "$LEGACY_AGY_MANIFEST" ] &&
    [ -d "$LEGACY_AGY_DIR/state" ] && [ ! -L "$LEGACY_AGY_DIR/state" ]; then
   if [ "$LEGACY_AGY_DIR/state" != "$SHARED_STATE" ]; then
     check_lock_path_preflight "$LEGACY_AGY_DIR/state/quota-ledger.lock"
@@ -1656,42 +1659,11 @@ if [ -n "$PREV_MANIFEST_SOURCE" ] && [ -f "$PREV_MANIFEST_SOURCE" ]; then
 fi
 
 if [ "$prune" -eq 1 ]; then
-  if [ "$TARGET_HOST" = "antigravity" ] &&
-     [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] && [ -d "$LEGACY_AGY_DIR" ]; then
-    if [ -L "$LEGACY_AGY_DIR/state" ]; then
-      rm -f -- "$LEGACY_AGY_DIR/state"
-    elif [ -d "$LEGACY_AGY_DIR/state" ] && [ "$LEGACY_AGY_DIR/state" != "$SHARED_STATE" ]; then
-      acquire_ledger_lock "$SHARED_STATE/quota-ledger.lock"
-      acquire_ledger_lock "$LEGACY_AGY_DIR/state/quota-ledger.lock"
-      if [ -L "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ] ||
-         { [ -e "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ] && [ ! -f "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ]; }; then
-        printf 'install.sh: ledger path is not a regular file: %s\n' "$LEGACY_AGY_DIR/state/quota-ledger.tsv" >&2
-        exit 1
-      fi
-      if [ -f "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ]; then
-        merge_inputs=()
-        if [ -f "$SHARED_STATE/quota-ledger.tsv" ]; then
-          merge_inputs+=("$SHARED_STATE/quota-ledger.tsv")
-        fi
-        merge_inputs+=("$LEGACY_AGY_DIR/state/quota-ledger.tsv")
-        ledger_tmp="$SHARED_STATE/.quota-ledger.$$.tmp"
-        rm -f -- "$ledger_tmp"
-        merge_ledgers "${merge_inputs[@]}" >"$ledger_tmp"
-        chmod 0644 "$ledger_tmp"
-        mv -f -- "$ledger_tmp" "$SHARED_STATE/quota-ledger.tsv"
-        ledger_tmp=""
-        rm -f -- "$LEGACY_AGY_DIR/state/quota-ledger.tsv"
-      fi
-      release_ledger_lock "$LEGACY_AGY_DIR/state/quota-ledger.lock"
-      release_ledger_lock "$SHARED_STATE/quota-ledger.lock"
-      rmdir "$LEGACY_AGY_DIR/state" 2>/dev/null || true
-    fi
-  fi
   had_any_manifest=0
   if [ -f "$MANIFEST" ]; then
     had_any_manifest=1
   elif [ "$TARGET_HOST" = "antigravity" ] &&
-       [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] &&
+       [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] && [ -d "$LEGACY_AGY_DIR" ] &&
        [ ! -L "$LEGACY_AGY_MANIFEST" ] && [ -f "$LEGACY_AGY_MANIFEST" ]; then
     had_any_manifest=1
   fi
@@ -1703,17 +1675,42 @@ if [ "$prune" -eq 1 ]; then
       prune_manifest_entries "$MANIFEST" "$DEST" 1
     fi
     if [ "$TARGET_HOST" = "antigravity" ] &&
-       [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] &&
+       [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] && [ -d "$LEGACY_AGY_DIR" ] &&
        [ ! -L "$LEGACY_AGY_MANIFEST" ] && [ -f "$LEGACY_AGY_MANIFEST" ]; then
+      if [ -L "$LEGACY_AGY_DIR/state" ]; then
+        rm -f -- "$LEGACY_AGY_DIR/state"
+      elif [ -d "$LEGACY_AGY_DIR/state" ] && [ "$LEGACY_AGY_DIR/state" != "$SHARED_STATE" ]; then
+        acquire_ledger_lock "$SHARED_STATE/quota-ledger.lock"
+        acquire_ledger_lock "$LEGACY_AGY_DIR/state/quota-ledger.lock"
+        if [ -L "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ] ||
+           { [ -e "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ] && [ ! -f "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ]; }; then
+          printf 'install.sh: ledger path is not a regular file: %s\n' "$LEGACY_AGY_DIR/state/quota-ledger.tsv" >&2
+          exit 1
+        fi
+        if [ -f "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ]; then
+          merge_inputs=()
+          if [ -f "$SHARED_STATE/quota-ledger.tsv" ]; then
+            merge_inputs+=("$SHARED_STATE/quota-ledger.tsv")
+          fi
+          merge_inputs+=("$LEGACY_AGY_DIR/state/quota-ledger.tsv")
+          ledger_tmp="$SHARED_STATE/.quota-ledger.$$.tmp"
+          rm -f -- "$ledger_tmp"
+          merge_ledgers "${merge_inputs[@]}" >"$ledger_tmp"
+          chmod 0644 "$ledger_tmp"
+          mv -f -- "$ledger_tmp" "$SHARED_STATE/quota-ledger.tsv"
+          ledger_tmp=""
+          rm -f -- "$LEGACY_AGY_DIR/state/quota-ledger.tsv"
+        fi
+        release_ledger_lock "$LEGACY_AGY_DIR/state/quota-ledger.lock"
+        release_ledger_lock "$SHARED_STATE/quota-ledger.lock"
+        rmdir "$LEGACY_AGY_DIR/state" 2>/dev/null || true
+      fi
       prune_manifest_entries "$LEGACY_AGY_MANIFEST" "$LEGACY_AGY_DIR" 0
       rm -f -- "$LEGACY_AGY_MANIFEST"
+      find -P "$LEGACY_AGY_DIR" -depth -type d -exec rmdir {} \; 2>/dev/null || true
+      rmdir "$DEST/plugins" 2>/dev/null || true
     fi
     printf 'pruned %d stale file(s)\n' "$pruned"
-  fi
-  if [ "$TARGET_HOST" = "antigravity" ] &&
-     [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] && [ -d "$LEGACY_AGY_DIR" ]; then
-    find -P "$LEGACY_AGY_DIR" -depth -type d -exec rmdir {} \; 2>/dev/null || true
-    rmdir "$DEST/plugins" 2>/dev/null || true
   fi
 fi
 

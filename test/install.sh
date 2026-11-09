@@ -1492,11 +1492,21 @@ mkdir -p "$AGY_NOMANI/plugins/oneshot-harness/state"
 printf 'nomani-pool\tantigravity\t2026-11-09T13:00:00Z\t2026-11-09T18:00:00Z\timplementer\t429\n' >"$AGY_NOMANI/plugins/oneshot-harness/state/quota-ledger.tsv"
 rc=0
 ANTIGRAVITY_CONFIG="$AGY_NOMANI" OPENCODE_CONFIG="$NOMANI_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/nomani-72.out" 2>&1 || rc=$?
-[ "$rc" -eq 0 ] || { cat "$TMPROOT/nomani-72.out" >&2; fail "manifestless legacy state/ ledger migration exits 0 (got $rc)"; }
-[ -f "$NOMANI_OC/state/quota-ledger.tsv" ] && grep -q "$(printf '^nomani-pool\t')" "$NOMANI_OC/state/quota-ledger.tsv" || fail "manifestless legacy state/ ledger merges into shared state"
-grep -qF 'no previous manifest; prune skipped' "$TMPROOT/nomani-72.out" || { cat "$TMPROOT/nomani-72.out" >&2; fail "manifestless legacy migration prints no previous manifest; prune skipped"; }
-[ ! -e "$AGY_NOMANI/plugins" ] || fail "manifestless legacy migration removes empty plugins/ directory"
-pass "legacy state/ ledger migrates and removes empty plugins/ under --prune even without a legacy manifest"
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/nomani-72.out" >&2; fail "manifestless legacy directory under --prune exits 0 (got $rc)"; }
+grep -qF 'no previous manifest; prune skipped' "$TMPROOT/nomani-72.out" || { cat "$TMPROOT/nomani-72.out" >&2; fail "manifestless plugins/oneshot-harness prints no previous manifest; prune skipped"; }
+[ -f "$AGY_NOMANI/plugins/oneshot-harness/state/quota-ledger.tsv" ] && grep -q "$(printf '^nomani-pool\t')" "$AGY_NOMANI/plugins/oneshot-harness/state/quota-ledger.tsv" || fail "manifestless plugins/oneshot-harness/state/quota-ledger.tsv is left untouched"
+if [ -f "$NOMANI_OC/state/quota-ledger.tsv" ] && grep -q "$(printf '^nomani-pool\t')" "$NOMANI_OC/state/quota-ledger.tsv"; then
+  fail "manifestless plugins/oneshot-harness ledger must not merge into shared state"
+fi
+mkdir -p "$AGY_NOMANI/plugins/oneshot-harness/state/quota-ledger.lock" "$AGY_NOMANI/plugins/oneshot-harness/empty-sub"
+printf 'foreign\n' >"$AGY_NOMANI/plugins/oneshot-harness/state/foreign.db"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_NOMANI" OPENCODE_CONFIG="$NOMANI_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/nomani-72b.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/nomani-72b.out" >&2; fail "repeat --prune ignores locks and non-ledger files under manifestless plugins/oneshot-harness (got $rc)"; }
+[ -d "$AGY_NOMANI/plugins/oneshot-harness/empty-sub" ] || fail "repeat --prune never rmdirs under manifestless plugins/oneshot-harness"
+[ -f "$AGY_NOMANI/plugins/oneshot-harness/state/quota-ledger.tsv" ] || fail "repeat --prune leaves manifestless plugins/oneshot-harness/state/quota-ledger.tsv untouched"
+[ -f "$AGY_NOMANI/plugins/oneshot-harness/state/foreign.db" ] || fail "repeat --prune leaves manifestless plugins/oneshot-harness/state/foreign.db untouched"
+pass "manifestless plugins/oneshot-harness and its state/ are left untouched under --prune"
 
 printf 'state\n./state/quota-ledger.tsv\n' >>"$AGY_LSTATE/.harness-manifest"
 rc=0
@@ -1739,6 +1749,9 @@ grep -qF '* | claudeAgent |' "$TMPROOT/quad-backup-74.txt" || fail "quad backup 
 for needle in '<skills-dir>/_harness/agents/<seat>.md' spawn_agent invoke_subagent 'degraded task-review: single-family host'; do
   grep -qF "$needle" "$ROOT/AGENTS.md" || fail "AGENTS.md documents the standalone dispatch adapter via $needle"
 done
+grep -qF 'in your `<skills>` list' "$ROOT/AGENTS.md" || fail "AGENTS.md passes literal <skills-dir> instruction to antigravity children"
+grep -qE 'never substitut(e|ing) the driver'\''s path' "$ROOT/AGENTS.md" || fail "AGENTS.md forbids substituting the driver's path for antigravity <contract-path>"
+[ "$(wc -c <"$ROOT/AGENTS.md")" -le 21400 ] || fail "AGENTS.md stays within 21400 bytes"
 
 if grep -rnE 'opencode-go/|req/5h|#(low|medium|high|xhigh|max)\b' "$ROOT/AGENTS.md" "$ROOT/skills" "$ROOT/agents" >"$TMPROOT/leak-74.out" 2>&1; then
   cat "$TMPROOT/leak-74.out" >&2
