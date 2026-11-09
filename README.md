@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Skills-12%20Pipeline%20Units-1AD1A5?style=flat-square" alt="12 Pipeline Skills" />
   <img src="https://img.shields.io/badge/Council-3%20Independent%20Families-FF6B35?style=flat-square" alt="3-Family Council" />
   <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
-  <img src="https://img.shields.io/badge/Tests-78%2F78%20Passing-2ECC71?style=flat-square" alt="78/78 Tests Passing" />
+  <img src="https://img.shields.io/badge/Tests-87%2F87%20Passing-2ECC71?style=flat-square" alt="87/87 Tests Passing" />
 </p>
 
 <p align="center">
@@ -454,7 +454,7 @@ skills/           12 pipeline skills:          oneshot, shape, plan, dispatch,
 providers/        swappable provider profiles: tri (default), quad (tri + Claude Code),
                                                opencode-go (legacy)
 docs/             design specs and plans:      docs/specs/, docs/plans/
-test/install.sh   78-assertion contract suite  (runs in throwaway HOME on Bash >=3.2)
+test/install.sh   87-assertion contract suite  (runs in throwaway HOME on Bash >=3.2)
 AGENTS.md         harness routing instructions (installed as ~/.config/opencode/HARNESS.md)
 install.sh        collision-safe installer     (manifest-scoped prune, symlink guards)
 NOTICE            upstream MIT attribution     (mattpocock/skills)
@@ -541,7 +541,7 @@ grep -q 'HARNESS.md' ~/.config/opencode/opencode.json &&
 
 ## 🧪 Testing
 
-Run the 78-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
+Run the 87-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
 
 ```sh
 bash -n install.sh && bash -n test/install.sh

@@ -3,7 +3,7 @@ duplicate;| scout | fallback | opencode | valid | - | google | ok |;duplicate ru
 six-cells;| scout | fallback | opencode | valid | - | google |;expected 7 cells
 empty-model;| scout | fallback | opencode | | - | google | ok |;empty cell
 privacy;| scout | fallback | opencode | valid | - | google | okay |;invalid privacy
-provider;| scout | fallback | Bad | valid | - | google | ok |;invalid provider
+provider;| scout | fallback | bad_id | valid | - | google | ok |;invalid provider
 family;| scout | fallback | opencode | valid | - | Bad | ok |;invalid family
 effort;| scout | fallback | opencode | valid | bad=one=two | google | ok |;invalid effort
 model-colon;| scout | fallback | opencode | example: | - | google | ok |;invalid model

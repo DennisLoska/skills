@@ -22,19 +22,20 @@ available_profiles() {
 
 usage() {
   cat <<'EOF'
-usage: install.sh [--force] [--prune] [--profile NAME]
+usage: install.sh [--force] [--prune] [--profile NAME | --profile-file PATH]
 
 Installs agents/, skills/, AGENTS.md (as HARNESS.md), PROVIDERS.md, NOTICE, and LICENSE into
 ${OPENCODE_CONFIG:-$HOME/.config/opencode}, and records every installed
 path in <dest>/.harness-manifest.
 
 options:
-  --profile NAME  bind providers/NAME.md (also --profile=NAME; default: previous binding, else tri)
-  --force      overwrite files that already exist in the destination
-  --prune      remove files recorded in a previous .harness-manifest that
-               this run no longer produces; files the installer never wrote
-               are never touched
-  -h, --help   show this help and exit
+  --profile NAME       bind providers/NAME.md (also --profile=NAME; default: previous binding, else tri)
+  --profile-file PATH  bind an external profile file (also --profile-file=PATH; mutually exclusive with --profile)
+  --force              overwrite files that already exist in the destination
+  --prune              remove files recorded in a previous .harness-manifest that
+                       this run no longer produces; files the installer never wrote
+                       are never touched
+  -h, --help           show this help and exit
 
 Without --force, any existing target file aborts the install with exit 1
 before anything is copied.
@@ -46,6 +47,8 @@ force=0
 prune=0
 profile=tri
 profile_given=0
+profile_file_arg=""
+profile_file_given=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --force) force=1 ;;
@@ -61,6 +64,17 @@ while [ "$#" -gt 0 ]; do
       [ -n "$profile" ] || { usage >&2; exit 2; }
       profile_given=1
       ;;
+    --profile-file)
+      if [ "$#" -lt 2 ] || [ -z "$2" ]; then usage >&2; exit 2; fi
+      profile_file_given=1
+      profile_file_arg="$2"
+      shift
+      ;;
+    --profile-file=*)
+      profile_file_arg="${1#--profile-file=}"
+      [ -n "$profile_file_arg" ] || { usage >&2; exit 2; }
+      profile_file_given=1
+      ;;
     -h|--help)
       usage
       exit 0
@@ -72,6 +86,11 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
+
+if [ "$profile_given" -eq 1 ] && [ "$profile_file_given" -eq 1 ]; then
+  usage >&2
+  exit 2
+fi
 
 # Destination validation. Runs before any path is created or removed, and
 # before the trailing slash is stripped, so a hostile or degenerate
@@ -193,12 +212,15 @@ if [ -L "$MANIFEST" ] || { [ -e "$MANIFEST" ] && [ ! -f "$MANIFEST" ]; }; then
 fi
 prev_profile=""
 prev_profile_present=0
+prev_profile_file=""
+prev_profile_file_present=0
 prev_entry_present=0
 prev_profile_legacy=0
 if [ -f "$MANIFEST" ]; then
   while IFS= read -r mline || [ -n "$mline" ]; do
     case "$mline" in
       '# profile '*) prev_profile="${mline#'# profile '}"; prev_profile_present=1; break ;;
+      '# profile-file '*) prev_profile_file="${mline#'# profile-file '}"; prev_profile_file_present=1; break ;;
       *)
         entry="${mline#"${mline%%[![:space:]]*}"}"
         case "$entry" in ''|\#*) ;; *) prev_entry_present=1 ;; esac
@@ -206,13 +228,22 @@ if [ -f "$MANIFEST" ]; then
     esac
   done <"$MANIFEST"
 fi
-if [ "$prev_profile_present" -eq 0 ] && { [ "$prev_entry_present" -eq 1 ] || { [ ! -f "$MANIFEST" ] && [ -f "$DEST/HARNESS.md" ]; }; }; then
+if [ "$prev_profile_present" -eq 0 ] && [ "$prev_profile_file_present" -eq 0 ] &&
+   { [ "$prev_entry_present" -eq 1 ] || { [ ! -f "$MANIFEST" ] && [ -f "$DEST/HARNESS.md" ]; }; }; then
   prev_profile=opencode-go
   prev_profile_present=1
   prev_profile_legacy=1
 fi
-if [ "$profile_given" -eq 0 ] && [ "$prev_profile_present" -eq 1 ]; then
-  profile="$prev_profile"
+use_profile_file=0
+if [ "$profile_file_given" -eq 1 ]; then
+  use_profile_file=1
+elif [ "$profile_given" -eq 0 ]; then
+  if [ "$prev_profile_file_present" -eq 1 ]; then
+    use_profile_file=1
+    profile_file_arg="$prev_profile_file"
+  elif [ "$prev_profile_present" -eq 1 ]; then
+    profile="$prev_profile"
+  fi
 fi
 
 # Validate the binding before creating anything, including temporary files.
@@ -220,14 +251,24 @@ unknown_profile() {
   printf 'install.sh: unknown profile: %s (available: %s)\n' "$profile" "$(available_profiles)" >&2
   exit 2
 }
-case "$profile" in
-  ''|[!a-z0-9]*|*[!a-z0-9-]*) unknown_profile ;;
-esac
-PROFILE_FILE="$SRC/providers/$profile.md"
-[ -f "$PROFILE_FILE" ] || unknown_profile
-REQUIRED_ROLES='scout implementer implementer-b implementer-deep patch reviewer-a reviewer-b reviewer-c reviewer-esc task-reviewer'
+if [ "$use_profile_file" -eq 1 ]; then
+  if [ ! -f "$profile_file_arg" ]; then
+    printf 'install.sh: profile file not found: %s\n' "$profile_file_arg" >&2
+    exit 2
+  fi
+  PROFILE_FILE="$(cd "$(dirname -- "$profile_file_arg")" && pwd -P)/$(basename -- "$profile_file_arg")"
+  PROFILE_LABEL="$PROFILE_FILE"
+else
+  case "$profile" in
+    ''|[!a-z0-9]*|*[!a-z0-9-]*) unknown_profile ;;
+  esac
+  PROFILE_FILE="$SRC/providers/$profile.md"
+  [ -f "$PROFILE_FILE" ] || unknown_profile
+  PROFILE_LABEL="$profile"
+fi
+REQUIRED_ROLES='scout implementer implementer-deep patch tester reviewer-a reviewer-b reviewer-c reviewer-esc task-reviewer'
 # Recognized required and advisory rows are validated; fenced examples are prose.
-PROFILE_ROWS="$(PROFILE_NAME="$profile" REQUIRED_ROLES="$REQUIRED_ROLES" awk -F '|' '
+PROFILE_ROWS="$(PROFILE_NAME="$PROFILE_LABEL" REQUIRED_ROLES="$REQUIRED_ROLES" awk -F '|' '
   BEGIN {
     profile = ENVIRON["PROFILE_NAME"]
     n = split(ENVIRON["REQUIRED_ROLES"], ordered, " ")
@@ -250,7 +291,7 @@ PROFILE_ROWS="$(PROFILE_NAME="$profile" REQUIRED_ROLES="$REQUIRED_ROLES" awk -F 
     if ($3 != "primary" && $3 != "fallback" && $3 != "last-resort") invalid("invalid rung")
     if ($8 != "ok" && $8 != "trains") invalid("invalid privacy")
     advisory = (role == "driver" || role == "compaction")
-    if (!(advisory && $4 == "-") && $4 !~ /^[a-z0-9][a-z0-9-]*$/) invalid("invalid provider")
+    if (!(advisory && $4 == "-") && $4 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid("invalid provider")
     if (!(advisory && $5 == "-") && $5 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) invalid("invalid model")
     if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid("invalid effort")
     if (!(advisory && $7 == "-") && $7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid("invalid family")
@@ -586,7 +627,11 @@ fi
 
 : >"$TMP_MANIFEST"
 printf '# harness %s\n' "$harness_sha" >>"$TMP_MANIFEST"
-printf '# profile %s\n' "$profile" >>"$TMP_MANIFEST"
+if [ "$use_profile_file" -eq 1 ]; then
+  printf '# profile-file %s\n' "$PROFILE_FILE" >>"$TMP_MANIFEST"
+else
+  printf '# profile %s\n' "$profile" >>"$TMP_MANIFEST"
+fi
 for rel in "${rels[@]}"; do
   printf '%s\n' "$rel" >>"$TMP_MANIFEST"
 done
@@ -596,12 +641,19 @@ if [ "$prev_manifest_present" -eq 1 ] && [ "$prev_sha" != "$harness_sha" ]; then
   printf 'harness updated: %s -> %s\n' "$prev_sha" "$harness_sha"
 fi
 
-if [ "$profile_given" -eq 0 ] && [ "$prev_profile_legacy" -eq 1 ]; then
+if [ "$profile_given" -eq 0 ] && [ "$profile_file_given" -eq 0 ] && [ "$prev_profile_legacy" -eq 1 ]; then
   printf 'profile: opencode-go (previous install predates profiles)\n'
 fi
 
-if [ "$profile_given" -eq 1 ] && [ -n "$prev_profile" ] && [ "$prev_profile" != "$profile" ]; then
-  printf 'profile changed: %s -> %s\n' "$prev_profile" "$profile"
+prev_binding="${prev_profile:-$prev_profile_file}"
+if [ "$use_profile_file" -eq 1 ]; then
+  cur_binding="$PROFILE_FILE"
+else
+  cur_binding="$profile"
+fi
+if { [ "$profile_given" -eq 1 ] || [ "$profile_file_given" -eq 1 ]; } &&
+   [ -n "$prev_binding" ] && [ "$prev_binding" != "$cur_binding" ]; then
+  printf 'profile changed: %s -> %s\n' "$prev_binding" "$cur_binding"
 fi
 
 printf 'installed %d files into %s (harness instructions at %s)\n' "$installed" "$DEST" "$DEST/HARNESS.md"
