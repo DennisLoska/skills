@@ -37,7 +37,7 @@
 
 > **License:** MIT - see [LICENSE](LICENSE) and [NOTICE](NOTICE) (upstream MIT attribution for `domain-modeling` and `codebase-design` adapted from `mattpocock/skills`).
 
-Autonomous software delivery for **T3 Code** and standalone **OpenCode V2**, **Codex**, **Antigravity**, and **Claude Code**. Orchestrates **12 composable pipeline skills** and **9 role-contract subagent seats** across four closed feedback loops (**L1 Task**, **L2 Branch Council**, **L3 CI**, **L4 Meta**). The harness is provider-neutral: which provider, model, and effort runs each role comes from a swappable provider profile (default `tri`, `quad` with Claude Code, standalone single-provider `opencode-go`, `codex`, `antigravity`, `claude`, or any custom file via `--profile-file`), and every dispatch names a rung so subagents never inherit the main session model (on OpenCode, a seat with no `opencode` ladder rung installs with no native `model:` pin and never uses Path 1). Every seat enforces last-match-wins permission guardrails so subagents never leak secrets.
+Autonomous software delivery for **T3 Code** and standalone **OpenCode V2**, **Codex**, **Antigravity**, and **Claude Code**. Orchestrates **12 composable pipeline skills** and **9 role-contract subagent seats** across four closed feedback loops (**L1 Task**, **L2 Branch Council**, **L3 CI**, **L4 Meta**). The harness is provider-neutral: which provider, model, and effort runs each role comes from a swappable provider profile (default `tri`, `quad` with Claude Code, standalone single-provider `opencode-go`, `codex`, `antigravity`, `claude`, or any custom file via `--profile-file`), and every dispatch names a rung so subagents never inherit the main session model (on OpenCode, a seat with no `opencode` ladder rung installs with no native `model:` pin and never uses Path 2). Every seat enforces last-match-wins permission guardrails so subagents never leak secrets.
 
 ---
 
@@ -386,7 +386,7 @@ No harness file names a concrete model ID, provider quota, or provider-specific 
 - **Profile columns:** `provider: codex`, `effort: reasoningEffort=<low|medium|high|xhigh>`, example models `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6.1-terra`, `gpt-6-luna`, `gpt-6-sol`.
 
 #### 4. Claude Code / Anthropic (`claudeAgent`)
-- **Connect:** require an active Claude subscription; authenticate in Claude Code (and when orchestrating through T3 Code, enable the **Claude** provider instance in T3 Code settings — its T3 provider instance ID is `claudeAgent` in camelCase and must show as enabled in `orchestrator_capabilities`).
+- **Connect:** require an active Claude subscription; authenticate in Claude Code (and when orchestrating through T3 Code, enable the **Claude** provider instance in T3 Code settings - its T3 provider instance ID is `claudeAgent` in camelCase and must show as enabled in `orchestrator_capabilities`).
 - **Verify models & limits:** check rolling 5-hour window limits with `/status` in Claude Code.
 - **Quota structure:** **shared across the subscription** via the `claude-code` pool row (`provider: claudeAgent`, `models: *`, `window: 5h` in `quad` and `claude`).
 - **Profile columns:** `provider: claudeAgent`, `effort: effort=<low|medium|high|xhigh|max|ultracode|ultrathink>`, example models `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1`.
@@ -615,7 +615,7 @@ The copy is collision-safe. Before touching anything, the installer runs preflig
 | `--prune` | after copying, remove files that the previous `<dest>/.harness-manifest` records as installed but this run no longer produces, then print `pruned N stale file(s)` (on `--target antigravity`, also migrates any legacy pre-flat manifest/ledger and prunes its stale entries while preserving user files). Files the installer never wrote are never removed, so personal agents and skills in the same directory survive. With no previous manifest it prints `no previous manifest; prune skipped` and removes nothing |
 | `-h`, `--help` | print usage and exit 0 without copying |
 
-Reinstall after pulling changes (upgraders from older revisions—or when T3 Code mints a new Antigravity instance—should run `./install.sh --force --prune --target all` once so removed upstream files are pruned):
+Reinstall after pulling changes (upgraders from older revisions - or when T3 Code mints a new Antigravity instance - should run `./install.sh --force --prune --target all` once so removed upstream files are pruned):
 
 ```sh
 ./install.sh --force                                    # refresh OpenCode (reuses recorded profile or profile-file)

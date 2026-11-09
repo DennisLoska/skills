@@ -1975,7 +1975,7 @@ grep -qF 'grandparent of `oneshot/SKILL.md`' "$ROOT/AGENTS.md" || fail "AGENTS.m
 grep -qF 'in your `<skills>` list' "$ROOT/AGENTS.md" || fail "AGENTS.md passes literal <skills-dir> instruction to antigravity children"
 grep -qE 'never substitut(e|ing) the driver'\''s path' "$ROOT/AGENTS.md" || fail "AGENTS.md forbids substituting the driver's path for antigravity <contract-path>"
 [ "$(wc -c <"$ROOT/AGENTS.md")" -lt 21500 ] || fail "AGENTS.md stays under 21500 bytes"
-[ $(( $(wc -c <"$ROOT/AGENTS.md") + 2 + $(wc -c <"$ROOT/providers/tri.md") )) -le 32500 ] || fail "combined AGENTS.md + providers/tri.md stays within 32500 bytes"
+[ $(( $(wc -c <"$ROOT/AGENTS.md") + 2 + $(wc -c <"$ROOT/providers/tri.md") )) -le 32150 ] || fail "combined AGENTS.md + providers/tri.md stays within 32150 bytes"
 
 if grep -rnE 'opencode-go/|req/5h|#(low|medium|high|xhigh|max)\b|gpt-[0-9]|gemini-[0-9]|claude-(opus|sonnet|haiku|fable)' "$ROOT/AGENTS.md" "$ROOT/skills" "$ROOT/agents" >"$TMPROOT/leak-74.out" 2>&1; then
   cat "$TMPROOT/leak-74.out" >&2
@@ -2005,7 +2005,14 @@ p2_line=$(grep -n '^2\. \*\*Standalone OpenCode native pin' "$ROOT/AGENTS.md" | 
 p3_line=$(grep -n '^3\. \*\*Standalone same-provider native dispatch' "$ROOT/AGENTS.md" | cut -d: -f1 || true)
 [ -n "$p1_line" ] && [ -n "$p2_line" ] && [ -n "$p3_line" ] || fail "AGENTS.md defines Path 1 T3 Code, Path 2 standalone OpenCode pin, and Path 3 standalone native dispatch"
 [ "$p1_line" -lt "$p2_line" ] && [ "$p2_line" -lt "$p3_line" ] || fail "AGENTS.md orders T3 Code orchestration (Path 1) before standalone OpenCode pin (Path 2) and standalone native dispatch (Path 3)"
-for ag_needle in '<mcp_servers>' 'call_mcp_tool' 'omittedModels'; do
+for ag_needle in \
+  '<mcp_servers>' \
+  '<appDataDir>/brain/<conversation-id>/mcp/t3-code/{orchestrator_capabilities,delegate_task}.json' \
+  'call_mcp_tool' \
+  'deferred/tool-search' \
+  'NEVER use Path 2/3 native tools' \
+  'omittedModels' \
+  'Path 4 only if rejected'; do
   grep -qF "$ag_needle" "$ROOT/AGENTS.md" || fail "AGENTS.md documents $ag_needle in Dispatch Adapter"
 done
 for gate_skill in \
@@ -2015,6 +2022,21 @@ for gate_skill in \
   grep -qF '## Step 0: Routing Bootstrap' "$ROOT/$gate_skill" || fail "$gate_skill defines ## Step 0: Routing Bootstrap"
   grep -qF '<HARD-GATE>' "$ROOT/$gate_skill" || fail "$gate_skill enforces <HARD-GATE> around Step 0"
 done
+grep -qF 'carry `Rung:` only' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot Step 0 documents ad-hoc roles carrying Rung: only"
+grep -qF 'carry `Rung:` only' "$ROOT/skills/dispatch/SKILL.md" || fail "dispatch Step 0 documents ad-hoc roles carrying Rung: only"
+if sed -n '/^## Step 0: Routing Bootstrap/,/^## /p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'oneshot-state.md'; then
+  fail "oneshot Step 0 does not write oneshot-state.md before Phase 1 activates the feature branch/worktree"
+fi
+sed -n '/^## Phase 1: SHAPE/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'oneshot-state.md' || fail "oneshot Phase 1 records active Dispatch Adapter path and primary rungs in oneshot-state.md"
+sed -n '/^## State Artifact/,/^## /p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'Dispatch Adapter' || fail "oneshot State Artifact records active Dispatch Adapter path and primary rungs"
+grep -qF '>= 2' "$ROOT/skills/council/SKILL.md" || fail "council Step 0 enforces >= 2 healthy independent families"
+if sed -n '/^## Step 0: Routing Bootstrap/,/^## /p' "$ROOT/skills/council/SKILL.md" | grep -qF 'MUST run on three independent model families'; then
+  fail "council Step 0 allows the 2-healthy-family minimum rather than requiring 3 families unconditionally"
+fi
+if grep -rnE 'never uses Path 1|never using Path 1|Path 1/Path 3' "$ROOT/README.md" "$ROOT/providers" >"$TMPROOT/path1-75.out" 2>&1; then
+  cat "$TMPROOT/path1-75.out" >&2
+  fail "README.md and providers/ contain no stale Path 1 references where Path 2 is meant"
+fi
 grep -qF 'spec-reviewer-prompt.md' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot Phase 3 requires Stage 1 spec-reviewer-prompt.md via task-reviewer"
 grep -qF 'quality-reviewer-prompt.md' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot Phase 3 requires Stage 2 quality-reviewer-prompt.md via task-reviewer"
 pass "standalone profiles, multi-provider backup ladders, multi-host dispatch adapter, and strict 3-way decoupling"
