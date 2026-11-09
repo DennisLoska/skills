@@ -99,7 +99,7 @@ The `driver` row stays advisory. (1) OpenCode host: native seats, plus `delegate
 
 - Ladder: on a usage-limit, allowance, quota, or 429-style error, or an unreachable rung, re-dispatch the same role on the next rung and announce the demotion.
 - Family independence (council): a seat may demote within its own family; it never takes a rung whose family is active on another council seat anywhere in this PR. Escalation (`reviewer-esc`) only runs on a family no council seat (`reviewer-a`, `reviewer-b`, `reviewer-c`) used this PR; "seat" here means council seats only.
-- Author independence (task loop): a `task-reviewer` rung whose family equals the implementing rung's family is skipped for that task.
+- Author independence (task loop): a `task-reviewer` rung whose family equals the implementing rung's family (or the `tester` rung's family when `tester` wrote tests for that task) is skipped for that task.
 - Zero reachable rungs: an implementation seat with none hands the task to the other implementation seat and announces (`implementer-deep` -> `implementer` and `implementer` -> `implementer-deep`; a handoff never revisits an exhausted seat; all exhausted = stop and report, never the driver model); unreachable skips cost no council budget, only real dispatches count toward the 14-dispatch guard; reviewer seats follow the degraded-council rule; `scout`, `tester`, and `patch` with none: the controller stops the dispatch and reports, never running it on the driver model.
 - Council PASS additionally requires at least one PASS vote from a council seat whose family is not an author family. Author families = families of the implementation, `tester` (when its tests are committed), and fixer rungs (`implementer*`, `tester`, `patch`, CI and council fixers) that produced commits on the branch, recorded per commit in the state artifact from Phase 3 on; driver commits of spec, plan, docs-only state, or serial commits of child work (parallel mode) do not make the driver an author. If every council seat's family is an author family, `reviewer-esc` supplies the non-author vote as one extra dispatch counted against the 14-dispatch budget, on its first rung whose family is neither used by a council seat nor an author family; if that is impossible, stop with `yellow: degraded council`. This is a deliberate council-gate addition (see Non-goals).
 - Degraded council, round caps, 14-dispatch budget guard, no-tests rule, privacy gate (skip `privacy: trains` rungs on confidential work), fixer seat routing: unchanged.
@@ -118,10 +118,10 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 | tester | opencode `deepseek-v4.1-flash` high | codex `gpt-6-luna` medium | antigravity `gemini-3.8-flash` medium |
 | patch | opencode `deepseek-v4.1-flash` high | codex `gpt-6-luna` medium | antigravity `gemini-3.8-flash` medium |
 | task-reviewer | codex `gpt-6.1-terra` high | opencode `glm-5.3-flash` high | antigravity `gemini-3.8-flash` high |
-| reviewer-a (open-weight) | opencode `kimi-k3.1-pro` high | opencode `mimo-v2.6-pro` - | opencode `minimax-m3` - |
-| reviewer-b (Anthropic) | antigravity `claude-sonnet-5-5` high | antigravity `claude-opus-5-5` high | opencode `claude-haiku-5-5` high |
-| reviewer-c (OpenAI) | codex `gpt-6.1-sol` high | codex `gpt-6-sol` high | opencode `gpt-6-luna` high |
-| reviewer-esc | opencode `deepseek-v4-pro` - | opencode `qwen3.8-max` - | antigravity `gemini-4-argon` high |
+| reviewer-a (Google) | antigravity `gemini-4-argon` high | opencode `gemini-4-argon` high | opencode `qwen3.8-max` - |
+| reviewer-b (Anthropic) | antigravity `claude-opus-5-5` high | antigravity `claude-sonnet-5-5` high | opencode `claude-haiku-5-5` high |
+| reviewer-c (OpenAI) | codex `gpt-6-astra` high | codex `gpt-6.1-sol` high | codex `gpt-6-sol` high |
+| reviewer-esc | opencode `kimi-k3.1-pro` high | opencode `deepseek-v4-pro` - | opencode `mimo-v2.6-pro` - |
 | compaction (advisory) | opencode `claude-haiku-5-5` low | codex `gpt-6-luna` low | - |
 
 `muse-spark-*` (trains on request data) is dropped from `tri`; it stays in the legacy profile.

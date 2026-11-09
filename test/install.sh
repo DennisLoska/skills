@@ -991,4 +991,34 @@ if grep -n 'opencode-go/gpt' "$ROOT/providers/tri.md" "$ROOT/providers/quad.md" 
 fi
 pass "tri and quad carry no OpenAI model through OpenCode Go"
 
+# 55. --profile-file may point at the installed PROVIDERS.md (directly or via a
+# symlink) without deleting or corrupting the file it is reading.
+SELF_DEST="$TMPROOT/self-bind"
+rc=0
+OPENCODE_CONFIG="$SELF_DEST" "$INSTALL" >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "self-bind fixture install exits 0"
+rc=0
+OPENCODE_CONFIG="$SELF_DEST" "$INSTALL" --force --profile-file "$SELF_DEST/PROVIDERS.md" >"$TMPROOT/self-bind.out" 2>"$TMPROOT/self-bind.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/self-bind.err" >&2; fail "--profile-file pointing at installed PROVIDERS.md exits 0"; }
+[ -e "$SELF_DEST/PROVIDERS.md" ] || fail "self-bound PROVIDERS.md still exists"
+[ -s "$SELF_DEST/PROVIDERS.md" ] || fail "self-bound PROVIDERS.md is non-empty"
+cmp -s "$ROOT/providers/tri.md" "$SELF_DEST/PROVIDERS.md" || fail "self-bound PROVIDERS.md is byte-identical to providers/tri.md"
+ln -s "$SELF_DEST/PROVIDERS.md" "$TMPROOT/providers-link.md"
+rc=0
+OPENCODE_CONFIG="$SELF_DEST" "$INSTALL" --force --profile-file "$TMPROOT/providers-link.md" >"$TMPROOT/self-bind-link.out" 2>"$TMPROOT/self-bind-link.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/self-bind-link.err" >&2; fail "--profile-file symlinked to installed PROVIDERS.md exits 0"; }
+cmp -s "$ROOT/providers/tri.md" "$SELF_DEST/PROVIDERS.md" || fail "symlink-bound PROVIDERS.md stays byte-identical to providers/tri.md"
+pass "--profile-file pointing to installed PROVIDERS.md preserves the file"
+
+# 56. --profile-file rejects a path containing a newline before writing anything.
+NL_DIR="$TMPROOT/nl"$'\n'"dir"
+mkdir -p "$NL_DIR"
+cp "$ROOT/providers/tri.md" "$NL_DIR/custom.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/nl-dest" "$INSTALL" --profile-file "$NL_DIR/custom.md" >"$TMPROOT/nl.out" 2>"$TMPROOT/nl.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/nl.err" >&2; fail "--profile-file with a newline in the path exits 2 (got $rc)"; }
+[ ! -e "$TMPROOT/nl-dest" ] || fail "--profile-file with a newline in the path writes nothing"
+grep -q 'install.sh: invalid profile file path:' "$TMPROOT/nl.err" || { cat "$TMPROOT/nl.err" >&2; fail "--profile-file with a newline reports invalid profile file path"; }
+pass "--profile-file rejects newline in path without writing"
+
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

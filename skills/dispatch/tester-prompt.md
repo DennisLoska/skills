@@ -28,7 +28,7 @@ dispatch through the AGENTS.md Dispatch Adapter: role `tester` (seat model and e
 
     1. Run `git branch --show-current` and STOP with `wrong-branch.` if the branch is `main` or `master`. This branch check is the branch protection; do not rely on shell deny patterns.
     2. Write the failing test(s) specified in the task brief that prove the target behaviour.
-    3. Run the test command and confirm the tests fail for the expected reason (missing feature or unfixed bug, not syntax errors, broken imports, or typos). Fix any test-authoring mistakes until the failure is the right red failure.
+    3. Run the targeted test file/command for this task (rather than an unrelated broad suite) and confirm the tests fail for the expected reason (missing feature or unfixed bug, not syntax errors, broken imports, or typos). Fix any test-authoring mistakes until the failure is the right red failure.
     4. NEVER write or edit production code.
     5. NEVER stage or commit. Leave the failing test files in the working tree for `implementer` to turn green and commit alongside the implementation.
     6. Report back using the `tester` receipt format:

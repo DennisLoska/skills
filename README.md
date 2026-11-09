@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Skills-12%20Pipeline%20Units-1AD1A5?style=flat-square" alt="12 Pipeline Skills" />
   <img src="https://img.shields.io/badge/Council-3%20Independent%20Families-FF6B35?style=flat-square" alt="3-Family Council" />
   <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
-  <img src="https://img.shields.io/badge/Tests-87%2F87%20Passing-2ECC71?style=flat-square" alt="87/87 Tests Passing" />
+  <img src="https://img.shields.io/badge/Tests-89%2F89%20Passing-2ECC71?style=flat-square" alt="89/89 Tests Passing" />
 </p>
 
 <p align="center">
@@ -421,6 +421,7 @@ cp providers/tri.md ~/.config/oneshot/my-profile.md
 ```
 
 - **Binding and refresh:** `--profile-file <path>` (also `--profile-file=<path>`) validates your file, copies it byte for byte to `<dest>/PROVIDERS.md`, renders each seat's native pin from its first `opencode` rung, and records `# profile-file <absolute path>` on line 2 of `<dest>/.harness-manifest`. Subsequent `./install.sh --force` refreshes automatically reuse that recorded `# profile-file` path (if the file was removed, `install.sh` exits 2 with `install.sh: profile file not found: <path>`). `--profile` and `--profile-file` are mutually exclusive (passing both exits 2).
+- **Custom profile checklist:** when building a profile for a subset of subscriptions (e.g., Codex + Claude Code), replace every row whose `provider` you do not have connected, ensure all 10 required roles keep a reachable `primary` row, and verify connected provider instance IDs via `orchestrator_capabilities`.
 - **One-row override example** (for example, swapping `reviewer-esc` primary from `kimi-k3.1-pro` to `opencode-go/qwen3.8-max` in `~/.config/oneshot/my-profile.md`):
 
 ```text
@@ -454,7 +455,7 @@ skills/           12 pipeline skills:          oneshot, shape, plan, dispatch,
 providers/        swappable provider profiles: tri (default), quad (tri + Claude Code),
                                                opencode-go (legacy)
 docs/             design specs and plans:      docs/specs/, docs/plans/
-test/install.sh   87-assertion contract suite  (runs in throwaway HOME on Bash >=3.2)
+test/install.sh   89-assertion contract suite  (runs in throwaway HOME on Bash >=3.2)
 AGENTS.md         harness routing instructions (installed as ~/.config/opencode/HARNESS.md)
 install.sh        collision-safe installer     (manifest-scoped prune, symlink guards)
 NOTICE            upstream MIT attribution     (mattpocock/skills)
@@ -489,7 +490,7 @@ The copy is collision-safe. Before touching anything, the installer runs preflig
 | `--prune` | after copying, remove files that the previous `<dest>/.harness-manifest` records as installed but this run no longer produces, then print `pruned N stale file(s)`. Files the installer never wrote are never removed, so personal agents and skills in the same directory survive. With no previous manifest it prints `no previous manifest; prune skipped` and removes nothing |
 | `-h`, `--help` | print usage and exit 0 without copying |
 
-Reinstall after pulling changes:
+Reinstall after pulling changes (upgraders from older revisions should run `./install.sh --force --prune` once so removed upstream seats such as `agents/implementer-b.md` are pruned from `<dest>/agents/`):
 
 ```sh
 ./install.sh --force              # refresh the harness files (reuses recorded profile or profile-file)
@@ -541,7 +542,7 @@ grep -q 'HARNESS.md' ~/.config/opencode/opencode.json &&
 
 ## 🧪 Testing
 
-Run the 87-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
+Run the 89-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
 
 ```sh
 bash -n install.sh && bash -n test/install.sh

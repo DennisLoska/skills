@@ -252,11 +252,23 @@ unknown_profile() {
   exit 2
 }
 if [ "$use_profile_file" -eq 1 ]; then
+  case "$profile_file_arg" in
+    *$'\n'*)
+      printf 'install.sh: invalid profile file path: %s\n' "$profile_file_arg" >&2
+      exit 2
+      ;;
+  esac
   if [ ! -f "$profile_file_arg" ]; then
     printf 'install.sh: profile file not found: %s\n' "$profile_file_arg" >&2
     exit 2
   fi
   PROFILE_FILE="$(cd "$(dirname -- "$profile_file_arg")" && pwd -P)/$(basename -- "$profile_file_arg")"
+  case "$PROFILE_FILE" in
+    *$'\n'*)
+      printf 'install.sh: invalid profile file path: %s\n' "$PROFILE_FILE" >&2
+      exit 2
+      ;;
+  esac
   PROFILE_LABEL="$PROFILE_FILE"
 else
   case "$profile" in
@@ -329,9 +341,10 @@ native_pin() {
 }
 
 TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
+staged_profile=""
 rendered_agents=()
 cleanup() {
-  rm -f -- "$TMP_MANIFEST"
+  rm -f -- "$TMP_MANIFEST" ${staged_profile:+"$staged_profile"}
   if [ "${#rendered_agents[@]}" -gt 0 ]; then
     rm -f -- "${rendered_agents[@]}"
   fi
@@ -343,6 +356,9 @@ if [ ! -d "$SRC/agents" ] || [ ! -d "$SRC/skills" ] || [ ! -f "$SRC/AGENTS.md" ]
   printf 'install.sh: expected agents/, skills/, AGENTS.md, NOTICE, and LICENSE under %s\n' "$SRC" >&2
   exit 1
 fi
+
+staged_profile="$(mktemp "${TMPDIR:-/tmp}/harness-profile.XXXXXXXX")"
+cp -p "$PROFILE_FILE" "$staged_profile"
 
 srcs=()
 rels=()
@@ -356,7 +372,7 @@ srcs+=("$SRC/NOTICE")
 rels+=("NOTICE")
 srcs+=("$SRC/LICENSE")
 rels+=("LICENSE")
-srcs+=("$PROFILE_FILE")
+srcs+=("$staged_profile")
 rels+=("PROVIDERS.md")
 
 # Render every agent before any destination mutation, including --force repairs.

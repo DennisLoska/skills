@@ -312,6 +312,42 @@ permissions:
     resource: "git clean"
     effect: deny
   - action: bash
+    resource: "git add *"
+    effect: deny
+  - action: shell
+    resource: "git add *"
+    effect: deny
+  - action: bash
+    resource: "git add"
+    effect: deny
+  - action: shell
+    resource: "git add"
+    effect: deny
+  - action: bash
+    resource: "git commit *"
+    effect: deny
+  - action: shell
+    resource: "git commit *"
+    effect: deny
+  - action: bash
+    resource: "git commit"
+    effect: deny
+  - action: shell
+    resource: "git commit"
+    effect: deny
+  - action: bash
+    resource: "git stash *"
+    effect: deny
+  - action: shell
+    resource: "git stash *"
+    effect: deny
+  - action: bash
+    resource: "git stash"
+    effect: deny
+  - action: shell
+    resource: "git stash"
+    effect: deny
+  - action: bash
     resource: "pkill *"
     effect: deny
   - action: shell

@@ -115,7 +115,7 @@ Skills never hardcode model IDs. Route every subagent by role through the active
 
 On a usage-limit/429 error from a seat, or an unreachable rung: re-dispatch the same role on the next rung of its ladder in the active provider profile, announce the demotion, and continue. An implementation seat (`implementer`, `implementer-deep`) with no reachable rung hands the task to the other implementation seat (`implementer-deep` <-> `implementer`, never revisiting an exhausted seat; when all are exhausted, stop and report) per AGENTS.md Routing Rules (zero reachable rungs); after each task commit, the controller records the implementing rung's family (and the `tester` rung's family when `tester`-written tests are committed) for the author-family rule (oneshot Phase 3, step 7).
 
-**Stage reviewers dispatch ad-hoc:** spec-reviewer and quality-reviewer subagents are role `task-reviewer` from the active provider profile, chosen after the seat matrix call above; skip any `task-reviewer` rung whose family wrote the code for that task (AGENTS.md Routing Rules, author independence). They are not seat agents; fresh context each time, explicit rung each time.
+**Stage reviewers dispatch ad-hoc:** spec-reviewer and quality-reviewer subagents are role `task-reviewer` from the active provider profile, chosen after the seat matrix call above; skip any `task-reviewer` rung whose family wrote the code or `tester` red tests for that task (AGENTS.md Routing Rules, author independence). They are not seat agents; fresh context each time, explicit rung each time.
 
 **Seat matrix (route every test/implementation step through a named seat agent; models and effort levels per the active provider profile):**
 - Red step for a task with behaviour to test -> `tester` (writes failing tests in the working tree without committing), followed by `implementer` (green + refactor + commit).
@@ -307,7 +307,7 @@ Task: "Fix agent-tool-abort.test.ts failures"
 Task: "Fix batch-completion-behavior.test.ts failures"
 Task: "Fix tool-approval-race-conditions.test.ts failures"
 All three run concurrently as fresh subagents.
-Parallel mode: when subagents share the same working tree/worktree, pass `Parallel: true` in each brief; implementer seats then leave their work staged instead of committing, and the main session commits each returned seat serially to avoid index contention. (If each parallel task runs in its own isolated worktree, `Parallel: false` is safe within that worktree.)
+Parallel mode: when subagents share the same working tree/worktree, pass `Parallel: true` in each brief; implementer seats then leave their work staged instead of committing, and the main session commits each returned seat serially to avoid index contention. `tester` red steps in a shared working tree must run serially per task (or in per-task isolated worktrees) so uncommitted red tests from one task do not pollute another task's test run or staged commit. (If each parallel task runs in its own isolated worktree, `Parallel: false` is safe within that worktree.)
 ```
 
 **4. Review and integrate.** When agents return:
