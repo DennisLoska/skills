@@ -651,7 +651,7 @@ for profile in missing ../tri Tri 'tri/name' '-tri' 'tri.bad'; do
   rc=0
   OPENCODE_CONFIG="$TMPROOT/unknown-dest" "$INSTALL" --force --prune --profile="$profile" >"$TMPROOT/unknown.out" 2>"$TMPROOT/unknown.err" || rc=$?
   [ "$rc" -eq 2 ] || fail "unknown profile exits 2: $profile"
-  grep -qF "install.sh: unknown profile: $profile (available: opencode-go quad tri)" "$TMPROOT/unknown.err" || fail "unknown profile diagnostic: $profile"
+  grep -qF "install.sh: unknown profile: $profile (available: antigravity claude codex opencode-go quad tri)" "$TMPROOT/unknown.err" || fail "unknown profile diagnostic: $profile"
   [ ! -e "$TMPROOT/unknown-dest" ] || fail "unknown profile creates nothing"
 done
 pass "unknown and malformed profiles exit 2 and write nothing"
@@ -1683,5 +1683,75 @@ for extra_unsafe_t3 in "$T3_FILE_BAD" "$TMPROOT/t3-dangling" "$TMPROOT/a/../b" "
   [ ! -e "$UNSAFE_AGY/.harness-manifest" ] || fail "unsafe T3_USERDATA_DIR '$extra_unsafe_t3' writes nothing"
 done
 pass "ambient single-root env spoofing is ignored, duplicate roots deduplicate cleanly, and file/dangling/dotdot/source-nested T3 roots refuse"
+
+# 74. standalone single-provider profiles, multi-provider backup ladders,
+# multi-host native dispatch, and strict 3-way decoupling of skills/agents,
+# providers/, and the T3 Code host.
+rc=0
+"$INSTALL" --help >"$TMPROOT/help-74.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/help-74.out" >&2; fail "--help exits 0 (got $rc)"; }
+grep -qF 'available profiles: antigravity claude codex opencode-go quad tri' "$TMPROOT/help-74.out" || {
+  cat "$TMPROOT/help-74.out" >&2
+  fail "--help lists all six built-in profiles"
+}
+
+for profile in tri quad opencode-go codex antigravity claude; do
+  rc=0
+  HOME="$TMPROOT/prof-home-$profile" "$INSTALL" --profile "$profile" --target all >"$TMPROOT/prof-$profile.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prof-$profile.out" >&2; fail "--profile $profile --target all exits 0 (got $rc)"; }
+  if grep -q 'compacting .* profile prose' "$TMPROOT/prof-$profile.out"; then
+    cat "$TMPROOT/prof-$profile.out" >&2
+    fail "--profile $profile --target all ships profile prose uncompacted under the 32768-byte limit"
+  fi
+done
+
+for profile in codex antigravity claude; do
+  prof_home="$TMPROOT/prof-home-$profile"
+  for manifest in \
+    "$prof_home/.config/opencode/.harness-manifest" \
+    "$prof_home/.codex/.harness-manifest" \
+    "$prof_home/.gemini/config/.harness-manifest" \
+    "$prof_home/.claude/.harness-manifest"; do
+    [ -f "$manifest" ] || fail "--profile $profile --target all writes $manifest"
+    grep -qxF "# profile $profile" "$manifest" || fail "--profile $profile records '# profile $profile' in $manifest"
+  done
+done
+
+[ "$(wc -c <"$TMPROOT/prof-home-antigravity/.gemini/config/rules/HARNESS.md")" -lt 24000 ] || fail "antigravity profile rules/HARNESS.md is under 24000 bytes"
+[ "$(wc -c <"$TMPROOT/prof-home-antigravity/.gemini/config/rules/PROVIDERS.md")" -lt 24000 ] || fail "antigravity profile rules/PROVIDERS.md is under 24000 bytes"
+[ "$(wc -c <"$TMPROOT/prof-home-codex/.codex/AGENTS.md")" -lt 32768 ] || fail "codex profile AGENTS.md is under 32768 bytes"
+[ "$(wc -c <"$TMPROOT/prof-home-claude/.claude/CLAUDE.md")" -lt 32768 ] || fail "claude profile CLAUDE.md is under 32768 bytes"
+
+backup_ladder() {
+  awk '/^## Backup ladder/ { found = 1; next } found && /^## / { exit } found' "$1"
+}
+backup_ladder "$ROOT/providers/tri.md" >"$TMPROOT/tri-backup-74.txt"
+grep -qF '* | codex |' "$TMPROOT/tri-backup-74.txt" || fail "tri backup ladder carries a wildcard codex fallback rung"
+grep -qF '* | antigravity |' "$TMPROOT/tri-backup-74.txt" || fail "tri backup ladder carries a wildcard antigravity fallback rung"
+backup_ladder "$ROOT/providers/quad.md" >"$TMPROOT/quad-backup-74.txt"
+grep -qF '* | codex |' "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries a wildcard codex fallback rung"
+grep -qF '* | antigravity |' "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries a wildcard antigravity fallback rung"
+grep -qF '* | claudeAgent |' "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries a wildcard claudeAgent fallback rung"
+
+for needle in '<skills-dir>/_harness/agents/<seat>.md' spawn_agent invoke_subagent 'degraded task-review: single-family host'; do
+  grep -qF "$needle" "$ROOT/AGENTS.md" || fail "AGENTS.md documents the standalone dispatch adapter via $needle"
+done
+
+if grep -rnE 'opencode-go/|req/5h|#(low|medium|high|xhigh|max)\b' "$ROOT/AGENTS.md" "$ROOT/skills" "$ROOT/agents" >"$TMPROOT/leak-74.out" 2>&1; then
+  cat "$TMPROOT/leak-74.out" >&2
+  fail "AGENTS.md, skills/ and agents/ carry no model ids or host quota strings"
+fi
+if grep -rnEi 'opencode|antigravity|codex|claude|t3[-_ ]code|delegate_task|orchestrator_capabilities' "$ROOT/skills" "$ROOT/agents" >"$TMPROOT/host-74.out" 2>&1; then
+  cat "$TMPROOT/host-74.out" >&2
+  fail "skills/ and agents/ name no providers, hosts, or T3 tools"
+fi
+for skill_doc in \
+  skills/oneshot/SKILL.md \
+  skills/dispatch/SKILL.md \
+  skills/council/SKILL.md \
+  skills/codebase-design/DESIGN-IT-TWICE.md; do
+  grep -qF '../_harness/HARNESS.md' "$ROOT/$skill_doc" || fail "$skill_doc carries the host-neutral _harness fallback"
+done
+pass "standalone profiles, multi-provider backup ladders, multi-host dispatch adapter, and strict 3-way decoupling"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

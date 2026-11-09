@@ -3,10 +3,10 @@
 Use this template when dispatching the `tester` seat agent to write failing tests (the TDD red step) for a plan task that introduces or changes behaviour. Mechanical tasks with no new behaviour to test skip `tester` and dispatch `implementer` directly.
 
 ```
-dispatch through the AGENTS.md Dispatch Adapter: role `tester` (seat model and effort level per the active provider profile; on a usage-limit/429 error or unreachable rung re-dispatch `tester` on the next rung per the AGENTS.md Routing Rules)
+dispatch through the AGENTS.md Dispatch Adapter: role `tester` (seat model and effort level per the active provider profile; `<contract-path>` per AGENTS.md Dispatch Adapter; on a usage-limit/429 error or unreachable rung re-dispatch `tester` on the next rung per the AGENTS.md Routing Rules)
   description: "Write red tests for Task N: [task name]"
   prompt: |
-    Role contract: read <harness-dir>/agents/tester.md; follow its body; its permissions block is your policy and you enforce it yourself.
+    Role contract: read <contract-path>; follow its body; its permissions block is your policy and you enforce it yourself.
     Rung: <provider>/<model> (<effort>), privacy: <ok|trains>.
 
     You are writing the failing tests (TDD red step) for Task N: [task name]

@@ -82,6 +82,9 @@ No Google or OpenAI (`gpt-*`) model is routed through OpenCode Go in `quad`: all
 | 1 | implementer,implementer-deep,tester,patch | opencode | opencode-go/deepseek-v4-pro | - | deepseek | ok |
 | 2 | reviewer-a,reviewer-b,reviewer-c,task-reviewer | opencode | opencode-go/mimo-v2.6-pro | - | xiaomi | ok |
 | 3 | * | opencode | opencode-go/minimax-m3 | - | minimax | ok |
+| 4 | * | codex | gpt-6.1-sol | reasoningEffort=medium | openai | ok |
+| 5 | * | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |
+| 6 | * | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |
 
 ## Supported driver setups
 

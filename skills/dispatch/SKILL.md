@@ -42,7 +42,7 @@ digraph when_to_use {
 
 ## Working Branch & Worktrees
 
-Work on a feature branch from a clean tree - either in the current checkout or inside a dedicated git worktree (created with the host's worktree tool, e.g. OpenCode `tools.opencode.worktree_create` + `session_move`, or a T3 Code worktree thread). If the working tree is on `master` or `main`, create a feature branch or worktree before dispatching. Never develop on `master` or `main` without explicit user consent; `master`/`main` advances only via PR merge (the `land` skill handles that).
+Work on a feature branch from a clean tree - either in the current checkout or inside a dedicated git worktree (created with the host's worktree tool when available, or `git worktree`). If the working tree is on `master` or `main`, create a feature branch or worktree before dispatching. Never develop on `master` or `main` without explicit user consent; `master`/`main` advances only via PR merge (the `land` skill handles that).
 
 ## The Process
 
@@ -106,7 +106,7 @@ Standalone (no oneshot): after final review PASS, run the verify skill yourself,
 
 ## Model Routing
 
-Skills never hardcode model IDs. Route every subagent by role through the active provider profile (`PROVIDERS.md`) and the AGENTS.md Routing Rules, dispatching through the AGENTS.md Dispatch Adapter (which chooses the native or `delegate_task` path per rung). Every dispatch names a rung so nothing inherits the main session model by accident.
+Skills never hardcode model IDs. Route every subagent by role through the active provider profile (`PROVIDERS.md`) and the AGENTS.md Routing Rules, dispatching through the AGENTS.md Dispatch Adapter (which selects the host dispatch path per rung; if `HARNESS.md` and `PROVIDERS.md` are not already in context, read `../_harness/HARNESS.md` and `../_harness/PROVIDERS.md` or `../../HARNESS.md` and `../../PROVIDERS.md` relative to this skill's directory). Every dispatch names a rung so nothing inherits the main session model by accident.
 
 **Testing and implementation seats** (models and effort levels per the active provider profile; native pin rendered at install):
 - `tester` - the red-step test author and script runner (rungs from the active provider profile). For any plan task with behaviour to test, dispatch `tester` first (`tester-prompt.md`) to write the failing tests, run them, confirm they fail for the right reason, and leave them uncommitted in the working tree.
@@ -182,7 +182,7 @@ Tester:
 
 Implementer: "Before I begin - should the hook be installed at user or system level?"
 
-You: "User level (~/.config/opencode/hooks/)"
+You: "User level (~/.config/my-tool/hooks/)"
 
 Implementer: "Got it. Implementing now..."
 [Later] Implementer:
