@@ -3,7 +3,7 @@
 # Uses a throwaway HOME under a scratch dir; never touches the real config.
 set -euo pipefail
 export LC_ALL=C
-unset OPENCODE_CONFIG
+unset OPENCODE_CONFIG CODEX_HOME ANTIGRAVITY_CONFIG CLAUDE_CONFIG_DIR T3_USERDATA_DIR
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALL="$ROOT/install.sh"
@@ -1161,32 +1161,41 @@ grep -qxF '## Dispatch Adapter' "$TMPROOT/codex-dest/AGENTS.md" || fail "codex A
 grep -qxF '## Quota pools' "$TMPROOT/codex-dest/AGENTS.md" || fail "codex AGENTS.md carries the active profile"
 pass "--target codex installs skills, agents, HARNESS.md, PROVIDERS.md, and combined AGENTS.md"
 
-# 63. --target antigravity installs the oneshot-harness plugin
-# under ${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config}/plugins/oneshot-harness
+# 63. --target antigravity installs the flat layout under
+# ${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config} with an allowlisted skills/_harness/
+# bundle; the legacy plugins/oneshot-harness plugin is dropped.
 rc=0
-ANTIGRAVITY_CONFIG="$TMPROOT/agy-config" "$INSTALL" --target antigravity >"$TMPROOT/agy.out" 2>&1 || rc=$?
+OPENCODE_CONFIG="$TMPROOT/agy-oc-63" ANTIGRAVITY_CONFIG="$TMPROOT/agy-config" "$INSTALL" --target antigravity >"$TMPROOT/agy.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/agy.out" >&2; fail "--target antigravity install exits 0"; }
-AGY_PLUGIN="$TMPROOT/agy-config/plugins/oneshot-harness"
-[ -f "$AGY_PLUGIN/plugin.json" ] || fail "antigravity target writes plugin.json"
-[ -f "$AGY_PLUGIN/skills/oneshot/SKILL.md" ] || fail "antigravity target writes skills/oneshot/SKILL.md"
-[ -f "$AGY_PLUGIN/agents/implementer.md" ] || fail "antigravity target writes agents/implementer.md"
-[ -f "$AGY_PLUGIN/rules/HARNESS.md" ] || fail "antigravity target writes rules/HARNESS.md"
-[ -f "$AGY_PLUGIN/rules/PROVIDERS.md" ] || fail "antigravity target writes rules/PROVIDERS.md"
-[ -f "$AGY_PLUGIN/HARNESS.md" ] || fail "antigravity target writes plugin-root HARNESS.md"
-[ -f "$AGY_PLUGIN/PROVIDERS.md" ] || fail "antigravity target writes plugin-root PROVIDERS.md"
-[ -d "$AGY_PLUGIN/state" ] || fail "antigravity target writes state/"
-[ -f "$AGY_PLUGIN/.harness-manifest" ] || fail "antigravity target writes .harness-manifest"
-grep -qxF 'trigger: always_on' "$AGY_PLUGIN/rules/HARNESS.md" || fail "antigravity rules/HARNESS.md is always_on"
-grep -qxF 'trigger: always_on' "$AGY_PLUGIN/rules/PROVIDERS.md" || fail "antigravity rules/PROVIDERS.md is always_on"
-[ "$(wc -c <"$AGY_PLUGIN/rules/HARNESS.md")" -lt 24000 ] || fail "antigravity rules/HARNESS.md is under 24KB"
-[ "$(wc -c <"$AGY_PLUGIN/rules/PROVIDERS.md")" -lt 24000 ] || fail "antigravity rules/PROVIDERS.md is under 24KB"
-grep -qxF 'subagent: true' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer is a subagent"
-grep -qxF 'mainAgent: false' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer is not a main agent"
-grep -q '^tools:' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer carries a tools frontmatter line"
-grep -qxF 'permissions:' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer preserves the permissions policy block"
-grep -qxF 'permissions:' "$AGY_PLUGIN/agents/reviewer-a.md" || fail "antigravity reviewer-a preserves the permissions policy block"
-grep -qF 'Antigravity cannot narrow run_command in frontmatter' "$AGY_PLUGIN/agents/reviewer-a.md" || fail "antigravity reviewer-a documents the read-only run_command constraint"
-pass "--target antigravity installs oneshot-harness plugin with always_on rules (<24KB), Antigravity subagent frontmatter, and the permissions policy"
+AGY_DEST="$TMPROOT/agy-config"
+[ ! -e "$AGY_DEST/plugin.json" ] || fail "antigravity target drops plugin.json"
+[ ! -e "$AGY_DEST/plugins/oneshot-harness" ] || fail "antigravity target drops plugins/oneshot-harness"
+[ -f "$AGY_DEST/skills/oneshot/SKILL.md" ] && [ ! -L "$AGY_DEST/skills/oneshot/SKILL.md" ] || fail "antigravity target writes real skills/oneshot/SKILL.md"
+[ -f "$AGY_DEST/skills/_harness/HARNESS.md" ] || fail "antigravity target writes skills/_harness/HARNESS.md"
+[ -f "$AGY_DEST/skills/_harness/PROVIDERS.md" ] || fail "antigravity target writes skills/_harness/PROVIDERS.md"
+[ -f "$AGY_DEST/skills/_harness/NOTICE" ] || fail "antigravity target writes skills/_harness/NOTICE"
+[ -f "$AGY_DEST/skills/_harness/LICENSE" ] || fail "antigravity target writes skills/_harness/LICENSE"
+[ -f "$AGY_DEST/skills/_harness/agents/implementer.md" ] || fail "antigravity target writes skills/_harness/agents/implementer.md"
+[ ! -e "$AGY_DEST/skills/_harness/SKILL.md" ] || fail "skills/_harness has no SKILL.md"
+[ -f "$AGY_DEST/agents/implementer.md" ] || fail "antigravity target writes agents/implementer.md"
+cmp -s "$AGY_DEST/agents/implementer.md" "$AGY_DEST/skills/_harness/agents/implementer.md" || fail "skills/_harness/agents matches rendered agents"
+[ -f "$AGY_DEST/rules/HARNESS.md" ] || fail "antigravity target writes rules/HARNESS.md"
+[ -f "$AGY_DEST/rules/PROVIDERS.md" ] || fail "antigravity target writes rules/PROVIDERS.md"
+[ -f "$AGY_DEST/HARNESS.md" ] || fail "antigravity target writes root HARNESS.md"
+[ -f "$AGY_DEST/PROVIDERS.md" ] || fail "antigravity target writes root PROVIDERS.md"
+[ -d "$AGY_DEST/state" ] || fail "antigravity target writes state/"
+[ -f "$AGY_DEST/.harness-manifest" ] || fail "antigravity target writes .harness-manifest"
+grep -qxF 'trigger: always_on' "$AGY_DEST/rules/HARNESS.md" || fail "antigravity rules/HARNESS.md is always_on"
+grep -qxF 'trigger: always_on' "$AGY_DEST/rules/PROVIDERS.md" || fail "antigravity rules/PROVIDERS.md is always_on"
+[ "$(wc -c <"$AGY_DEST/rules/HARNESS.md")" -lt 24000 ] || fail "antigravity rules/HARNESS.md is under 24KB"
+[ "$(wc -c <"$AGY_DEST/rules/PROVIDERS.md")" -lt 24000 ] || fail "antigravity rules/PROVIDERS.md is under 24KB"
+grep -qxF 'subagent: true' "$AGY_DEST/skills/_harness/agents/implementer.md" || fail "antigravity implementer is a subagent"
+grep -qxF 'mainAgent: false' "$AGY_DEST/skills/_harness/agents/implementer.md" || fail "antigravity implementer is not a main agent"
+grep -q '^tools:' "$AGY_DEST/skills/_harness/agents/implementer.md" || fail "antigravity implementer carries a tools frontmatter line"
+grep -qxF 'permissions:' "$AGY_DEST/skills/_harness/agents/implementer.md" || fail "antigravity implementer preserves the permissions policy block"
+grep -qxF 'permissions:' "$AGY_DEST/skills/_harness/agents/reviewer-a.md" || fail "antigravity reviewer-a preserves the permissions policy block"
+grep -qF 'Antigravity cannot narrow run_command in frontmatter' "$AGY_DEST/skills/_harness/agents/reviewer-a.md" || fail "antigravity reviewer-a documents the read-only run_command constraint"
+pass "--target antigravity installs flat skills, allowlisted skills/_harness bundle, always_on rules (<24KB), and Antigravity subagent contracts"
 
 # 64. --target claude installs into ${CLAUDE_CONFIG_DIR:-$HOME/.claude}
 rc=0
@@ -1210,7 +1219,7 @@ rc=0
 OPENCODE_CONFIG="$TMPROOT/all-oc" CODEX_HOME="$TMPROOT/all-codex" ANTIGRAVITY_CONFIG="$TMPROOT/all-agy" CLAUDE_CONFIG_DIR="$TMPROOT/all-claude" \
   "$INSTALL" --target all >"$TMPROOT/all.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/all.out" >&2; fail "--target all install exits 0"; }
-for manifest in "$TMPROOT/all-oc/.harness-manifest" "$TMPROOT/all-codex/.harness-manifest" "$TMPROOT/all-agy/plugins/oneshot-harness/.harness-manifest" "$TMPROOT/all-claude/.harness-manifest"; do
+for manifest in "$TMPROOT/all-oc/.harness-manifest" "$TMPROOT/all-codex/.harness-manifest" "$TMPROOT/all-agy/.harness-manifest" "$TMPROOT/all-claude/.harness-manifest"; do
   [ -f "$manifest" ] || fail "--target all writes $manifest"
 done
 rc=0
@@ -1232,7 +1241,7 @@ pass "unknown --target exits 2 without writing"
 rc=0
 ( cd "$ROOT" && OPENCODE_CONFIG="$TMPROOT/rel-oc" CODEX_HOME="$TMPROOT/rel-codex" ANTIGRAVITY_CONFIG="$TMPROOT/rel-agy" CLAUDE_CONFIG_DIR="$TMPROOT/rel-claude" bash install.sh --target all ) >"$TMPROOT/rel-all.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/rel-all.out" >&2; fail "relative bash install.sh --target all exits 0 (got $rc)"; }
-for manifest in "$TMPROOT/rel-oc/.harness-manifest" "$TMPROOT/rel-codex/.harness-manifest" "$TMPROOT/rel-agy/plugins/oneshot-harness/.harness-manifest" "$TMPROOT/rel-claude/.harness-manifest"; do
+for manifest in "$TMPROOT/rel-oc/.harness-manifest" "$TMPROOT/rel-codex/.harness-manifest" "$TMPROOT/rel-agy/.harness-manifest" "$TMPROOT/rel-claude/.harness-manifest"; do
   [ -f "$manifest" ] || fail "relative bash install.sh --target all writes $manifest"
 done
 # A collision in the second target must abort before the first target is written.
@@ -1251,7 +1260,7 @@ OPENCODE_CONFIG="$TMPROOT/shared-oc" CODEX_HOME="$TMPROOT/shared-codex" ANTIGRAV
 [ "$rc" -eq 0 ] || fail "--target all install for the shared ledger exits 0 (got $rc)"
 SHARED_LEDGER_OC="$TMPROOT/shared-oc/state/quota-ledger.tsv"
 SHARED_LEDGER_CODEX="$TMPROOT/shared-codex/state/quota-ledger.tsv"
-SHARED_LEDGER_AGY="$TMPROOT/shared-agy/plugins/oneshot-harness/state/quota-ledger.tsv"
+SHARED_LEDGER_AGY="$TMPROOT/shared-agy/state/quota-ledger.tsv"
 SHARED_LEDGER_CLAUDE="$TMPROOT/shared-claude/state/quota-ledger.tsv"
 printf 'shared-pool\topencode\t2026-11-09T14:00:00Z\t2026-11-09T19:00:00Z\treviewer-a\tshared\n' >"$SHARED_LEDGER_CODEX"
 [ -f "$SHARED_LEDGER_OC" ] || fail "opencode state/quota-ledger.tsv receives the ledger written through codex state/"
@@ -1332,7 +1341,7 @@ rc=0
 ANTIGRAVITY_CONFIG="$TMPROOT/cap-agy-bad-70" OPENCODE_CONFIG="$TMPROOT/cap-oc-70" "$INSTALL" --profile-file "$TMPROOT/prose-big-70.md" --target antigravity >"$TMPROOT/cap-agy-70.out" 2>"$TMPROOT/cap-agy-70.err" || rc=$?
 [ "$rc" -eq 2 ] || { cat "$TMPROOT/cap-agy-70.err" >&2; fail "oversized antigravity rule exits 2 (got $rc)"; }
 grep -qF 'exceeds 24000 bytes' "$TMPROOT/cap-agy-70.err" || fail "oversized antigravity rule reports the 24000-byte limit"
-[ ! -e "$TMPROOT/cap-agy-bad-70/plugins/oneshot-harness/.harness-manifest" ] || fail "refused antigravity install writes no manifest"
+[ ! -e "$TMPROOT/cap-agy-bad-70/.harness-manifest" ] || fail "refused antigravity install writes no manifest"
 
 {
   cat "$ROOT/providers/tri.md"
@@ -1402,5 +1411,88 @@ grep -q "$(printf '^agy-opus\t')" "$TMPROOT/race-oc-71/state/quota-ledger.tsv" |
 grep -q "$(printf '^codex-race\t')" "$TMPROOT/race-oc-71/state/quota-ledger.tsv" || fail "concurrent ledger migration preserves writer row"
 [ ! -e "$TMPROOT/race-oc-71/state/quota-ledger.lock" ] || fail "concurrent ledger migration releases shared lock"
 pass "ledger directory locks (stale break, active refusal, release) and ambient preflight env immunity"
+
+# 72. Flat Antigravity layout safety: a symlinked skills/oneshot refuses without
+# --force and is repaired without touching the outside tree; a legacy
+# plugins/oneshot-harness install migrates into the flat layout under
+# --force --prune while preserving sibling plugins; and a non-ledger file in the
+# legacy state/ refuses during preflight.
+AGY_SYM="$TMPROOT/agy-sym-72"
+SYM_OC="$TMPROOT/sym-oc-72"
+OUTSIDE_SKILL="$TMPROOT/outside-skill"
+mkdir -p "$AGY_SYM/skills" "$OUTSIDE_SKILL"
+printf 'OUTSIDE\n' >"$OUTSIDE_SKILL/SKILL.md"
+ln -s "$OUTSIDE_SKILL" "$AGY_SYM/skills/oneshot"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_SYM" OPENCODE_CONFIG="$SYM_OC" "$INSTALL" --target antigravity >"$TMPROOT/sym-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/sym-72.out" >&2; fail "symlinked skills/oneshot refuses without --force (got $rc)"; }
+grep -q 'parent symlink under destination' "$TMPROOT/sym-72.out" || fail "symlinked skills/oneshot names the parent symlink"
+[ -L "$AGY_SYM/skills/oneshot" ] || fail "refused symlinked skills/oneshot run leaves the symlink in place"
+[ "$(cat "$OUTSIDE_SKILL/SKILL.md")" = "OUTSIDE" ] || fail "refused symlinked skills/oneshot run preserves the outside sentinel"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_SYM" OPENCODE_CONFIG="$SYM_OC" "$INSTALL" --force --target antigravity >"$TMPROOT/sym-force-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/sym-force-72.out" >&2; fail "symlinked skills/oneshot repair install exits 0 (got $rc)"; }
+[ -d "$AGY_SYM/skills/oneshot" ] && [ ! -L "$AGY_SYM/skills/oneshot" ] || fail "--force replaces the symlinked skills/oneshot with a real directory"
+[ -f "$AGY_SYM/skills/oneshot/SKILL.md" ] && [ ! -L "$AGY_SYM/skills/oneshot/SKILL.md" ] || fail "--force writes a real skills/oneshot/SKILL.md"
+cmp -s "$ROOT/skills/oneshot/SKILL.md" "$AGY_SYM/skills/oneshot/SKILL.md" || fail "--force repairs skills/oneshot with source content"
+[ -f "$AGY_SYM/skills/_harness/HARNESS.md" ] || fail "repaired antigravity destination carries skills/_harness/HARNESS.md"
+[ "$(cat "$OUTSIDE_SKILL/SKILL.md")" = "OUTSIDE" ] || fail "--force repair never modifies the outside skill tree"
+pass "--target antigravity refuses a symlinked skills/oneshot without --force and repairs it under --force without touching the outside tree"
+
+AGY_MIG="$TMPROOT/agy-mig-72"
+MIG_OC="$TMPROOT/mig-oc"
+MIG_LEGACY="$AGY_MIG/plugins/oneshot-harness"
+mkdir -p "$MIG_LEGACY/rules" "$AGY_MIG/plugins/user-plugin" "$MIG_OC/state"
+printf '# harness deadbee\n# profile quad\nplugin.json\nrules/HARNESS.md\n' >"$MIG_LEGACY/.harness-manifest"
+printf '{"name":"oneshot-harness"}\n' >"$MIG_LEGACY/plugin.json"
+printf 'trigger: always_on\nlegacy\n' >"$MIG_LEGACY/rules/HARNESS.md"
+ln -s "$MIG_OC/state" "$MIG_LEGACY/state"
+printf 'keep\n' >"$AGY_MIG/plugins/user-plugin/keep.json"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_MIG" OPENCODE_CONFIG="$MIG_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/mig-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/mig-72.out" >&2; fail "legacy antigravity plugin migration exits 0 (got $rc)"; }
+grep -qxF '# profile quad' "$AGY_MIG/.harness-manifest" || fail "legacy migration inherits # profile quad"
+grep -qF 'pruned 2 stale file(s)' "$TMPROOT/mig-72.out" || { cat "$TMPROOT/mig-72.out" >&2; fail "legacy migration prunes the two stale plugin files"; }
+grep -q "harness updated: deadbee -> $CUR_SHA" "$TMPROOT/mig-72.out" || { cat "$TMPROOT/mig-72.out" >&2; fail "legacy migration reports harness sha update"; }
+[ ! -e "$MIG_LEGACY" ] || fail "legacy plugins/oneshot-harness is removed"
+[ -f "$AGY_MIG/plugins/user-plugin/keep.json" ] || fail "legacy migration preserves a sibling user plugin"
+[ -f "$AGY_MIG/skills/oneshot/SKILL.md" ] || fail "legacy migration installs the flat skills layout"
+pass "legacy plugins/oneshot-harness migrates to the flat layout, inherits the bound profile, and preserves sibling plugins"
+
+AGY_BAD="$TMPROOT/agy-bad-72"
+BAD_OC="$TMPROOT/bad-oc-72"
+BAD_LEGACY="$AGY_BAD/plugins/oneshot-harness"
+mkdir -p "$BAD_LEGACY/state"
+printf '# harness deadbee\n# profile quad\nplugin.json\n' >"$BAD_LEGACY/.harness-manifest"
+printf '{"name":"oneshot-harness"}\n' >"$BAD_LEGACY/plugin.json"
+printf 'not a ledger\n' >"$BAD_LEGACY/state/foreign.db"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_BAD" OPENCODE_CONFIG="$BAD_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/bad-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/bad-72.out" >&2; fail "legacy state non-ledger file refuses even with --force --prune (got $rc)"; }
+[ ! -e "$AGY_BAD/.harness-manifest" ] || fail "refused legacy migration writes no root manifest"
+[ -f "$BAD_LEGACY/state/foreign.db" ] || fail "refused legacy migration preserves the foreign state file"
+pass "a non-ledger file in a legacy state/ refuses during preflight and writes no root manifest"
+
+AGY_LSTATE="$TMPROOT/agy-lstate-72"
+LSTATE_OC="$TMPROOT/lstate-oc-72"
+mkdir -p "$AGY_LSTATE/plugins/oneshot-harness/state" "$LSTATE_OC/state"
+printf '# harness deadbee\n# profile tri\nplugin.json\n' >"$AGY_LSTATE/plugins/oneshot-harness/.harness-manifest"
+printf '{"name":"oneshot-harness"}\n' >"$AGY_LSTATE/plugins/oneshot-harness/plugin.json"
+printf 'agy-pool\tantigravity\t2026-11-09T12:00:00Z\t2026-11-09T17:00:00Z\timplementer\t429\n' >"$AGY_LSTATE/plugins/oneshot-harness/state/quota-ledger.tsv"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_LSTATE" OPENCODE_CONFIG="$LSTATE_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/lstate-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/lstate-72.out" >&2; fail "legacy real state/ ledger migration exits 0 (got $rc)"; }
+grep -q "$(printf '^agy-pool\t')" "$LSTATE_OC/state/quota-ledger.tsv" || fail "legacy real state/ ledger merges into shared state"
+[ ! -e "$AGY_LSTATE/plugins" ] || fail "empty legacy plugins/ directory is removed when no sibling plugins exist"
+
+AGY_LSYM="$TMPROOT/agy-lsym-72"
+mkdir -p "$AGY_LSYM/plugins" "$TMPROOT/outside-plugin-72"
+ln -s "$TMPROOT/outside-plugin-72" "$AGY_LSYM/plugins/oneshot-harness"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_LSYM" OPENCODE_CONFIG="$LSTATE_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/lsym-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/lsym-72.out" >&2; fail "symlinked legacy plugins/oneshot-harness refuses under --prune (got $rc)"; }
+grep -qF 'refusing to prune through symlink' "$TMPROOT/lsym-72.out" || fail "symlinked legacy plugin refusal diagnostic"
+[ ! -e "$AGY_LSYM/.harness-manifest" ] || fail "symlinked legacy plugin refusal writes no root manifest"
+pass "legacy real state/ ledger merges cleanly, empty plugins/ is removed, and symlinked legacy plugin refuses under --prune"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

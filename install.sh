@@ -332,11 +332,7 @@ if [ "$DEST_CANON" = "$HOME_PHYS" ] ||
   refuse_dest "the HOME directory"
 fi
 
-if [ "$TARGET_HOST" = "antigravity" ]; then
-  DEST="$DEST_CANON/plugins/oneshot-harness"
-else
-  DEST="$DEST_CANON"
-fi
+DEST="$DEST_CANON"
 
 SHARED_OC_CANON=""
 SHARED_STATE=""
@@ -394,13 +390,28 @@ if [ -L "$MANIFEST" ] || { [ -e "$MANIFEST" ] && [ ! -f "$MANIFEST" ]; }; then
   printf 'install.sh: manifest path is not a regular file: %s\n' "$MANIFEST" >&2
   exit 1
 fi
+LEGACY_AGY_DIR=""
+LEGACY_AGY_MANIFEST=""
+if [ "$TARGET_HOST" = "antigravity" ]; then
+  LEGACY_AGY_DIR="$DEST/plugins/oneshot-harness"
+  LEGACY_AGY_MANIFEST="$LEGACY_AGY_DIR/.harness-manifest"
+fi
+PREV_MANIFEST_SOURCE=""
+if [ -f "$MANIFEST" ]; then
+  PREV_MANIFEST_SOURCE="$MANIFEST"
+elif [ "$TARGET_HOST" = "antigravity" ] &&
+     [ ! -L "$DEST/plugins" ] && [ -d "$DEST/plugins" ] &&
+     [ ! -L "$LEGACY_AGY_DIR" ] && [ -d "$LEGACY_AGY_DIR" ] &&
+     [ ! -L "$LEGACY_AGY_MANIFEST" ] && [ -f "$LEGACY_AGY_MANIFEST" ]; then
+  PREV_MANIFEST_SOURCE="$LEGACY_AGY_MANIFEST"
+fi
 prev_profile=""
 prev_profile_present=0
 prev_profile_file=""
 prev_profile_file_present=0
 prev_entry_present=0
 prev_profile_legacy=0
-if [ -f "$MANIFEST" ]; then
+if [ -n "$PREV_MANIFEST_SOURCE" ]; then
   while IFS= read -r mline || [ -n "$mline" ]; do
     case "$mline" in
       '# profile '*) prev_profile="${mline#'# profile '}"; prev_profile_present=1; break ;;
@@ -410,10 +421,10 @@ if [ -f "$MANIFEST" ]; then
         case "$entry" in ''|\#*) ;; *) prev_entry_present=1 ;; esac
         ;;
     esac
-  done <"$MANIFEST"
+  done <"$PREV_MANIFEST_SOURCE"
 fi
 if [ "$prev_profile_present" -eq 0 ] && [ "$prev_profile_file_present" -eq 0 ] &&
-   { [ "$prev_entry_present" -eq 1 ] || { [ ! -f "$MANIFEST" ] && [ -f "$DEST/HARNESS.md" ]; }; }; then
+   { [ "$prev_entry_present" -eq 1 ] || { [ -z "$PREV_MANIFEST_SOURCE" ] && [ -f "$DEST/HARNESS.md" ]; }; }; then
   prev_profile=opencode-go
   prev_profile_present=1
   prev_profile_legacy=1
@@ -782,20 +793,6 @@ elif [ "$TARGET_HOST" = "claude" ]; then
   srcs+=("$combined_doc")
   rels+=("CLAUDE.md")
 elif [ "$TARGET_HOST" = "antigravity" ]; then
-  plugin_json="$(mktemp "${TMPDIR:-/tmp}/harness-agy-plugin.XXXXXXXX")"
-  chmod 0644 "$plugin_json"
-  rendered_files+=("$plugin_json")
-  cat <<'EOF' >"$plugin_json"
-{
-  "name": "oneshot-harness",
-  "displayName": "Oneshot Cybernetic Harness",
-  "version": "1.0.0",
-  "description": "Multi-provider cybernetic SDLC harness, 12 skills, and 9 role seats."
-}
-EOF
-  srcs+=("$plugin_json")
-  rels+=("plugin.json")
-
   rule_harness="$(mktemp "${TMPDIR:-/tmp}/harness-agy-rule-h.XXXXXXXX")"
   chmod 0644 "$rule_harness"
   rendered_files+=("$rule_harness")
@@ -813,6 +810,15 @@ EOF
   fi
   srcs+=("$rule_providers")
   rels+=("rules/PROVIDERS.md")
+
+  srcs+=("$SRC/AGENTS.md")
+  rels+=("skills/_harness/HARNESS.md")
+  srcs+=("$staged_profile")
+  rels+=("skills/_harness/PROVIDERS.md")
+  srcs+=("$SRC/NOTICE")
+  rels+=("skills/_harness/NOTICE")
+  srcs+=("$SRC/LICENSE")
+  rels+=("skills/_harness/LICENSE")
 fi
 
 # Render every agent before any destination mutation, including --force repairs.
@@ -969,6 +975,22 @@ for i in "${!rels[@]}"; do
   esac
 done
 
+if [ "$TARGET_HOST" = "antigravity" ]; then
+  orig_count="${#rels[@]}"
+  for ((i = 0; i < orig_count; i++)); do
+    case "${rels[$i]}" in
+      skills/_harness/SKILL.md|skills/_harness/*/SKILL.md)
+        printf 'install.sh: unexpected SKILL.md under skills/_harness: %s\n' "${rels[$i]}" >&2
+        exit 1
+        ;;
+      agents/*.md)
+        srcs+=("${srcs[$i]}")
+        rels+=("skills/_harness/${rels[$i]}")
+        ;;
+    esac
+  done
+fi
+
 # Preflight: collect every target that already exists, before any mkdir or copy.
 collisions=()
 for i in "${!rels[@]}"; do
@@ -1082,6 +1104,58 @@ else
   fi
 fi
 
+if [ "$TARGET_HOST" = "antigravity" ] && [ "$prune" -eq 1 ]; then
+  if [ -L "$DEST/plugins" ]; then
+    printf 'install.sh: refusing to prune through symlink: %s\n' "$DEST/plugins" >&2
+    exit 1
+  fi
+  if [ -L "$LEGACY_AGY_DIR" ]; then
+    printf 'install.sh: refusing to prune through symlink: %s\n' "$LEGACY_AGY_DIR" >&2
+    exit 1
+  fi
+  if [ -d "$LEGACY_AGY_DIR" ]; then
+    if [ -L "$LEGACY_AGY_MANIFEST" ] || { [ -e "$LEGACY_AGY_MANIFEST" ] && [ ! -f "$LEGACY_AGY_MANIFEST" ]; }; then
+      printf 'install.sh: manifest path is not a regular file: %s\n' "$LEGACY_AGY_MANIFEST" >&2
+      exit 1
+    fi
+    if [ -d "$LEGACY_AGY_DIR/state" ] && [ ! -L "$LEGACY_AGY_DIR/state" ]; then
+      if [ -d "$SHARED_STATE" ] && [ ! -L "$SHARED_STATE" ]; then
+        if [ -L "$SHARED_STATE/quota-ledger.tsv" ] || { [ -e "$SHARED_STATE/quota-ledger.tsv" ] && [ ! -f "$SHARED_STATE/quota-ledger.tsv" ]; }; then
+          printf 'install.sh: ledger path is not a regular file: %s\n' "$SHARED_STATE/quota-ledger.tsv" >&2
+          exit 1
+        fi
+        check_lock_path_struct "$SHARED_STATE/quota-ledger.lock"
+      fi
+      shopt -s nullglob dotglob
+      legacy_state_entries=("$LEGACY_AGY_DIR/state"/*)
+      shopt -u nullglob dotglob
+      if [ "${#legacy_state_entries[@]}" -gt 0 ]; then
+        for se in "${legacy_state_entries[@]}"; do
+          se_base="$(basename -- "$se")"
+          case "$se_base" in
+            quota-ledger.tsv)
+              if [ -L "$se" ] || [ ! -f "$se" ]; then
+                printf 'install.sh: ledger path is not a regular file: %s\n' "$se" >&2
+                exit 1
+              fi
+              ;;
+            quota-ledger.lock)
+              check_lock_path_struct "$se"
+              ;;
+            *)
+              printf 'install.sh: refusing to replace state directory containing non-ledger files: %s\n' "$LEGACY_AGY_DIR/state" >&2
+              exit 1
+              ;;
+          esac
+        done
+      fi
+    elif [ ! -L "$LEGACY_AGY_DIR/state" ] && [ -e "$LEGACY_AGY_DIR/state" ]; then
+      printf 'install.sh: parent path is not a directory: %s\n' "$LEGACY_AGY_DIR/state" >&2
+      exit 1
+    fi
+  fi
+fi
+
 if [ "${#parent_blocks[@]}" -gt 0 ]; then
   for pb in "${parent_blocks[@]}"; do
     printf 'install.sh: parent path is not a directory: %s\n' "$pb" >&2
@@ -1127,6 +1201,15 @@ if [ "$TARGET_HOST" != "opencode" ] && [ "$DEST" != "$SHARED_OC_CANON" ] &&
   check_lock_path_preflight "$SHARED_STATE/quota-ledger.lock"
 fi
 
+if [ "$TARGET_HOST" = "antigravity" ] && [ "$prune" -eq 1 ] &&
+   [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] &&
+   [ -d "$LEGACY_AGY_DIR/state" ] && [ ! -L "$LEGACY_AGY_DIR/state" ]; then
+  if [ "$LEGACY_AGY_DIR/state" != "$SHARED_STATE" ]; then
+    check_lock_path_preflight "$LEGACY_AGY_DIR/state/quota-ledger.lock"
+  fi
+  check_lock_path_preflight "$SHARED_STATE/quota-ledger.lock"
+fi
+
 if [ "$preflight_only" -eq 1 ]; then
   exit 0
 fi
@@ -1165,6 +1248,92 @@ owned() {
     fi
   done
   return 1
+}
+
+merge_ledgers() {
+  awk -F'\t' '
+    BEGIN { n = 0; want_header = 0 }
+    $0 == "" { next }
+    $1 == "pool" && $2 == "provider" && $3 == "exhausted_at" {
+      want_header = 1
+      next
+    }
+    $1 == "pool" && $2 == "window_start" { next }
+    NF >= 6 && $1 != "" {
+      k = $1
+      e = $3 ""
+      r = $4 ""
+      if (!(k in seen)) {
+        order[++n] = k
+        seen[k] = 1
+        best_r[k] = r
+        best_e[k] = e
+        best_line[k] = $0
+      } else if (r > best_r[k] || (r == best_r[k] && e > best_e[k])) {
+        best_r[k] = r
+        best_e[k] = e
+        best_line[k] = $0
+      }
+    }
+    END {
+      if (want_header) {
+        print "pool\tprovider\texhausted_at\tretry_after\tsource_role\tnote"
+      }
+      for (i = 1; i <= n; i++) {
+        print best_line[order[i]]
+      }
+    }
+  ' "$@"
+}
+
+prune_manifest_entries() {
+  local manifest_path="$1" base_dir="$2" check_owned="$3"
+  local rel target prune_parent prune_unsafe
+  while IFS= read -r rel || [ -n "$rel" ]; do
+    [ -n "$rel" ] || continue
+    case "$rel" in
+      '#'*) continue ;;
+    esac
+    rel="$(normalize_rel "$rel")"
+    [ -n "$rel" ] || continue
+    case "$rel" in
+      /*|..|../*|*/..|*/../*)
+        printf 'install.sh: ignoring unsafe manifest entry: %s\n' "$rel" >&2
+        continue
+        ;;
+    esac
+    if [ "$check_owned" -eq 1 ] && owned "$rel"; then
+      continue
+    fi
+    target="$base_dir/$rel"
+    # Prune confinement: refuse to unlink through a symlinked parent, which
+    # would delete a file outside $base_dir. Skip the entry instead.
+    prune_parent="$(dirname "$target")"
+    prune_unsafe=""
+    while [ "$prune_parent" != "$base_dir" ]; do
+      case "$prune_parent" in
+        "$base_dir"/*) ;;
+        *) prune_unsafe="$prune_parent"; break ;;
+      esac
+      if [ -L "$prune_parent" ]; then
+        prune_unsafe="$prune_parent"
+        break
+      fi
+      prune_parent="$(dirname "$prune_parent")"
+    done
+    if [ -n "$prune_unsafe" ]; then
+      printf 'install.sh: refusing to prune through symlink: %s\n' "$target" >&2
+      continue
+    fi
+    if [ -e "$target" ] || [ -L "$target" ]; then
+      if [ ! -f "$target" ] && [ ! -L "$target" ]; then
+        printf 'install.sh: skipping non-file prune target: %s\n' "$target" >&2
+        continue
+      fi
+      rm -f -- "$target"
+      pruned=$((pruned + 1))
+    fi
+  done <"$manifest_path"
 }
 
 installed=0
@@ -1220,39 +1389,7 @@ else
       merge_inputs+=("$state_migrating/quota-ledger.tsv")
       ledger_tmp="$SHARED_STATE/.quota-ledger.$$.tmp"
       rm -f -- "$ledger_tmp"
-      awk -F'\t' '
-        BEGIN { n = 0; want_header = 0 }
-        $0 == "" { next }
-        $1 == "pool" && $2 == "provider" && $3 == "exhausted_at" {
-          want_header = 1
-          next
-        }
-        $1 == "pool" && $2 == "window_start" { next }
-        NF >= 6 && $1 != "" {
-          k = $1
-          e = $3 ""
-          r = $4 ""
-          if (!(k in seen)) {
-            order[++n] = k
-            seen[k] = 1
-            best_r[k] = r
-            best_e[k] = e
-            best_line[k] = $0
-          } else if (r > best_r[k] || (r == best_r[k] && e > best_e[k])) {
-            best_r[k] = r
-            best_e[k] = e
-            best_line[k] = $0
-          }
-        }
-        END {
-          if (want_header) {
-            print "pool\tprovider\texhausted_at\tretry_after\tsource_role\tnote"
-          }
-          for (i = 1; i <= n; i++) {
-            print best_line[order[i]]
-          }
-        }
-      ' "${merge_inputs[@]}" >"$ledger_tmp"
+      merge_ledgers "${merge_inputs[@]}" >"$ledger_tmp"
       chmod 0644 "$ledger_tmp"
       mv -f -- "$ledger_tmp" "$SHARED_STATE/quota-ledger.tsv"
       ledger_tmp=""
@@ -1283,58 +1420,6 @@ for i in "${!rels[@]}"; do
   installed=$((installed + 1))
 done
 
-if [ "$prune" -eq 1 ]; then
-  if [ ! -f "$MANIFEST" ]; then
-    printf 'no previous manifest; prune skipped\n'
-  else
-    pruned=0
-    while IFS= read -r rel || [ -n "$rel" ]; do
-      [ -n "$rel" ] || continue
-      case "$rel" in
-        '#'*) continue ;;
-      esac
-      rel="$(normalize_rel "$rel")"
-      [ -n "$rel" ] || continue
-      case "$rel" in
-        /*|..|../*|*/..|*/../*)
-          printf 'install.sh: ignoring unsafe manifest entry: %s\n' "$rel" >&2
-          continue
-          ;;
-      esac
-      owned "$rel" && continue
-      target="$DEST/$rel"
-      # Prune confinement: refuse to unlink through a symlinked parent, which
-      # would delete a file outside $DEST. Skip the entry instead.
-      prune_parent="$(dirname "$target")"
-      prune_unsafe=""
-      while [ "$prune_parent" != "$DEST" ]; do
-        case "$prune_parent" in
-          "$DEST"/*) ;;
-          *) prune_unsafe="$prune_parent"; break ;;
-        esac
-        if [ -L "$prune_parent" ]; then
-          prune_unsafe="$prune_parent"
-          break
-        fi
-        prune_parent="$(dirname "$prune_parent")"
-      done
-      if [ -n "$prune_unsafe" ]; then
-        printf 'install.sh: refusing to prune through symlink: %s\n' "$target" >&2
-        continue
-      fi
-      if [ -e "$target" ] || [ -L "$target" ]; then
-        if [ ! -f "$target" ] && [ ! -L "$target" ]; then
-          printf 'install.sh: skipping non-file prune target: %s\n' "$target" >&2
-          continue
-        fi
-        rm -f -- "$target"
-        pruned=$((pruned + 1))
-      fi
-    done <"$MANIFEST"
-    printf 'pruned %d stale file(s)\n' "$pruned"
-  fi
-fi
-
 if harness_sha="$(git -C "$SRC" rev-parse --short HEAD 2>/dev/null)"; then
   :
 else
@@ -1342,15 +1427,71 @@ else
 fi
 prev_sha=""
 prev_manifest_present=0
-if [ -f "$MANIFEST" ]; then
+if [ -n "$PREV_MANIFEST_SOURCE" ] && [ -f "$PREV_MANIFEST_SOURCE" ]; then
   prev_manifest_present=1
   while IFS= read -r mline || [ -n "$mline" ]; do
     case "$mline" in
       '# harness '*) prev_sha="${mline#'# harness '}"; break ;;
     esac
-  done <"$MANIFEST"
+  done <"$PREV_MANIFEST_SOURCE"
   if [ -z "$prev_sha" ]; then
     prev_sha="unknown"
+  fi
+fi
+
+if [ "$prune" -eq 1 ]; then
+  had_any_manifest=0
+  if [ -f "$MANIFEST" ]; then
+    had_any_manifest=1
+  elif [ "$TARGET_HOST" = "antigravity" ] &&
+       [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] &&
+       [ ! -L "$LEGACY_AGY_MANIFEST" ] && [ -f "$LEGACY_AGY_MANIFEST" ]; then
+    had_any_manifest=1
+  fi
+  if [ "$had_any_manifest" -eq 0 ]; then
+    printf 'no previous manifest; prune skipped\n'
+  else
+    pruned=0
+    if [ -f "$MANIFEST" ]; then
+      prune_manifest_entries "$MANIFEST" "$DEST" 1
+    fi
+    if [ "$TARGET_HOST" = "antigravity" ] &&
+       [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] &&
+       [ ! -L "$LEGACY_AGY_MANIFEST" ] && [ -f "$LEGACY_AGY_MANIFEST" ]; then
+      prune_manifest_entries "$LEGACY_AGY_MANIFEST" "$LEGACY_AGY_DIR" 0
+      if [ -L "$LEGACY_AGY_DIR/state" ]; then
+        rm -f -- "$LEGACY_AGY_DIR/state"
+      elif [ -d "$LEGACY_AGY_DIR/state" ] && [ "$LEGACY_AGY_DIR/state" != "$SHARED_STATE" ]; then
+        acquire_ledger_lock "$SHARED_STATE/quota-ledger.lock"
+        acquire_ledger_lock "$LEGACY_AGY_DIR/state/quota-ledger.lock"
+        if [ -L "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ] ||
+           { [ -e "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ] && [ ! -f "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ]; }; then
+          printf 'install.sh: ledger path is not a regular file: %s\n' "$LEGACY_AGY_DIR/state/quota-ledger.tsv" >&2
+          exit 1
+        fi
+        if [ -f "$LEGACY_AGY_DIR/state/quota-ledger.tsv" ]; then
+          merge_inputs=()
+          if [ -f "$SHARED_STATE/quota-ledger.tsv" ]; then
+            merge_inputs+=("$SHARED_STATE/quota-ledger.tsv")
+          fi
+          merge_inputs+=("$LEGACY_AGY_DIR/state/quota-ledger.tsv")
+          ledger_tmp="$SHARED_STATE/.quota-ledger.$$.tmp"
+          rm -f -- "$ledger_tmp"
+          merge_ledgers "${merge_inputs[@]}" >"$ledger_tmp"
+          chmod 0644 "$ledger_tmp"
+          mv -f -- "$ledger_tmp" "$SHARED_STATE/quota-ledger.tsv"
+          ledger_tmp=""
+          rm -f -- "$LEGACY_AGY_DIR/state/quota-ledger.tsv"
+        fi
+        release_ledger_lock "$LEGACY_AGY_DIR/state/quota-ledger.lock"
+        release_ledger_lock "$SHARED_STATE/quota-ledger.lock"
+        rmdir "$LEGACY_AGY_DIR/state" 2>/dev/null || true
+      fi
+      rm -f -- "$LEGACY_AGY_MANIFEST"
+      find -P "$LEGACY_AGY_DIR" -depth -type d -exec rmdir {} \; 2>/dev/null || true
+      rmdir "$DEST/plugins" 2>/dev/null || true
+    fi
+    printf 'pruned %d stale file(s)\n' "$pruned"
   fi
 fi
 
