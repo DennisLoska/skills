@@ -193,17 +193,20 @@ if [ -L "$MANIFEST" ] || { [ -e "$MANIFEST" ] && [ ! -f "$MANIFEST" ]; }; then
 fi
 prev_profile=""
 prev_profile_present=0
-prev_harness_present=0
+prev_entry_present=0
 prev_profile_legacy=0
 if [ -f "$MANIFEST" ]; then
   while IFS= read -r mline || [ -n "$mline" ]; do
     case "$mline" in
       '# profile '*) prev_profile="${mline#'# profile '}"; prev_profile_present=1; break ;;
-      '# harness '*) prev_harness_present=1 ;;
+      *)
+        entry="${mline#"${mline%%[![:space:]]*}"}"
+        case "$entry" in ''|\#*) ;; *) prev_entry_present=1 ;; esac
+        ;;
     esac
   done <"$MANIFEST"
 fi
-if [ "$prev_profile_present" -eq 0 ] && [ "$prev_harness_present" -eq 1 ]; then
+if [ "$prev_profile_present" -eq 0 ] && { [ "$prev_entry_present" -eq 1 ] || { [ ! -f "$MANIFEST" ] && [ -f "$DEST/HARNESS.md" ]; }; }; then
   prev_profile=opencode-go
   prev_profile_present=1
   prev_profile_legacy=1

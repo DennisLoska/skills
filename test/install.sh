@@ -146,7 +146,7 @@ rm -f "$MANIFEST"
 mkdir -p "$DEST/skills/ghost"
 printf 'ghost\n' >"$DEST/skills/ghost/SKILL.md"
 rc12=0
-HOME="$HOME_DIR" "$INSTALL" --force --prune >"$TMPROOT/case12.out" 2>&1 || rc12=$?
+HOME="$HOME_DIR" "$INSTALL" --force --prune --profile tri >"$TMPROOT/case12.out" 2>&1 || rc12=$?
 [ "$rc12" -eq 0 ] || { cat "$TMPROOT/case12.out" >&2; fail "--prune without a manifest exits 0"; }
 [ -f "$DEST/skills/ghost/SKILL.md" ] || fail "--prune without a manifest removes nothing"
 grep -q 'no previous manifest; prune skipped' "$TMPROOT/case12.out" || fail "--prune without a manifest reports the skip"
@@ -588,7 +588,7 @@ cmp -s "$TMPROOT/case36.snap" "$TMPROOT/case36.after" || fail "non-regular manif
 rm -f "$MANIFEST/inside.md"
 rmdir "$MANIFEST"
 rc36b=0
-HOME="$HOME_DIR" "$INSTALL" --force >"$TMPROOT/case36b.out" 2>&1 || rc36b=$?
+HOME="$HOME_DIR" "$INSTALL" --force --profile tri >"$TMPROOT/case36b.out" 2>&1 || rc36b=$?
 [ "$rc36b" -eq 0 ] || { cat "$TMPROOT/case36b.out" >&2; fail "restore after manifest directory case exits 0"; }
 pass "a directory at .harness-manifest exits 1 before copying anything"
 
@@ -815,6 +815,22 @@ for selection in implicit explicit; do
   grep -qxF "# profile $expected_profile" "$PREPROFILE_DEST/.harness-manifest" || fail "pre-profile $selection metadata"
   grep -qxF "$expected_message" "$TMPROOT/preprofile.out" || fail "pre-profile $selection announcement"
   pass "pre-profile manifest respects $selection selection"
+done
+
+# Older installs may have a headerless manifest or no manifest at all.
+for legacy_kind in headerless premanifest; do
+  OLD_DEST="$TMPROOT/old-$legacy_kind"
+  mkdir -p "$OLD_DEST"
+  if [ "$legacy_kind" = headerless ]; then
+    printf 'agents/scout.md\n' >"$OLD_DEST/.harness-manifest"
+  else
+    printf 'old harness\n' >"$OLD_DEST/HARNESS.md"
+  fi
+  OPENCODE_CONFIG="$OLD_DEST" "$INSTALL" --force >"$TMPROOT/old.out"
+  [ "$(sed -n '2p' "$OLD_DEST/.harness-manifest")" = '# profile opencode-go' ] || fail "$legacy_kind metadata"
+  grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$OLD_DEST/agents/reviewer-a.md" || fail "$legacy_kind pin"
+  grep -qxF 'profile: opencode-go (previous install predates profiles)' "$TMPROOT/old.out" || fail "$legacy_kind announcement"
+  pass "$legacy_kind preserves historical profile"
 done
 
 # Advisory placeholders are valid when present and do not affect native pins.

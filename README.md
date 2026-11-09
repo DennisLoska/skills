@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Skills-12%20Pipeline%20Units-1AD1A5?style=flat-square" alt="12 Pipeline Skills" />
   <img src="https://img.shields.io/badge/Council-3%20Independent%20Families-FF6B35?style=flat-square" alt="3-Family Council" />
   <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
-  <img src="https://img.shields.io/badge/Tests-76%2F76%20Passing-2ECC71?style=flat-square" alt="76/76 Tests Passing" />
+  <img src="https://img.shields.io/badge/Tests-78%2F78%20Passing-2ECC71?style=flat-square" alt="78/78 Tests Passing" />
 </p>
 
 <p align="center">
@@ -336,7 +336,7 @@ skills/           12 pipeline skills:          oneshot, shape, plan, dispatch,
                                                codebase-design
 providers/        swappable provider profiles: tri (default), opencode-go (legacy)
 docs/             design specs and plans:      docs/specs/, docs/plans/
-test/install.sh   76-assertion contract suite  (runs in throwaway HOME on Bash >=3.2)
+test/install.sh   78-assertion contract suite  (runs in throwaway HOME on Bash >=3.2)
 AGENTS.md         harness routing instructions (installed as ~/.config/opencode/HARNESS.md)
 install.sh        collision-safe installer     (manifest-scoped prune, symlink guards)
 NOTICE            upstream MIT attribution     (mattpocock/skills)
@@ -365,7 +365,7 @@ The copy is collision-safe. Before touching anything, the installer runs preflig
 
 | Flag | Effect |
 | --- | --- |
-| `--profile <name>` | bind the install to `providers/<name>.md` (also `--profile=<name>`; default `tri`). Without `--profile`, the previous manifest's `# profile` is reused (else `tri`); a previous manifest without a `# profile` line keeps `opencode-go` and prints `profile: opencode-go (previous install predates profiles)`; an explicit change prints `profile changed: X -> Y`. An unknown profile exits 2 with `install.sh: unknown profile: <name> (available: ...)`; an incomplete or invalid profile exits 1 with `install.sh: profile <name> incomplete: <role>` (a dispatched role without a `primary` row) or `install.sh: profile <name> invalid row: <role> <rung>: <reason>` (a row failing the strict validation above); both are checked before anything is written |
+| `--profile <name>` | bind the install to `providers/<name>.md` (also `--profile=<name>`; default `tri`). Without `--profile`, the previous manifest's `# profile` is reused (else `tri`); a previous install that predates profiles (a manifest without a `# profile` line, or `HARNESS.md` with no manifest) keeps `opencode-go` and prints `profile: opencode-go (previous install predates profiles)`; an explicit change prints `profile changed: X -> Y`. An unknown profile exits 2 with `install.sh: unknown profile: <name> (available: ...)`; an incomplete or invalid profile exits 1 with `install.sh: profile <name> incomplete: <role>` (a dispatched role without a `primary` row) or `install.sh: profile <name> invalid row: <role> <rung>: <reason>` (a row failing the strict validation above); both are checked before anything is written |
 | `--force` | overwrite files that already exist in the destination, and repair any symlinked parent directory under the destination by replacing the link with a real directory (warning: this removes the link) |
 | `--prune` | after copying, remove files that the previous `<dest>/.harness-manifest` records as installed but this run no longer produces, then print `pruned N stale file(s)`. Files the installer never wrote are never removed, so personal agents and skills in the same directory survive. With no previous manifest it prints `no previous manifest; prune skipped` and removes nothing |
 | `-h`, `--help` | print usage and exit 0 without copying |
@@ -420,7 +420,7 @@ grep -q 'HARNESS.md' ~/.config/opencode/opencode.json &&
 
 ## 🧪 Testing
 
-Run the 76-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
+Run the 78-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
 
 ```sh
 bash -n install.sh && bash -n test/install.sh

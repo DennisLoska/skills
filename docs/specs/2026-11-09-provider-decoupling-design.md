@@ -69,7 +69,7 @@ OpenCode agent files need a `model:` line so a natively dispatched seat never in
 - `providers/` itself is not installed; only the selected profile is, as `PROVIDERS.md`.
 - Strict row validation: exactly 7 non-empty cells, `privacy` is `ok` or `trains`, no duplicate role+rung, charset checks on `model`, `effort`, `family`; rows inside fenced ``` blocks are ignored. Advisory rows (`driver`, `compaction`) are validated when present, never required, never rendered. Failure is one of the two diagnostics above.
 - The pin is passed to the frontmatter rewrite safely (no escape interpretation) and inserted only in the first frontmatter block.
-- Without `--profile`, the previous manifest's `# profile` is reused (else `tri`); an explicit change prints `profile changed: X -> Y`. A legacy manifest with no `# profile` line is treated as profile `opencode-go` (a pre-profiles install was the OpenCode Go harness) and prints `profile: opencode-go (previous install predates profiles)`.
+- Without `--profile`, the previous manifest's `# profile` is reused (else `tri`); an explicit change prints `profile changed: X -> Y`. A legacy install (a manifest with entries but no `# profile` line, or `HARNESS.md` present with no manifest) is treated as profile `opencode-go` (a pre-profiles install was the OpenCode Go harness) and prints `profile: opencode-go (previous install predates profiles)`.
 - All existing destination, symlink, collision, and prune guards stay exactly as they are.
 - Usage text documents `--profile` and lists available profiles.
 
