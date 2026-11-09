@@ -7,7 +7,7 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 - **Implementation** produces the bulk of all output tokens: strong mid-tier coders at medium effort; frontier only for `implementer-deep`.
 - **Per-task review** runs once per task, often: a flash model from a family that did not write the code.
 - **Council** outputs are short and decide the merge: one frontier model per family (Google, Anthropic, OpenAI) at equal `high` effort so votes are comparable. Each council seat demotes inside its own family first, then out of family; every seat's last resort sits on a different provider than its primary, so one provider outage never empties a seat (the exception is `reviewer-esc`, whose whole ladder is OpenCode Go).
-- **Escalation** is a fourth family none of the seats uses, so its verdict stays independent. It needs a family unused this PR: `reviewer-a`'s last resort (zhipu) consumes one escalation rung if it is reached, leaving moonshot and deepseek.
+- **Escalation** is a fourth family none of the council seats (`reviewer-a`, `reviewer-b`, `reviewer-c`) uses, so its verdict stays independent; implementation rungs do not count. It needs a family unused by council seats this PR: `reviewer-a`'s last resort (zhipu) can consume one escalation rung if it is reached, leaving moonshot and deepseek. `reviewer-esc` also supplies the non-author council vote when every council seat's family is an author family.
 
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -48,7 +48,7 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 
 ## Supported driver setups
 
-The `driver` row stays advisory; the installer does not validate or render it. Two setups are supported:
+The `driver` row stays advisory; the installer validates it when present, never requires it, and never renders it. Two setups are supported:
 
 1. **OpenCode host:** native seats, plus `delegate_task` when OpenCode runs inside T3 Code.
 2. **Any T3 Code provider session** (for example Antigravity `claude-opus-5-5`): tell the session to load `<dest>/HARNESS.md`, `<dest>/PROVIDERS.md`, and the skills from `<dest>/skills/`. It dispatches only via `delegate_task`, and permissions are self-enforced by the children.
@@ -57,7 +57,7 @@ The `driver` row stays advisory; the installer does not validate or render it. T
 
 The `ok` marks for Antigravity (`antigravity`) and Codex (`codex`) assume the account has model-training opt-out enabled. Confirm that account setting before dispatch. OpenCode Go rows use the legacy profile’s non-training privacy classes. `muse-spark-*` trains on request data and is excluded from this profile.
 
-Driver and compaction rows are advisory host recommendations; the installer does not validate or render them.
+Driver and compaction rows are advisory host recommendations; the installer validates them when present, never requires them, and never renders them.
 
 ## Catalog
 

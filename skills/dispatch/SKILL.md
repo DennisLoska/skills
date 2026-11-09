@@ -107,7 +107,7 @@ Skills never hardcode model IDs. Route every subagent by role through the active
 - `implementer` and `implementer-b` - the two default implementation seats (rungs from the active provider profile). Alternate or pick either for standard and mechanical tasks.
 - `implementer-deep` - the heavy-reasoning seat reserved for complex multi-file architecture tasks and difficult bugs escalated by `debug`.
 
-Per-task dispatch = one of the three seats + the brief from `implementer-prompt.md`, through the AGENTS.md Dispatch Adapter. On a usage-limit/429 error from a seat, or an unreachable rung: re-dispatch the same role on the next rung of its ladder in the active provider profile, announce the demotion, and continue.
+Per-task dispatch = one of the three seats + the brief from `implementer-prompt.md`, through the AGENTS.md Dispatch Adapter. On a usage-limit/429 error from a seat, or an unreachable rung: re-dispatch the same role on the next rung of its ladder in the active provider profile, announce the demotion, and continue. A seat with no reachable rung hands the task to the next implementation seat per AGENTS.md Routing Rules (zero reachable rungs); after each task commit, the controller records the implementing rung's family for the author-family rule (oneshot Phase 3, step 7).
 
 **Stage reviewers dispatch ad-hoc:** spec-reviewer and quality-reviewer subagents are role `task-reviewer` from the active provider profile, chosen after the seat matrix call above; skip any `task-reviewer` rung whose family wrote the code for that task (AGENTS.md Routing Rules, author independence). They are not seat agents; fresh context each time, explicit rung each time.
 

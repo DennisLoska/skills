@@ -33,7 +33,7 @@ No praise. No "looks good". No scope creep.
 4. If a seat's rung is exhausted or unreachable mid-round: re-dispatch the SAME seat role on its next ladder rung from the active provider profile (mechanics below). Rerun only that seat. Never fill a seat with a rung whose family is active on another council seat anywhere in this PR (AGENTS.md Routing Rules).
 5. Confidentiality gate: if the review brief or referenced diff carries a confidential flag, the AGENTS.md Routing Rules privacy gate applies to every seat (`privacy: trains` rungs in the active provider profile auto-skip); demote to the next privacy-safe rung and announce.
 
-6. Author-family rule: PASS also needs the author-family vote from the AGENTS.md Council Contract (at least one PASS from a seat whose family authored none of the diff). Read the author families from the state artifact.
+6. Author-family rule: PASS also needs the author-family vote from the AGENTS.md Council Contract (at least one PASS from a council seat whose family is not an author family). Read the author families from the state artifact. If every seat's family is an author family, dispatch `reviewer-esc` for the non-author vote (one extra dispatch counted against the 14-dispatch guard); if that is impossible, stop with `yellow: degraded council`.
 
 ## Fallback mechanics
 
@@ -46,14 +46,14 @@ announce: "seat <seat> demoted to <provider>/<model>"
 
 - A demotion never breaks family independence: a seat may demote within its own family, but skip any ladder rung whose family is active on another council seat anywhere in this PR.
 - A seat with zero healthy ladder rungs = seat lost. Continue if at least 2 independent families remain; otherwise stop with `yellow: degraded council`.
-- The escalation seat is a separate agent (`reviewer-esc`), routed by its rung in the active provider profile. It never substitutes a lost seat mid-round; it enters only after the round budget is spent.
+- The escalation seat is a separate agent (`reviewer-esc`), routed by its rung in the active provider profile. It never substitutes a lost seat mid-round; it enters only after the round budget is spent, or to supply the author-family vote above.
 
 ## Verdict phase
 
 - PASS = at least 2 of 3 seats vote PASS AND zero unresolved confirmed red findings from any seat, and tests green, or the no-tests rule satisfied, plus the author-family vote above. A confirmed red from a single FAIL seat blocks PASS just the same, until it is fixed or rebutted with evidence.
 - Fewer than 2 families healthy: STOP with `yellow: degraded council` per the canonical degraded-council rule in `AGENTS.md` Review contracts.
 - Merge findings into one list, severity sorted red -> yellow -> blue. Dedupe identical findings, keep the sharpest wording.
-- Escalation seat independence spans the whole PR: `reviewer-esc` never runs on a model family another seat already used this PR (check the `family` column of the active provider profile per ladder rung). On conflict, demote along the `reviewer-esc` ladder in the profile until an unused family is found, else stop and surface `yellow: degraded council`.
+- Escalation seat independence spans the whole PR: `reviewer-esc` never runs on a model family a council seat (`reviewer-a`, `reviewer-b`, `reviewer-c`) already used this PR (check the `family` column of the active provider profile per ladder rung). On conflict, demote along the `reviewer-esc` ladder in the profile until an unused family is found, else stop and surface `yellow: degraded council`.
 
 ## Receiving phase (rigor)
 

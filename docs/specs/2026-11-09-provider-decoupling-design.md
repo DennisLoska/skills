@@ -26,14 +26,14 @@ Rule: no file in the harness layer names a concrete model ID, provider quota, or
 
 Seat roles (each has an agent contract file): `scout`, `implementer`, `implementer-b`, `implementer-deep`, `patch`, `reviewer-a`, `reviewer-b`, `reviewer-c`, `reviewer-esc`.
 Ad-hoc roles (no agent file, brief carries the contract): `task-reviewer` (dispatch stage-1 spec and stage-2 quality reviews).
-Design alternatives (`codebase-design`, design-it-twice) are not a profile role: each runs on a distinct-family rung of the `implementer-deep` ladder (primary, fallback, last-resort) with a read-only brief and delegate role `design`.
-Advisory roles (the installer never validates or renders them; they document the recommended host setup): `driver` (the main session running oneshot), `compaction`.
+Design alternatives (`codebase-design`, design-it-twice) are not a profile role: each runs on a distinct-family rung borrowed from the implementation ladders (the `implementer-deep` rungs first, then the `implementer` and `implementer-b` rungs; privacy gate applies) with a read-only brief and delegate role `design`. Natively it is a general-purpose subagent with an explicit `model` (like `task-reviewer`), never the `implementer-deep` seat agent. With fewer distinct reachable families than alternatives, run what is available and announce `degraded design: N families` (design is advisory, not a gate).
+Advisory roles (the installer validates them when present, never requires them, and never renders them; they document the recommended host setup): `driver` (the main session running oneshot), `compaction`.
 
 Every profile MUST define a `primary` rung for all ten required roles (nine seats + `task-reviewer`).
 
 ## Profile format (provider layer)
 
-`providers/<name>.md`, where `<name>` matches `[a-z0-9][a-z0-9-]*`. Free markdown prose (quotas, privacy notes, rationale) plus exactly one routing table. The installer parses only table rows whose first cell is a known role name, so prose and other tables are free-form.
+`providers/<name>.md`, where `<name>` matches `[a-z0-9][a-z0-9-]*`. Free markdown prose (quotas, privacy notes, rationale) plus exactly one routing table. The installer parses table rows whose first cell is a known role name, so prose and other tables are free-form; any non-fenced table row whose first cell is a role name must be a valid 7-cell routing row.
 
 ```
 | role | rung | provider | model | effort | family | privacy |
@@ -46,8 +46,8 @@ Columns:
 - `role`: role name from the vocabulary above.
 - `rung`: `primary`, `fallback`, or `last-resort` (ladder order is this order).
 - `provider`: the provider instance that serves the model. Values are T3 Code provider instance ids (`antigravity`, `codex`, `opencode`, ...). `opencode` is the only value an OpenCode host can dispatch natively.
-- `model`: the model id exactly as that provider's catalog names it (`opencode` models keep their `opencode-go/` prefix).
-- `effort`: `<option-id>=<value>` in the provider's native option vocabulary (`thinking_level=high`, `reasoningEffort=medium`, `variant=max`), or `-` for the provider default.
+- `model`: the model id exactly as that provider's catalog names it (`opencode` models keep their `opencode-go/` prefix). It starts alphanumeric and uses only `[A-Za-z0-9._/-]`.
+- `effort`: `<option-id>=<value>` in the provider's native option vocabulary (`thinking_level=high`, `reasoningEffort=medium`, `variant=max`), or `-` for the provider default. `-` is allowed only in `effort` for dispatched roles, and anywhere on advisory rows.
 - `family`: model family for the independence rule (`google`, `anthropic`, `openai`, `deepseek`, `meta`, `zhipu`, `moonshot`, `xiaomi`, ...). Same family on two providers is the same family.
 - `privacy`: `ok` or `trains` (trains on request data; the privacy gate skips it on confidential work).
 
@@ -63,13 +63,13 @@ OpenCode agent files need a `model:` line so a natively dispatched seat never in
 
 - New flag `--profile <name>` (also `--profile=<name>`). Default profile: `tri` on a fresh install (see profile reuse below).
 - Unknown profile (no `providers/<name>.md`, or name fails the pattern): exit 2, message `install.sh: unknown profile: <name> (available: <space-separated list>)` on stderr, nothing written.
-- Incomplete profile (a required role lacks a `primary` row, or a row has an invalid `rung`): exit 1, message `install.sh: profile <name> incomplete: <role>` on stderr, checked before any write.
+- Incomplete profile (a required role lacks a `primary` row): exit 1, message `install.sh: profile <name> incomplete: <role>` on stderr, checked before any write. Malformed row (invalid `rung`, cell count, charset, duplicate, ...): exit 1, message `install.sh: profile <name> invalid row: <role> <rung>: <reason>` on stderr, also before any write.
 - `<dest>/PROVIDERS.md` is a byte copy of the selected profile and is recorded in the manifest like any other installed file (collision, `--force`, `--prune` rules unchanged).
 - The manifest keeps `# harness <sha>` as line 1 and adds `# profile <name>` as line 2. Prune skips every `#` line (already true).
 - `providers/` itself is not installed; only the selected profile is, as `PROVIDERS.md`.
-- Strict row validation: exactly 7 non-empty cells, `privacy` is `ok` or `trains`, no duplicate role+rung, charset checks on `model`, `effort`, `family`; rows inside fenced ``` blocks are ignored. Failure is the incomplete-profile error above.
+- Strict row validation: exactly 7 non-empty cells, `privacy` is `ok` or `trains`, no duplicate role+rung, charset checks on `model`, `effort`, `family`; rows inside fenced ``` blocks are ignored. Advisory rows (`driver`, `compaction`) are validated when present, never required, never rendered. Failure is one of the two diagnostics above.
 - The pin is passed to the frontmatter rewrite safely (no escape interpretation) and inserted only in the first frontmatter block.
-- Without `--profile`, the previous manifest's `# profile` is reused (else `tri`); an explicit change prints `profile changed: X -> Y`.
+- Without `--profile`, the previous manifest's `# profile` is reused (else `tri`); an explicit change prints `profile changed: X -> Y`. A legacy manifest with no `# profile` line is treated as profile `opencode-go` (a pre-profiles install was the OpenCode Go harness) and prints `profile: opencode-go (previous install predates profiles)`.
 - All existing destination, symlink, collision, and prune guards stay exactly as they are.
 - Usage text documents `--profile` and lists available profiles.
 
@@ -77,12 +77,12 @@ OpenCode agent files need a `model:` line so a natively dispatched seat never in
 
 How the controller turns a role into a running subagent. It walks each role's rungs strictly in ladder order (`primary`, `fallback`, `last-resort`). For the CURRENT rung, the first path that applies:
 
-1. Native pin (OpenCode host): the rung is the seat's native pin (the first `opencode` rung, rendered at install) and the host is OpenCode: dispatch the seat agent through the `subagent` tool (some builds name it `task`) with no model override.
-2. T3 Code orchestration tools are available: `delegate_task` for any provider (non-pinned `opencode` rungs included) with `target.providerInstanceId = provider`, `target.model = model`, `isolation: shared`, `mode: async` for parallel fan-out. For effort `-` pass `target.options = {}` (explicitly clears inherited options); otherwise pass exactly the rung's option `{<option-id>: <value>}`. `role` = `research` (scout), `implementation` (implementers, patch), `review` (reviewers, `task-reviewer`), `design` (design-it-twice alternatives). A seat's `task` text starts with the role contract line: `Role contract: read <harness-dir>/agents/<seat>.md; follow its body; its permissions block is your policy and you enforce it yourself.` followed by the normal brief; `<harness-dir>` is the directory holding `HARNESS.md`. `task-reviewer` and `design` briefs carry no contract line.
+1. Native pin (OpenCode host): the rung is the seat's native pin (the first `opencode` rung, rendered at install) and the host is OpenCode: dispatch the seat agent through the `subagent` tool (some builds name it `task`) with no model override; the brief still carries the `Rung:` line of path 2.
+2. T3 Code orchestration tools are available: before the first dispatch in a session call `orchestrator_capabilities` once; a provider, model, or option it does not list, a disabled provider, or a `delegate_task` rejection makes the rung unreachable (path 4, demote). Otherwise `delegate_task` for any provider (non-pinned `opencode` rungs included) with `target.providerInstanceId = provider`, `target.model = model`, `isolation: shared`, `mode: async` for parallel fan-out. For effort `-` pass `target.options = {}` (explicitly clears inherited options); otherwise pass the rung's option `{<option-id>: <value>}`, and for a same-provider child also pass that provider's default for every other option the driver set (for example `serviceTier=default`), because given values only override inherited ones. `role` = `research` (scout), `implementation` (implementers, patch), `review` (reviewers, `task-reviewer`), `design` (design-it-twice alternatives). A seat's `task` text starts with the role contract line: `Role contract: read <harness-dir>/agents/<seat>.md; follow its body; its permissions block is your policy and you enforce it yourself. Rung: <provider>/<model> (<effort>), privacy: <ok|trains>.` followed by the normal brief; `<harness-dir>` is the directory holding `HARNESS.md`. Native briefs (paths 1 and 3) carry the same line; a seat reads its privacy class from it (no `Rung:` line = unknown, confidential work refused). `task-reviewer` and `design` briefs carry no contract line.
 3. OpenCode host, `opencode` rung, no T3 tools: native dispatch with an explicit `model` override `<model>#<variant>`, announced. If the build ignores overrides this is best-effort.
 4. None applies: the rung is unreachable on this host; skip it like an exhausted rung and announce `seat <seat>: <provider>/<model> unreachable on this host, demoted to <next>`.
 
-`task-reviewer` has no agent file: its native path is path 3 with a general-purpose subagent (`type general`) and an explicit `model`; its delegate path is path 2 with role `review` and no contract line.
+`task-reviewer` has no agent file: its native path is path 3 with a general-purpose subagent (`type general`) and an explicit `model`; its delegate path is path 2 with role `review` and no contract line. `design` follows the same pattern (general-purpose subagent with explicit `model` natively, never the `implementer-deep` seat agent; delegate role `design`).
 
 Seats whose ladder has no `opencode` rung install with no `model:` line and are never dispatched natively (they would inherit the driver's model); they are reached only through `delegate_task`.
 
@@ -97,10 +97,10 @@ The `driver` row stays advisory. (1) OpenCode host: native seats, plus `delegate
 ## Routing rules (harness layer, unchanged in substance, reworded provider-neutral)
 
 - Ladder: on a usage-limit, allowance, quota, or 429-style error, or an unreachable rung, re-dispatch the same role on the next rung and announce the demotion.
-- Family independence (council): a seat may demote within its own family; it never takes a rung whose family is active on another council seat anywhere in this PR. Escalation (`reviewer-esc`) only runs on a family no seat used this PR.
+- Family independence (council): a seat may demote within its own family; it never takes a rung whose family is active on another council seat anywhere in this PR. Escalation (`reviewer-esc`) only runs on a family no council seat (`reviewer-a`, `reviewer-b`, `reviewer-c`) used this PR; "seat" here means council seats only.
 - Author independence (task loop): a `task-reviewer` rung whose family equals the implementing rung's family is skipped for that task.
-- Zero reachable rungs: an implementation seat with none hands the task to the next implementation seat (`implementer-deep` -> `implementer` -> `implementer-b`) and announces; reviewer seats follow the degraded-council rule; `scout` and `patch` with none: the controller stops the dispatch and reports, never running it on the driver model.
-- Council PASS additionally requires at least one PASS vote from a seat whose family authored none of the diff under review (author families = families of the rungs that produced commits on this branch, recorded in the state artifact).
+- Zero reachable rungs: an implementation seat with none hands the task to the next implementation seat and announces (`implementer-deep` -> `implementer` -> `implementer-b`, and `implementer` <-> `implementer-b`; a handoff never revisits an exhausted seat; all exhausted = stop and report, never the driver model); unreachable skips cost no council budget, only real dispatches count toward the 14-dispatch guard; reviewer seats follow the degraded-council rule; `scout` and `patch` with none: the controller stops the dispatch and reports, never running it on the driver model.
+- Council PASS additionally requires at least one PASS vote from a council seat whose family is not an author family. Author families = families of the implementation and fixer rungs (`implementer*`, `patch`, CI and council fixers) that produced commits on the branch, recorded per commit in the state artifact from Phase 3 on; driver commits of spec, plan, docs-only state, or serial commits of child work (parallel mode) do not make the driver an author. If every council seat's family is an author family, `reviewer-esc` (a family unused by council seats) supplies the non-author vote as one extra dispatch counted against the 14-dispatch budget; if that is impossible, stop with `yellow: degraded council`. This is a deliberate council-gate addition (see Non-goals).
 - Degraded council, round caps, 14-dispatch budget guard, no-tests rule, privacy gate (skip `privacy: trains` rungs on confidential work), fixer seat routing: unchanged.
 - The active routing table is `PROVIDERS.md` next to `HARNESS.md` (in this repo: `providers/<profile>.md`). Skills say "the active provider profile", never a provider name.
 
@@ -113,7 +113,7 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 - **Implementation** produces the bulk of all output tokens: strong mid-tier coders at medium effort; frontier only for `implementer-deep`.
 - **Per-task review** runs once per task, often: a flash model from a family that did not write the code.
 - **Council** outputs are short and decide the merge: one frontier model per family (Google, Anthropic, OpenAI) at equal `high` effort so votes are comparable. Each council seat demotes inside its own family first, then out of family; every seat's last resort sits on a different provider than its primary, so one provider outage never empties a seat (the exception is `reviewer-esc`, whose whole ladder is OpenCode Go).
-- **Escalation** is a fourth family none of the seats uses, so its verdict stays independent. It needs a family unused this PR: `reviewer-a`'s last resort (zhipu) consumes one escalation rung if reached, leaving moonshot and deepseek.
+- **Escalation** is a fourth family none of the seats uses, so its verdict stays independent. "Seat" means council seats only (implementation rungs do not block it). It needs a family unused by council seats this PR: `reviewer-a`'s last resort (zhipu) can consume one escalation rung if reached, leaving moonshot and deepseek.
 
 | role | primary | fallback | last-resort |
 | --- | --- | --- | --- |
@@ -148,4 +148,4 @@ Model ids were checked against the T3 Code catalog on 2026-11-09; re-check with 
 ## Non-goals
 
 - Host-runtime decoupling (OpenCode agent-file format, `OPENCODE_CONFIG` destination, OpenCode permission syntax). The adapter makes non-OpenCode providers reachable; moving the harness off OpenCode as a host is a separate change.
-- Changing any loop, cap, gate, or review contract.
+- Changing any loop, cap, or review contract, or any gate other than the one deliberate council-gate addition: the author-family PASS rule above (a non-author PASS vote, supplied by `reviewer-esc` when needed).

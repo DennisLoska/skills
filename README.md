@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Skills-12%20Pipeline%20Units-1AD1A5?style=flat-square" alt="12 Pipeline Skills" />
   <img src="https://img.shields.io/badge/Council-3%20Independent%20Families-FF6B35?style=flat-square" alt="3-Family Council" />
   <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
-  <img src="https://img.shields.io/badge/Tests-65%2F65%20Passing-2ECC71?style=flat-square" alt="65/65 Tests Passing" />
+  <img src="https://img.shields.io/badge/Tests-76%2F76%20Passing-2ECC71?style=flat-square" alt="76/76 Tests Passing" />
 </p>
 
 <p align="center">
@@ -157,7 +157,7 @@ flowchart LR
 |             were pushed after last green CI receipt                                  |
 +--------------------------------------------------------------------------------------+
         |
-        | (PASS: >=2/3 seats PASS + 0 confirmed reds + green tests)
+        | (PASS: >=2/3 seats PASS + 0 confirmed reds + green tests + 1 non-author-family PASS)
         v
 +--------------------------------------------------------------------------------------+
 | PHASE 7: FINISH & NEXT-FEATURE HANDOFF                                               |
@@ -214,7 +214,7 @@ What happens across the 7 numbered phases plus 6.5:
 4. **Phase 4 - `verify` (Evidence Gate):** runs the full test suite, typecheck, linter, and build, confirming every spec checklist item with fresh command output.
 5. **Phase 5 - `land` (PR Filing):** pushes the feature branch and opens a problem-led GitHub PR (`## Summary`, `## Changes`, `## Test plan`).
 6. **Phase 6.5 - `make-ci-green` (L3 CI Loop):** watches GitHub Actions and review bots, dispatches implementation-seat fixers on real failures, and requires concrete log-line evidence before retrying a suspected flake.
-7. **Phase 6 - `council` (L2 Branch Loop):** dispatches 3 adversarial reviewers from independent model families in parallel (`reviewer-a`, `reviewer-b`, `reviewer-c`, one family each per the active provider profile). Any confirmed red finding triggers implementation-seat fixers and re-review (up to 3 rounds, then `reviewer-esc` on a fourth family).
+7. **Phase 6 - `council` (L2 Branch Loop):** dispatches 3 adversarial reviewers from independent model families in parallel (`reviewer-a`, `reviewer-b`, `reviewer-c`, one family each per the active provider profile). Any confirmed red finding triggers implementation-seat fixers and re-review (up to 3 rounds, then `reviewer-esc` on a fourth family). PASS also needs one vote from a seat whose family authored none of the commits; if every seat's family is an author family, `reviewer-esc` supplies it as one extra budgeted dispatch, else `yellow: degraded council`.
 8. **Phase 7 - `land` (Gate 3 Finish & Handoff):** presents finish options (merge PR and hand off to default branch, keep PR open, keep branch, or Discard).
 
 ### 2. Zero-Gate Unattended Mode (`oneshot` Auto-Approve)
@@ -267,7 +267,7 @@ The harness is split into three layers so providers can be swapped or mixed with
 | Provider (swappable) | which provider instance, model, and effort runs each role; fallback ladders; model families; privacy class; quotas and provider notes | `providers/<profile>.md` |
 | Install (binding) | binds one profile to one install: copies it as `<dest>/PROVIDERS.md` and renders each seat's native pin | `install.sh --profile <name>` |
 
-No harness file names a concrete model ID, provider quota, or provider-specific effort value. The Dispatch Adapter in [`AGENTS.md`](./AGENTS.md) turns a role into a running subagent: the controller walks each role's rungs in ladder order. For the current rung it dispatches natively with no override when the rung is the seat's installed native pin on an OpenCode host; otherwise through T3 Code `delegate_task` (provider instance, model, and the rung's effort option, or `{}` for `-`) for any provider, including non-pinned `opencode` rungs; or, on an OpenCode host without T3 tools, natively with an explicit `model` override (best-effort if the build ignores overrides). A rung none of these can reach is skipped like an exhausted one. A seat whose ladder has no `opencode` rung installs with no `model:` line and is never dispatched natively. An implementation seat with no reachable rung hands its task to the next implementation seat; `scout` and `patch` with none stop the dispatch.
+No harness file names a concrete model ID, provider quota, or provider-specific effort value. The Dispatch Adapter in [`AGENTS.md`](./AGENTS.md) turns a role into a running subagent: the controller walks each role's rungs in ladder order. For the current rung it dispatches natively with no override when the rung is the seat's installed native pin on an OpenCode host; otherwise through T3 Code `delegate_task` (provider instance, model, and the rung's effort option, or `{}` for `-`) for any provider, including non-pinned `opencode` rungs; or, on an OpenCode host without T3 tools, natively with an explicit `model` override (best-effort if the build ignores overrides). Before the first dispatch the controller calls `orchestrator_capabilities` once; a provider, model, or option it does not list, a disabled provider, or a `delegate_task` rejection makes the rung unreachable. A rung none of these can reach is skipped like an exhausted one (skips cost no council budget). A seat whose ladder has no `opencode` rung installs with no `model:` line and is never dispatched natively. An implementation seat with no reachable rung hands its task to the next implementation seat (`implementer-deep` -> `implementer` -> `implementer-b`, `implementer` <-> `implementer-b`, never revisiting an exhausted seat); with all exhausted, or `scout`/`patch` with none, the dispatch stops and reports, never running on the driver model. Design alternatives run on distinct-family `implementer-deep`, then `implementer`/`implementer-b` rungs (announcing `degraded design: N families` when too few are reachable).
 
 ### Default profile `tri`
 
@@ -278,7 +278,7 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 - **Implementation** produces the bulk of all output tokens: strong mid-tier coders at medium effort; frontier only for `implementer-deep`.
 - **Per-task review** runs once per task, often: a flash model from a family that did not write the code.
 - **Council** outputs are short and decide the merge: one frontier model per family (Google, Anthropic, OpenAI) at equal `high` effort so votes are comparable. Each council seat demotes inside its own family first, then out of family; every seat's last resort sits on a different provider than its primary, so one provider outage never empties a seat (the exception is `reviewer-esc`, whose whole ladder is OpenCode Go).
-- **Escalation** is a fourth family none of the seats uses, so its verdict stays independent. It needs a family unused this PR: `reviewer-a`'s last resort (zhipu) consumes one escalation rung if it is reached, leaving moonshot and deepseek.
+- **Escalation** is a fourth family none of the council seats (`reviewer-a`, `reviewer-b`, `reviewer-c`) uses, so its verdict stays independent; implementation rungs do not count. It needs a family unused by council seats this PR: `reviewer-a`'s last resort (zhipu) can consume one escalation rung if it is reached, leaving moonshot and deepseek.
 
 Supported driver setups (the `driver` row stays advisory):
 
@@ -316,11 +316,11 @@ Copy an existing profile to `providers/<name>.md` (the name matches `[a-z0-9][a-
 | scout | primary | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |
 ```
 
-- `rung` is `primary`, `fallback`, or `last-resort`; ladder order is that order. Every profile must define a `primary` row for all ten dispatched roles (the nine seats plus `task-reviewer`); `driver` and `compaction` are advisory and never validated or rendered.
+- `rung` is `primary`, `fallback`, or `last-resort`; ladder order is that order. Every profile must define a `primary` row for all ten dispatched roles (the nine seats plus `task-reviewer`); `driver` and `compaction` are advisory: validated when present, never required, never rendered.
 - `provider` is the provider instance id (`antigravity`, `codex`, `opencode`, ...); `opencode` is the only value an OpenCode host can dispatch natively.
-- `model` is the id exactly as that provider's catalog names it; `effort` is `<option-id>=<value>` in the provider's own vocabulary (`thinking_level=high`, `reasoningEffort=medium`, `variant=max`) or `-` for the provider default.
+- `model` is the id exactly as that provider's catalog names it; it starts alphanumeric and uses only `[A-Za-z0-9._/-]`. `effort` is `<option-id>=<value>` in the provider's own vocabulary (`thinking_level=high`, `reasoningEffort=medium`, `variant=max`) or `-` for the provider default; `-` is allowed only in `effort` for dispatched roles, and anywhere on advisory rows.
 - `family` drives the independence rules; the same family on two providers is the same family. `privacy` is `ok` or `trains`.
-- The installer validates rows strictly: exactly 7 non-empty cells, `privacy` is `ok` or `trains`, no duplicate role+rung, and charset checks on `model`, `effort`, and `family`. Rows inside fenced ``` blocks are ignored, so examples in prose are safe.
+- The installer validates rows strictly: any non-fenced table row whose first cell is a role name must be a valid 7-cell routing row (exactly 7 non-empty cells, `privacy` is `ok` or `trains`, no duplicate role+rung, charset checks on `model`, `effort`, and `family`). Rows inside fenced ``` blocks are ignored, so examples in prose are safe. Two diagnostics, both on stderr with exit 1 and nothing written: `install.sh: profile NAME incomplete: ROLE` (a dispatched role lacks its primary row) and `install.sh: profile NAME invalid row: ROLE RUNG: REASON` (malformed row). The rules live once in [`AGENTS.md`](./AGENTS.md) (Provider Profiles, Validation).
 
 ---
 
@@ -336,7 +336,7 @@ skills/           12 pipeline skills:          oneshot, shape, plan, dispatch,
                                                codebase-design
 providers/        swappable provider profiles: tri (default), opencode-go (legacy)
 docs/             design specs and plans:      docs/specs/, docs/plans/
-test/install.sh   65-assertion contract suite  (runs in throwaway HOME on Bash >=3.2)
+test/install.sh   76-assertion contract suite  (runs in throwaway HOME on Bash >=3.2)
 AGENTS.md         harness routing instructions (installed as ~/.config/opencode/HARNESS.md)
 install.sh        collision-safe installer     (manifest-scoped prune, symlink guards)
 NOTICE            upstream MIT attribution     (mattpocock/skills)
@@ -347,7 +347,7 @@ LICENSE           MIT license
 
 ## 🛠️ Installation (For Agents and Humans)
 
-Requires OpenCode V2 as the host. Connect whichever providers your chosen profile uses: the default `tri` profile expects Antigravity, Codex, and OpenCode Go; `--profile opencode-go` needs only OpenCode Go (`/connect`). Config reloads automatically without a restart.
+Requires OpenCode V2 as the host. Connect whichever providers your chosen profile uses: the default `tri` profile expects Antigravity, Codex, and OpenCode Go; `--profile opencode-go` needs only OpenCode Go (`/connect`). The `tri` profile needs T3 Code orchestration (`delegate_task`) to reach its antigravity and codex rungs; for standalone OpenCode (no T3 Code), install with `--profile opencode-go`. Config reloads automatically without a restart.
 
 ### 1. Clone and run `./install.sh`
 
@@ -365,7 +365,7 @@ The copy is collision-safe. Before touching anything, the installer runs preflig
 
 | Flag | Effect |
 | --- | --- |
-| `--profile <name>` | bind the install to `providers/<name>.md` (also `--profile=<name>`; default `tri`). Without `--profile`, the previous manifest's `# profile` is reused (else `tri`); an explicit change prints `profile changed: X -> Y`. An unknown profile exits 2 with `install.sh: unknown profile: <name> (available: ...)`; an incomplete or invalid profile (a required role without a `primary` row, an invalid `rung`, or a row failing the strict validation above) exits 1 with `install.sh: profile <name> incomplete: <role>`; both are checked before anything is written |
+| `--profile <name>` | bind the install to `providers/<name>.md` (also `--profile=<name>`; default `tri`). Without `--profile`, the previous manifest's `# profile` is reused (else `tri`); a previous manifest without a `# profile` line keeps `opencode-go` and prints `profile: opencode-go (previous install predates profiles)`; an explicit change prints `profile changed: X -> Y`. An unknown profile exits 2 with `install.sh: unknown profile: <name> (available: ...)`; an incomplete or invalid profile exits 1 with `install.sh: profile <name> incomplete: <role>` (a dispatched role without a `primary` row) or `install.sh: profile <name> invalid row: <role> <rung>: <reason>` (a row failing the strict validation above); both are checked before anything is written |
 | `--force` | overwrite files that already exist in the destination, and repair any symlinked parent directory under the destination by replacing the link with a real directory (warning: this removes the link) |
 | `--prune` | after copying, remove files that the previous `<dest>/.harness-manifest` records as installed but this run no longer produces, then print `pruned N stale file(s)`. Files the installer never wrote are never removed, so personal agents and skills in the same directory survive. With no previous manifest it prints `no previous manifest; prune skipped` and removes nothing |
 | `-h`, `--help` | print usage and exit 0 without copying |
@@ -420,7 +420,7 @@ grep -q 'HARNESS.md' ~/.config/opencode/opencode.json &&
 
 ## 🧪 Testing
 
-Run the 65-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
+Run the 76-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
 
 ```sh
 bash -n install.sh && bash -n test/install.sh

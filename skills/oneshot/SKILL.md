@@ -87,6 +87,7 @@ If the path IS ignored, record the local path and never use `git add -f`.
 4. Independent tasks run in parallel as separate fresh subagents (parallel fan-out lives inside `dispatch`).
 5. Stream task results to the user as they return (task name, pass/fail, key outputs).
 6. Task failure routes to `debug`: root cause first, then re-dispatch (escalating to `implementer-deep` when a bug resists standard fixes). Unfixable after the debug loop: escalate to user with failure context.
+7. Record the author family per task: after each task commit, append the commit sha, task, and the implementing rung's family (`family` column of the active provider profile) to the state artifact. In parallel mode the driver commits staged child work serially; record the child's rung family, not the driver's. Driver commits of spec, plan, or docs-only state record nothing (AGENTS.md Council Contract).
 
 Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug`. Debug gets at most 2 rotations; past that, STOP and escalate to the user with context. Escalation after exhausting caps is an explicit allowed stop point - the no-pause rule never overrides budget exhaustion.
 
@@ -118,25 +119,26 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 **Skill:** `make-ci-green`
 
 1. Invoke `make-ci-green` via the `skill` tool (skip if the repo has no CI/review bots; say "no CI to babysit" and move on).
-2. Watch checks and bot reviews. Real finding -> fresh fixer subagent -> rerun CI. No new information -> no rerun. No blind loops, no flake chasing.
+2. Watch checks and bot reviews. Real finding -> fresh fixer subagent -> rerun CI (record the fixer rung's family per commit in the state artifact, as in Phase 3). No new information -> no rerun. No blind loops, no flake chasing.
 
 ---
 
 ## Phase 6: COUNCIL (consensus, max 3 rounds)
 
 **Skills:** `council`
-**Gate to Phase 7:** consensus PASS from at least 2 of 3 reviewers **AND** tests green. Both required. The author-family PASS rule applies as well (AGENTS.md Council Contract): record the families of the rungs that produced commits on this branch in the state artifact.
+**Gate to Phase 7:** consensus PASS from at least 2 of 3 reviewers **AND** tests green. Both required. The author-family PASS rule applies as well (AGENTS.md Council Contract): the state artifact holds the author families recorded per commit since Phase 3.
 
 1. Invoke `council` via the `skill` tool.
 2. Dispatch three fresh reviewer subagents on three independent model families (`reviewer-a`, `reviewer-b`, `reviewer-c` roles, rungs from the active provider profile). Each assumes the code is broken, hunts for bugs: spec compliance, edges, error handling, security, diff-vs-plan, regressions.
 3. Findings merge into one line per item: `path:line: emoji severity: problem. fix.`
 4. Round loop (max 3 rounds, never stops mid-loop):
-   - FAIL -> dispatch fresh implementation-seat fixer subagents (`implementer` or `implementer-b`, one per problem cluster, max 2 files each; see `AGENTS.md` Review contracts for fixer seat routing) -> push -> re-review next round.
+   - FAIL -> dispatch fresh implementation-seat fixer subagents (`implementer` or `implementer-b`, one per problem cluster, max 2 files each; see `AGENTS.md` Review contracts for fixer seat routing; record each fixer commit's rung family in the state artifact) -> push -> re-review next round.
    - PASS + green -> break, proceed to Phase 7.
    - CI freshness gate: if any council fix round pushed commits after the last green `make-ci-green` receipt, re-enter Phase 6.5 on the final HEAD before Phase 7. A stale green receipt never satisfies the gate.
    - If that 6.5 re-entry itself pushes further CI-repair commits, the final HEAD needs one delta council round on the changed files (counted against the 3-round budget); when the round budget is exhausted alongside red CI, STOP and escalate instead of landing unreviewed.
 5. Rounds exhausted -> one escalation review on the `reviewer-esc` rung of the active provider profile -> still failing -> STOP, escalate to user with round count, findings, test output. Do not proceed.
-6. No test suite: see `AGENTS.md` Review contracts for the `no-tests` gate rule. Label a `no-tests` PASS `provisional: no-tests` in the verdict, and have the reviewer flag `no tests` as yellow. Record any `no-tests decision: proceed` in the state artifact; for a standalone council run the state artifact is `$(git rev-parse --git-dir)/info/oneshot-state.md` in the target repo or worktree, created if missing (`mkdir -p "$(git rev-parse --git-dir)/info"`).
+6. Author-family vote: before declaring PASS, check that at least one PASS comes from a council seat whose family is not an author family. If every seat's family is an author family, dispatch `reviewer-esc` for the non-author vote (one extra dispatch against the 14-dispatch budget); if that is impossible, STOP with `yellow: degraded council`.
+7. No test suite: see `AGENTS.md` Review contracts for the `no-tests` gate rule. Label a `no-tests` PASS `provisional: no-tests` in the verdict, and have the reviewer flag `no tests` as yellow. Record any `no-tests decision: proceed` in the state artifact; for a standalone council run the state artifact is `$(git rev-parse --git-dir)/info/oneshot-state.md` in the target repo or worktree, created if missing (`mkdir -p "$(git rev-parse --git-dir)/info"`).
 
 **Rules:** Reviewer never fixes, fixer never reviews. Fresh subagents every round. Rounds 1-2 never pause for user input; stream results in passing. Verify every finding against real code before acting.
 

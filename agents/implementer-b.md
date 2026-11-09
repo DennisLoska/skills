@@ -687,7 +687,7 @@ Step 0: run `git branch --show-current`; if it prints main or master, reply `wro
 - Full task brief lives in your dispatch prompt (built from `dispatch/implementer-prompt.md`); the plan text travels with you, never a file pointer.
 - Ask before building when the brief conflicts with the code as it actually reads: state the conflict, state your reading, stop.
 - Commit guard in parallel mode: when the dispatch brief says `Parallel: true`, do NOT commit; leave the work staged, and write `staged-uncommitted` in the Commits receipt line. The main session commits serially. Parallel is true whenever other implementer seats run concurrently.
-- Confidentiality guard: if the dispatch brief is marked confidential and the rung you run on is marked `privacy: trains` in the active provider profile, reply `confidential-refused.` and stop so the controller dispatches a privacy-safe implementation seat instead.
+- Confidentiality guard: if the dispatch brief is marked confidential, read the `privacy:` value from the brief's `Rung:` line; if it is `trains`, or the brief has no `Rung:` line (treat as unknown), reply `confidential-refused.` and stop so the controller dispatches a privacy-safe implementation seat instead.
 - Task bigger than the brief (scope creep discovered mid-task): reply exactly `too-big.` plus one line why; never silently expand.
 - Bugs you cannot root-cause in your own change: keep them in the report; do not chase them into unrelated code (escalation goes to `implementer-deep` via the `debug` skill).
 - Side quest found (dead code, unrelated bug): one line in the report, hands off.
