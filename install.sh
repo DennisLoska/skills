@@ -193,12 +193,20 @@ if [ -L "$MANIFEST" ] || { [ -e "$MANIFEST" ] && [ ! -f "$MANIFEST" ]; }; then
 fi
 prev_profile=""
 prev_profile_present=0
+prev_harness_present=0
+prev_profile_legacy=0
 if [ -f "$MANIFEST" ]; then
   while IFS= read -r mline || [ -n "$mline" ]; do
     case "$mline" in
       '# profile '*) prev_profile="${mline#'# profile '}"; prev_profile_present=1; break ;;
+      '# harness '*) prev_harness_present=1 ;;
     esac
   done <"$MANIFEST"
+fi
+if [ "$prev_profile_present" -eq 0 ] && [ "$prev_harness_present" -eq 1 ]; then
+  prev_profile=opencode-go
+  prev_profile_present=1
+  prev_profile_legacy=1
 fi
 if [ "$profile_given" -eq 0 ] && [ "$prev_profile_present" -eq 1 ]; then
   profile="$prev_profile"
@@ -238,10 +246,11 @@ PROFILE_ROWS="$(PROFILE_NAME="$profile" REQUIRED_ROLES="$REQUIRED_ROLES" awk -F 
     for (i = 2; i <= 8; i++) if ($i == "") invalid("empty cell")
     if ($3 != "primary" && $3 != "fallback" && $3 != "last-resort") invalid("invalid rung")
     if ($8 != "ok" && $8 != "trains") invalid("invalid privacy")
-    if ($4 !~ /^([a-z0-9][a-z0-9-]*|-)$/) invalid("invalid provider")
-    if ($5 !~ /^[A-Za-z0-9._\/:-]+$/) invalid("invalid model")
-    if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9._-]+)$/) invalid("invalid effort")
-    if ($7 !~ /^([a-z0-9][a-z0-9-]*|-)$/) invalid("invalid family")
+    advisory = (role == "driver" || role == "compaction")
+    if (!(advisory && $4 == "-") && $4 !~ /^[a-z0-9][a-z0-9-]*$/) invalid("invalid provider")
+    if (!(advisory && $5 == "-") && $5 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) invalid("invalid model")
+    if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid("invalid effort")
+    if (!(advisory && $7 == "-") && $7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid("invalid family")
     key = role SUBSEP $3
     if (key in seen) invalid("duplicate rung")
     seen[key] = 1
@@ -582,6 +591,10 @@ mv -f -- "$TMP_MANIFEST" "$MANIFEST"
 
 if [ "$prev_manifest_present" -eq 1 ] && [ "$prev_sha" != "$harness_sha" ]; then
   printf 'harness updated: %s -> %s\n' "$prev_sha" "$harness_sha"
+fi
+
+if [ "$profile_given" -eq 0 ] && [ "$prev_profile_legacy" -eq 1 ]; then
+  printf 'profile: opencode-go (previous install predates profiles)\n'
 fi
 
 if [ "$profile_given" -eq 1 ] && [ -n "$prev_profile" ] && [ "$prev_profile" != "$profile" ]; then

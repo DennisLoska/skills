@@ -659,7 +659,12 @@ for defect in missing-primary invalid-rung; do
   rc=0
   OPENCODE_CONFIG="$TMPROOT/incomplete-dest" "$FIXTURE/install.sh" --force --prune --profile broken >"$TMPROOT/incomplete.out" 2>"$TMPROOT/incomplete.err" || rc=$?
   [ "$rc" -eq 1 ] || fail "incomplete profile exits 1: $defect"
-  grep -qE 'install.sh: profile broken (incomplete: implementer-deep|invalid row: implementer-deep bogus: invalid rung)' "$TMPROOT/incomplete.err" || fail "incomplete diagnostic: $defect"
+  if [ "$defect" = missing-primary ]; then
+    diagnostic='install.sh: profile broken incomplete: implementer-deep'
+  else
+    diagnostic='install.sh: profile broken invalid row: implementer-deep bogus: invalid rung'
+  fi
+  grep -qxF "$diagnostic" "$TMPROOT/incomplete.err" || fail "incomplete diagnostic: $defect"
   [ ! -e "$TMPROOT/incomplete-dest" ] || fail "incomplete profile writes nothing"
 done
 pass "missing primary and invalid rung exit 1 before any write"
@@ -724,7 +729,11 @@ reject_unchanged() {
   find "$REJECT_DEST" -print | LC_ALL=C sort >"$TMPROOT/reject.paths.before"
   OPENCODE_CONFIG="$REJECT_DEST" "$FIXTURE/install.sh" --force --prune "$@" >"$TMPROOT/reject.out" 2>"$TMPROOT/reject.err" || rc=$?
   [ "$rc" -eq "$expected_rc" ] || { cat "$TMPROOT/reject.err" >&2; fail "rejection status: $diagnostic"; }
-  grep -qF "$diagnostic" "$TMPROOT/reject.err" || { cat "$TMPROOT/reject.err" >&2; fail "rejection diagnostic: $diagnostic"; }
+  case "$diagnostic" in
+    'install.sh: profile '*)
+      grep -qxF "$diagnostic" "$TMPROOT/reject.err" || { cat "$TMPROOT/reject.err" >&2; fail "rejection diagnostic: $diagnostic"; } ;;
+    *) grep -qF "$diagnostic" "$TMPROOT/reject.err" || { cat "$TMPROOT/reject.err" >&2; fail "rejection diagnostic: $diagnostic"; } ;;
+  esac
   snapshot "$REJECT_DEST" >"$TMPROOT/reject.after"
   find "$REJECT_DEST" -print | LC_ALL=C sort >"$TMPROOT/reject.paths.after"
   cmp -s "$TMPROOT/reject.before" "$TMPROOT/reject.after" || fail "rejection changed files"
@@ -740,6 +749,10 @@ cp "$ROOT/providers/opencode-go.md" "$FIXTURE/providers/evil.md"
 printf '| scout | primary | opencode | valid | - | google | ok |\n' >>"$FIXTURE/providers/evil.md"
 reject_unchanged 1 'install.sh: profile evil invalid row: scout primary: duplicate rung' --profile evil
 pass "duplicate primary is rejected without writes"
+cp "$ROOT/providers/opencode-go.md" "$FIXTURE/providers/evil.md"
+printf '| reviewer-a | last-resort | opencode | valid | - | - | ok |\n' >>"$FIXTURE/providers/evil.md"
+reject_unchanged 1 'install.sh: profile evil invalid row: reviewer-a last-resort: invalid family' --profile evil
+pass "council seat rejects placeholder family without writes"
 cp "$ROOT/providers/opencode-go.md" "$FIXTURE/providers/evil.md"
 printf '| driver | fallback | - | host-default | - | - | typo |\n' >>"$FIXTURE/providers/evil.md"
 reject_unchanged 1 'install.sh: profile evil invalid row: driver fallback: invalid privacy' --profile evil
@@ -783,5 +796,37 @@ pass "explicit profile change is announced"
 printf '# profile removed\n' >"$REJECT_DEST/.harness-manifest"
 reject_unchanged 2 'install.sh: unknown profile: removed'
 pass "removed implicit profile refuses without writes"
+
+# A pre-profile manifest is the historical opencode-go binding, not a fresh install.
+for selection in implicit explicit; do
+  PREPROFILE_DEST="$TMPROOT/preprofile-$selection"
+  mkdir -p "$PREPROFILE_DEST"
+  printf '# harness old-revision\nagents/scout.md\n' >"$PREPROFILE_DEST/.harness-manifest"
+  if [ "$selection" = implicit ]; then
+    OPENCODE_CONFIG="$PREPROFILE_DEST" "$INSTALL" --force >"$TMPROOT/preprofile.out"
+    expected_profile=opencode-go
+    expected_message='profile: opencode-go (previous install predates profiles)'
+  else
+    OPENCODE_CONFIG="$PREPROFILE_DEST" "$INSTALL" --force --profile tri >"$TMPROOT/preprofile.out"
+    expected_profile=tri
+    expected_message='profile changed: opencode-go -> tri'
+  fi
+  cmp -s "$ROOT/providers/$expected_profile.md" "$PREPROFILE_DEST/PROVIDERS.md" || fail "pre-profile $selection binding"
+  grep -qxF "# profile $expected_profile" "$PREPROFILE_DEST/.harness-manifest" || fail "pre-profile $selection metadata"
+  grep -qxF "$expected_message" "$TMPROOT/preprofile.out" || fail "pre-profile $selection announcement"
+  pass "pre-profile manifest respects $selection selection"
+done
+
+# Advisory placeholders are valid when present and do not affect native pins.
+awk '!/^[|] (driver|compaction) [|]/' "$ROOT/providers/opencode-go.md" >"$FIXTURE/providers/advisory.md"
+printf '| driver | primary | - | - | - | - | ok |\n| compaction | primary | - | - | - | - | ok |\n' >>"$FIXTURE/providers/advisory.md"
+OPENCODE_CONFIG="$TMPROOT/advisory-dest" "$FIXTURE/install.sh" --profile advisory >"$TMPROOT/advisory.out"
+for expected in "$TMPROOT/legacy-agents/"*.md; do
+  cmp -s "$expected" "$TMPROOT/advisory-dest/agents/${expected##*/}" || fail "advisory placeholders affect pin: ${expected##*/}"
+done
+pass "advisory placeholders are accepted without rendering"
+awk '!/^[|] (driver|compaction) [|]/' "$ROOT/providers/opencode-go.md" >"$FIXTURE/providers/no-advisory.md"
+OPENCODE_CONFIG="$TMPROOT/no-advisory-dest" "$FIXTURE/install.sh" --profile no-advisory >"$TMPROOT/no-advisory.out"
+pass "advisory rows remain optional"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

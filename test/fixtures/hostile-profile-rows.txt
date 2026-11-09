@@ -6,3 +6,9 @@ privacy;| scout | fallback | opencode | valid | - | google | okay |;invalid priv
 provider;| scout | fallback | Bad | valid | - | google | ok |;invalid provider
 family;| scout | fallback | opencode | valid | - | Bad | ok |;invalid family
 effort;| scout | fallback | opencode | valid | bad=one=two | google | ok |;invalid effort
+model-colon;| scout | fallback | opencode | example: | - | google | ok |;invalid model
+model-leading-dash;| scout | fallback | opencode | -x | - | google | ok |;invalid model
+model-placeholder;| scout | fallback | opencode | - | - | google | ok |;invalid model
+provider-placeholder;| scout | fallback | - | valid | - | google | ok |;invalid provider
+family-placeholder;| scout | fallback | opencode | valid | - | - | ok |;invalid family
+effort-leading-dash;| scout | fallback | opencode | valid | variant=-x | google | ok |;invalid effort
