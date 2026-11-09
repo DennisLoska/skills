@@ -33,7 +33,7 @@ No praise. No "looks good". No scope creep.
 4. If a seat's rung is exhausted or unreachable mid-round: re-dispatch the SAME seat role on its next ladder rung from the active provider profile (mechanics below). Rerun only that seat. Never fill a seat with a rung whose family is active on another council seat anywhere in this PR (AGENTS.md Routing Rules).
 5. Confidentiality gate: if the review brief or referenced diff carries a confidential flag, the AGENTS.md Routing Rules privacy gate applies to every seat (`privacy: trains` rungs in the active provider profile auto-skip); demote to the next privacy-safe rung and announce.
 
-6. Author-family rule: PASS also needs the author-family vote from the AGENTS.md Council Contract (at least one PASS from a council seat whose family is not an author family). Read the author families from the state artifact. If every seat's family is an author family, dispatch `reviewer-esc` for the non-author vote (one extra dispatch counted against the 14-dispatch guard); if that is impossible, stop with `yellow: degraded council`.
+6. Author-family rule: PASS also needs the author-family vote from the AGENTS.md Council Contract (at least one PASS from a council seat whose family is not an author family). Read the author families from the state artifact. If every seat's family is an author family, dispatch `reviewer-esc` for the non-author vote on a rung whose family is neither a council-seat nor an author family (AGENTS.md Council Contract; one extra dispatch counted against the 14-dispatch guard); if that is impossible, stop with `yellow: degraded council`.
 
 ## Fallback mechanics
 
