@@ -27,6 +27,7 @@ MANIFEST="$DEST/.harness-manifest"
 # Frozen historical pins and positions, independent of current source layout.
 mkdir -p "$TMPROOT/legacy-agents"
 while IFS="$(printf '\t')" read -r seat line model; do
+  [ -f "$ROOT/agents/$seat.md" ] || continue
   MODEL_LINE="$model" awk -v line="$line" '
     NR == line { print ENVIRON["MODEL_LINE"] }
     { print }
@@ -36,6 +37,7 @@ done <"$ROOT/test/fixtures/legacy-pins.txt"
 # Default render expectations are independent of the routing-table parser.
 mkdir -p "$TMPROOT/tri-agents"
 while read -r seat pin; do
+  [ -f "$ROOT/agents/$seat.md" ] || continue
   awk -v pin="$pin" '
     /^model: / { next }
     { print }
@@ -43,14 +45,14 @@ while read -r seat pin; do
   ' "$ROOT/agents/$seat.md" >"$TMPROOT/tri-agents/$seat.md"
 done <<'PINS'
 scout opencode-go/mimo-v2.6-flash
-implementer opencode-go/deepseek-v4.1-flash#high
-implementer-b opencode-go/glm-5.3#high
+implementer opencode-go/gemini-4-argon#high
 implementer-deep -
 patch opencode-go/deepseek-v4.1-flash#high
-reviewer-a opencode-go/glm-5.3#high
+tester opencode-go/deepseek-v4.1-flash#high
+reviewer-a opencode-go/kimi-k3.1-pro#high
 reviewer-b opencode-go/claude-haiku-5-5#high
 reviewer-c opencode-go/gpt-6-luna#high
-reviewer-esc opencode-go/kimi-k3.1-pro#high
+reviewer-esc opencode-go/deepseek-v4-pro
 PINS
 
 # 1. clean install into an empty HOME
@@ -614,7 +616,7 @@ if grep -q '^model:' "$DEST/agents/implementer-deep.md"; then
   fail "tri implementer-deep has no native pin"
 fi
 grep -qxF 'note: implementer-deep has no opencode rung; dispatch it through delegate_task only' "$TMPROOT/case1.out" || fail "tri reports delegate-only seat"
-grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$DEST/agents/implementer.md" || fail "tri implementer uses native last-resort"
+grep -qxF 'model: opencode-go/gemini-4-argon#high' "$DEST/agents/implementer.md" || fail "tri implementer uses its OpenCode fallback"
 pass "default tri profile, manifest metadata, native pin and delegate-only note"
 
 # 39. legacy profile preserves historical pin values and line positions
@@ -690,7 +692,7 @@ cmp -s "$ROOT/providers/opencode-go.md" "$PROFILE_DEST/PROVIDERS.md" || fail "pr
 pass "PROVIDERS.md respects collision, force, symlink and prune rules"
 
 # 44. every required role is validated (including the ad-hoc task reviewer)
-for role in scout implementer implementer-b implementer-deep patch reviewer-a reviewer-b reviewer-c reviewer-esc task-reviewer; do
+for role in scout implementer implementer-deep patch tester reviewer-a reviewer-b reviewer-c reviewer-esc task-reviewer; do
   awk -F '|' -v role="$role" '!($2 == " " role " " && $3 == " primary ")' "$ROOT/providers/tri.md" >"$FIXTURE/providers/broken.md"
   rc=0
   OPENCODE_CONFIG="$TMPROOT/incomplete-dest" "$FIXTURE/install.sh" --profile broken >"$TMPROOT/role.out" 2>"$TMPROOT/role.err" || rc=$?
@@ -706,7 +708,7 @@ mkdir -p "$FIXTURE/skills"
 cp "$ROOT/NOTICE" "$ROOT/LICENSE" "$FIXTURE/"
 printf 'fixture harness\n' >"$FIXTURE/AGENTS.md"
 awk '
-  /^[|] (scout|implementer|implementer-b|implementer-deep|patch|reviewer-a|reviewer-b|reviewer-c|reviewer-esc|task-reviewer) [|]/ { rows[++n] = $0; next }
+  /^[|] (scout|implementer|implementer-deep|patch|tester|reviewer-a|reviewer-b|reviewer-c|reviewer-esc|task-reviewer) [|]/ { rows[++n] = $0; next }
   { print }
   END { for (i = n; i >= 1; i--) print rows[i] }
 ' "$ROOT/providers/opencode-go.md" >"$FIXTURE/providers/reordered.md"
@@ -844,5 +846,97 @@ pass "advisory placeholders are accepted without rendering"
 awk '!/^[|] (driver|compaction) [|]/' "$ROOT/providers/opencode-go.md" >"$FIXTURE/providers/no-advisory.md"
 OPENCODE_CONFIG="$TMPROOT/no-advisory-dest" "$FIXTURE/install.sh" --profile no-advisory >"$TMPROOT/no-advisory.out"
 pass "advisory rows remain optional"
+
+# 46. tester is a required role, validated like every other seat
+awk '!/^[|] tester [|] primary [|]/' "$ROOT/providers/tri.md" >"$FIXTURE/providers/broken.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/tester-required-dest" "$FIXTURE/install.sh" --profile broken >"$TMPROOT/tester-required.out" 2>"$TMPROOT/tester-required.err" || rc=$?
+[ "$rc" -eq 1 ] || fail "a profile without a tester primary exits 1"
+grep -qxF 'install.sh: profile broken incomplete: tester' "$TMPROOT/tester-required.err" || fail "missing tester primary is named"
+[ ! -e "$TMPROOT/tester-required-dest" ] || fail "missing tester primary writes nothing"
+pass "tester is a required role"
+
+# 47. implementer-b is gone and its rows are optional
+REBAL_DEST="$TMPROOT/rebalance-default"
+rc=0
+OPENCODE_CONFIG="$REBAL_DEST" "$INSTALL" >"$TMPROOT/rebalance-default.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/rebalance-default.out" >&2; fail "default tri install exits 0"; }
+[ ! -e "$REBAL_DEST/agents/implementer-b.md" ] || fail "no implementer-b agent is installed"
+if grep -qxF 'agents/implementer-b.md' "$REBAL_DEST/.harness-manifest"; then
+  fail "the manifest does not record implementer-b"
+fi
+awk '!/^[|] implementer-b [|]/' "$ROOT/providers/tri.md" >"$TMPROOT/no-implementer-b.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/no-implementer-b-dest" "$INSTALL" --profile-file "$TMPROOT/no-implementer-b.md" >"$TMPROOT/no-implementer-b.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "a profile without implementer-b rows is valid"
+pass "implementer-b is neither installed nor required"
+
+# 48. --profile-file binds an external file and records its absolute path
+PF_DIR="$TMPROOT/profile-file"
+mkdir -p "$PF_DIR"
+{ cat "$ROOT/providers/tri.md"; printf '\n# user-local copy\n'; } >"$PF_DIR/custom.md"
+PF_ABS="$(cd "$PF_DIR" && pwd -P)/custom.md"
+PF_DEST="$TMPROOT/profile-file-dest"
+rc=0
+OPENCODE_CONFIG="$PF_DEST" "$INSTALL" --profile-file "$PF_ABS" >"$TMPROOT/profile-file.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/profile-file.out" >&2; fail "--profile-file install exits 0"; }
+cmp -s "$PF_ABS" "$PF_DEST/PROVIDERS.md" || fail "PROVIDERS.md is a byte copy of the profile file"
+[ "$(sed -n '2p' "$PF_DEST/.harness-manifest")" = "# profile-file $PF_ABS" ] || fail "manifest line 2 records the profile file path"
+PF_REL_DEST="$TMPROOT/profile-file-rel-dest"
+rc=0
+( cd "$PF_DIR" && OPENCODE_CONFIG="$PF_REL_DEST" "$INSTALL" --profile-file custom.md ) >"$TMPROOT/profile-file-rel.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/profile-file-rel.out" >&2; fail "relative --profile-file install exits 0"; }
+cmp -s "$PF_ABS" "$PF_REL_DEST/PROVIDERS.md" || fail "relative profile file is byte copied"
+[ "$(sed -n '2p' "$PF_REL_DEST/.harness-manifest")" = "# profile-file $PF_ABS" ] || fail "relative profile file is recorded as absolute"
+pass "--profile-file binds, copies and records an absolute path"
+
+# 49. refresh reuses a recorded profile file; a missing file is fatal
+rc=0
+OPENCODE_CONFIG="$PF_DEST" "$INSTALL" --force >"$TMPROOT/profile-reuse.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/profile-reuse.out" >&2; fail "refresh with a recorded profile file exits 0"; }
+cmp -s "$PF_ABS" "$PF_DEST/PROVIDERS.md" || fail "refresh without flags reuses the recorded profile file"
+[ "$(sed -n '2p' "$PF_DEST/.harness-manifest")" = "# profile-file $PF_ABS" ] || fail "refresh keeps the profile file binding"
+find "$PF_DEST" -type f -exec cksum {} + | sort >"$TMPROOT/profile-missing.snap"
+rm -f -- "$PF_ABS"
+rc=0
+OPENCODE_CONFIG="$PF_DEST" "$INSTALL" --force >"$TMPROOT/profile-missing.out" 2>"$TMPROOT/profile-missing.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/profile-missing.err" >&2; fail "a deleted profile file exits 2"; }
+grep -qxF "install.sh: profile file not found: $PF_ABS" "$TMPROOT/profile-missing.err" || fail "a deleted profile file is named"
+find "$PF_DEST" -type f -exec cksum {} + | sort >"$TMPROOT/profile-missing.after"
+cmp -s "$TMPROOT/profile-missing.snap" "$TMPROOT/profile-missing.after" || fail "a deleted profile file writes nothing"
+pass "refresh reuses the binding and a missing profile file is fatal"
+
+# 50. --profile-file conflicts with --profile and is validated like a named profile
+PF_X="$PF_DIR/mutex.md"
+cp "$ROOT/providers/tri.md" "$PF_X"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/profile-mutex-dest" "$INSTALL" --profile tri --profile-file "$PF_X" >"$TMPROOT/profile-mutex.out" 2>"$TMPROOT/profile-mutex.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/profile-mutex.err" >&2; fail "--profile with --profile-file exits 2"; }
+[ ! -e "$TMPROOT/profile-mutex-dest" ] || fail "--profile with --profile-file writes nothing"
+PF_BAD="$PF_DIR/invalid.md"
+cp "$ROOT/providers/tri.md" "$PF_BAD"
+printf '| scout | last-resort | opencode | valid | - | google | typo |\n' >>"$PF_BAD"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/profile-invalid-dest" "$INSTALL" --profile-file "$PF_BAD" >"$TMPROOT/profile-invalid.out" 2>"$TMPROOT/profile-invalid.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/profile-invalid.err" >&2; fail "an invalid profile file exits 1"; }
+grep -q 'invalid row: scout last-resort: invalid privacy' "$TMPROOT/profile-invalid.err" || fail "an invalid profile file gets the named-profile diagnostic"
+[ ! -e "$TMPROOT/profile-invalid-dest" ] || fail "an invalid profile file writes nothing"
+pass "--profile-file conflicts with --profile and shares named-profile validation"
+
+# 51. the default tri profile renders the rebalanced native pins
+PINS_DEST="$TMPROOT/rebalance-pins"
+rc=0
+OPENCODE_CONFIG="$PINS_DEST" "$INSTALL" >"$TMPROOT/pins.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/pins.out" >&2; fail "fresh tri install exits 0"; }
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$PINS_DEST/agents/scout.md" || fail "tri scout pin"
+grep -qxF 'model: opencode-go/gemini-4-argon#high' "$PINS_DEST/agents/implementer.md" || fail "tri implementer pin"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$PINS_DEST/agents/tester.md" || fail "tri tester pin"
+grep -qxF 'model: opencode-go/kimi-k3.1-pro#high' "$PINS_DEST/agents/reviewer-a.md" || fail "tri reviewer-a pin"
+grep -qxF 'model: opencode-go/deepseek-v4-pro' "$PINS_DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
+if grep -q '^model:' "$PINS_DEST/agents/implementer-deep.md"; then
+  fail "tri implementer-deep has no native pin"
+fi
+grep -qxF 'note: implementer-deep has no opencode rung; dispatch it through delegate_task only' "$TMPROOT/pins.out" || fail "tri reports the delegate-only seat"
+pass "default tri renders the rebalanced native pins"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
