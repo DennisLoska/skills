@@ -1184,6 +1184,7 @@ grep -qxF 'mainAgent: false' "$AGY_PLUGIN/agents/implementer.md" || fail "antigr
 grep -q '^tools:' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer carries a tools frontmatter line"
 grep -qxF 'permissions:' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer preserves the permissions policy block"
 grep -qxF 'permissions:' "$AGY_PLUGIN/agents/reviewer-a.md" || fail "antigravity reviewer-a preserves the permissions policy block"
+grep -qF 'Antigravity cannot narrow run_command in frontmatter' "$AGY_PLUGIN/agents/reviewer-a.md" || fail "antigravity reviewer-a documents the read-only run_command constraint"
 pass "--target antigravity installs oneshot-harness plugin with always_on rules (<24KB), Antigravity subagent frontmatter, and the permissions policy"
 
 # 64. --target claude installs into ${CLAUDE_CONFIG_DIR:-$HOME/.claude}
@@ -1265,5 +1266,79 @@ for ledger in "$SHARED_LEDGER_OC" "$SHARED_LEDGER_CODEX" "$SHARED_LEDGER_AGY" "$
   [ "$(cat "$ledger")" = "$ledger_before" ] || fail "shared quota-ledger.tsv is unchanged by --force --prune: $ledger"
 done
 pass "all targets share a single machine-wide state/quota-ledger.tsv that survives --force --prune"
+
+# 69. shared-state safety: a relative OPENCODE_CONFIG resolves to an absolute
+# shared state path, an existing per-target ledger is merged (never removed)
+# under --force, a non-ledger file in state/ is refused even with --force, and
+# a same-directory CODEX_HOME/OPENCODE_CONFIG alias keeps state/ a real dir.
+rc=0
+( cd "$TMPROOT" && OPENCODE_CONFIG="rel-oc-69" CODEX_HOME="$TMPROOT/rel-cx-69" "$INSTALL" --target codex ) >"$TMPROOT/rel-state-69.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/rel-state-69.out" >&2; fail "relative OPENCODE_CONFIG install exits 0 (got $rc)"; }
+[ -L "$TMPROOT/rel-cx-69/state" ] && [ -d "$TMPROOT/rel-cx-69/state" ] || fail "relative OPENCODE_CONFIG links state/ to a directory"
+case "$(readlink "$TMPROOT/rel-cx-69/state")" in
+  /*) true ;;
+  *) fail "relative OPENCODE_CONFIG state symlink is absolute: $(readlink "$TMPROOT/rel-cx-69/state")" ;;
+esac
+
+mkdir -p "$TMPROOT/m-oc-69/state" "$TMPROOT/m-cx-69/state"
+printf 'pool\twindow_start\tcount\tstatus\tupdated_at\n' >"$TMPROOT/m-oc-69/state/quota-ledger.tsv"
+printf 'antigravity-argon\t2026-11-09T10:00:00Z\t3\tok\t2026-11-09T11:00:00Z\n' >>"$TMPROOT/m-oc-69/state/quota-ledger.tsv"
+printf 'pool\twindow_start\tcount\tstatus\tupdated_at\n' >"$TMPROOT/m-cx-69/state/quota-ledger.tsv"
+printf 'codex-spark\t2026-11-09T10:00:00Z\t7\tok\t2026-11-09T11:05:00Z\n' >>"$TMPROOT/m-cx-69/state/quota-ledger.tsv"
+
+rc=0
+OPENCODE_CONFIG="$TMPROOT/m-oc-69" CODEX_HOME="$TMPROOT/m-cx-69" "$INSTALL" --target codex >"$TMPROOT/merge-noforce-69.out" 2>"$TMPROOT/merge-noforce-69.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/merge-noforce-69.err" >&2; fail "pre-existing per-target ledger refuses without --force (got $rc)"; }
+[ -f "$TMPROOT/m-cx-69/state/quota-ledger.tsv" ] && [ ! -L "$TMPROOT/m-cx-69/state" ] || fail "refused install leaves the pre-existing state ledger in place"
+
+rc=0
+OPENCODE_CONFIG="$TMPROOT/m-oc-69" CODEX_HOME="$TMPROOT/m-cx-69" "$INSTALL" --force --target codex >"$TMPROOT/merge-force-69.out" 2>"$TMPROOT/merge-force-69.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/merge-force-69.err" >&2; fail "pre-existing per-target ledger merges under --force (got $rc)"; }
+[ -L "$TMPROOT/m-cx-69/state" ] || fail "merged install links state/ to the shared state dir"
+grep -q "$(printf '^antigravity-argon\t')" "$TMPROOT/m-oc-69/state/quota-ledger.tsv" || fail "merge keeps the shared ledger row"
+grep -q "$(printf '^codex-spark\t')" "$TMPROOT/m-oc-69/state/quota-ledger.tsv" || fail "merge keeps the per-target ledger row"
+
+mkdir -p "$TMPROOT/nl-cx-69/state"
+printf 'not a ledger\n' >"$TMPROOT/nl-cx-69/state/host.sqlite"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/m-oc-69" CODEX_HOME="$TMPROOT/nl-cx-69" "$INSTALL" --force --target codex >"$TMPROOT/nonledger-69.out" 2>"$TMPROOT/nonledger-69.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/nonledger-69.err" >&2; fail "non-ledger file in state/ refuses even with --force (got $rc)"; }
+[ -f "$TMPROOT/nl-cx-69/state/host.sqlite" ] || fail "non-ledger file in state/ survives the refused install"
+
+rc=0
+OPENCODE_CONFIG="$TMPROOT/m-oc-69" CODEX_HOME="$TMPROOT/m-oc-69" "$INSTALL" --force --target codex >"$TMPROOT/same-dir-69.out" 2>"$TMPROOT/same-dir-69.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/same-dir-69.err" >&2; fail "same-dir CODEX_HOME/OPENCODE_CONFIG install exits 0 (got $rc)"; }
+[ -d "$TMPROOT/m-oc-69/state" ] && [ ! -L "$TMPROOT/m-oc-69/state" ] && [ -f "$TMPROOT/m-oc-69/state/quota-ledger.tsv" ] || fail "same-dir alias preserves state/ as a real directory with its ledger"
+pass "shared-state safety handles relative OPENCODE_CONFIG, merges existing ledger under --force, refuses non-ledger files, and preserves same-dir state"
+
+# 70. size-cap guards: a prose-heavy profile compacts with a note for codex, an
+# oversized Antigravity rule refuses at 24000 bytes, and a profile whose
+# headings survive compaction refuses at 32768 bytes instead of shipping.
+{
+  cat "$ROOT/providers/tri.md"
+  awk 'BEGIN { for (i = 0; i < 150; i++) printf "prose filler line %04d ......................................................................\n", i }'
+} >"$TMPROOT/prose-big-70.md"
+rc=0
+CODEX_HOME="$TMPROOT/cap-cx-ok-70" OPENCODE_CONFIG="$TMPROOT/cap-oc-70" "$INSTALL" --profile-file "$TMPROOT/prose-big-70.md" --target codex >"$TMPROOT/cap-ok-70.out" 2>"$TMPROOT/cap-ok-70.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/cap-ok-70.err" >&2; fail "oversized codex prose compacts and installs (got $rc)"; }
+grep -qF 'note: compacting codex profile prose to fit 32768-byte host instruction limit' "$TMPROOT/cap-ok-70.out" || fail "compaction prints the 32768-byte host instruction note"
+[ "$(wc -c <"$TMPROOT/cap-cx-ok-70/AGENTS.md")" -lt 32768 ] || fail "compacted codex AGENTS.md is under 32768 bytes"
+
+rc=0
+ANTIGRAVITY_CONFIG="$TMPROOT/cap-agy-bad-70" OPENCODE_CONFIG="$TMPROOT/cap-oc-70" "$INSTALL" --profile-file "$TMPROOT/prose-big-70.md" --target antigravity >"$TMPROOT/cap-agy-70.out" 2>"$TMPROOT/cap-agy-70.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/cap-agy-70.err" >&2; fail "oversized antigravity rule exits 2 (got $rc)"; }
+grep -qF 'exceeds 24000 bytes' "$TMPROOT/cap-agy-70.err" || fail "oversized antigravity rule reports the 24000-byte limit"
+[ ! -e "$TMPROOT/cap-agy-bad-70/plugins/oneshot-harness/.harness-manifest" ] || fail "refused antigravity install writes no manifest"
+
+{
+  cat "$ROOT/providers/tri.md"
+  awk 'BEGIN { for (i = 0; i < 400; i++) printf "# comment heading %04d ..............................\n", i }'
+} >"$TMPROOT/table-big-70.md"
+rc=0
+CODEX_HOME="$TMPROOT/cap-cx-bad-70" OPENCODE_CONFIG="$TMPROOT/cap-oc-70" "$INSTALL" --profile-file "$TMPROOT/table-big-70.md" --target codex >"$TMPROOT/cap-bad-70.out" 2>"$TMPROOT/cap-bad-70.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/cap-bad-70.err" >&2; fail "post-compaction oversize profile exits 2 (got $rc)"; }
+grep -qF 'exceeds 32768 bytes' "$TMPROOT/cap-bad-70.err" || fail "post-compaction oversize profile reports the 32768-byte limit"
+[ ! -e "$TMPROOT/cap-cx-bad-70/.harness-manifest" ] || fail "refused codex install writes no manifest"
+pass "size-cap guards compact prose with a note and refuse oversized Antigravity and post-compaction Codex/Claude files with exit 2"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

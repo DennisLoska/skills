@@ -52,7 +52,7 @@ unknown_target() {
 
 force=0
 prune=0
-preflight_only=0
+preflight_only="${HARNESS_INTERNAL_PREFLIGHT:-0}"
 profile=tri
 profile_given=0
 profile_file_arg=""
@@ -63,7 +63,6 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --force) force=1 ;;
     --prune) prune=1 ;;
-    --preflight-only) preflight_only=1 ;;
     --profile)
       if [ "$#" -lt 2 ] || [ -z "$2" ]; then usage >&2; exit 2; fi
       profile_given=1
@@ -171,7 +170,7 @@ fi
 
 # When multiple targets are selected, run each target in its own clean invocation
 # so per-target destination validation, manifest tracking, and temp cleanup stay isolated.
-# An atomic preflight pass (--preflight-only) runs across all targets first so any
+# An atomic preflight pass (HARNESS_INTERNAL_PREFLIGHT=1) runs across all targets first so any
 # invalid destination or collision aborts before any target is mutated.
 if [ "${#selected_targets[@]}" -gt 1 ]; then
   sub_args=()
@@ -184,9 +183,9 @@ if [ "${#selected_targets[@]}" -gt 1 ]; then
   fi
   for t in "${selected_targets[@]}"; do
     if [ "${#sub_args[@]}" -gt 0 ]; then
-      "$SRC/install.sh" "${sub_args[@]}" --preflight-only --target "$t"
+      HARNESS_INTERNAL_PREFLIGHT=1 "$SRC/install.sh" "${sub_args[@]}" --target "$t"
     else
-      "$SRC/install.sh" --preflight-only --target "$t"
+      HARNESS_INTERNAL_PREFLIGHT=1 "$SRC/install.sh" --target "$t"
     fi
   done
   [ "$preflight_only" -eq 1 ] && exit 0
@@ -324,6 +323,58 @@ if [ "$TARGET_HOST" = "antigravity" ]; then
 else
   DEST="$DEST_CANON"
 fi
+
+SHARED_OC_CANON=""
+SHARED_STATE=""
+if [ "$TARGET_HOST" != "opencode" ]; then
+  SHARED_OC_RAW="${OPENCODE_CONFIG-$HOME/.config/opencode}"
+  SHARED_OC_COMPACT="${SHARED_OC_RAW//[[:space:]]/}"
+  SHARED_OC_COMPACT="${SHARED_OC_COMPACT//\//}"
+  if [ -z "$SHARED_OC_COMPACT" ]; then
+    printf 'install.sh: refusing unsafe shared state root: %s\n' "$SHARED_OC_RAW" >&2
+    exit 1
+  fi
+  refuse_shared_oc() {
+    printf 'install.sh: refusing unsafe shared state root: %s (%s)\n' "$SHARED_OC_RAW" "$1" >&2
+    exit 1
+  }
+  SHARED_OC_STRIPPED="$SHARED_OC_RAW"
+  while [ "${SHARED_OC_STRIPPED%/}" != "$SHARED_OC_STRIPPED" ]; do
+    SHARED_OC_STRIPPED="${SHARED_OC_STRIPPED%/}"
+  done
+  [ -n "$SHARED_OC_STRIPPED" ] || SHARED_OC_STRIPPED="/"
+  case "$SHARED_OC_STRIPPED" in
+    .|..|../*|*/..|*/../*) refuse_shared_oc "a relative self or parent reference" ;;
+  esac
+  if [ -L "$SHARED_OC_STRIPPED" ] && [ ! -e "$SHARED_OC_STRIPPED" ]; then
+    printf 'install.sh: shared state root symlink is dangling: %s\n' "$SHARED_OC_RAW" >&2
+    exit 1
+  fi
+  if [ -e "$SHARED_OC_STRIPPED" ] && [ ! -d "$SHARED_OC_STRIPPED" ]; then
+    printf 'install.sh: shared state root is not a directory: %s\n' "$SHARED_OC_RAW" >&2
+    exit 1
+  fi
+  SHARED_OC_CANON="$(canonical_dest "$SHARED_OC_STRIPPED")"
+  if [ -z "$SHARED_OC_CANON" ]; then
+    refuse_shared_oc "an unresolvable path"
+  fi
+  if [ "$SHARED_OC_CANON" = "/" ]; then
+    refuse_shared_oc "the filesystem root"
+  fi
+  if [ "$SHARED_OC_CANON" = "$SRC_PHYS" ] || [ "$SHARED_OC_CANON" = "$SRC" ] ||
+     [ "$SHARED_OC_STRIPPED" = "$SRC" ] || [ "$SHARED_OC_STRIPPED" = "$SRC_PHYS" ]; then
+    refuse_shared_oc "the source checkout"
+  fi
+  case "$SHARED_OC_CANON" in
+    "$SRC_PHYS"/*|"$SRC"/*) refuse_shared_oc "inside the source checkout" ;;
+  esac
+  if [ "$SHARED_OC_CANON" = "$HOME_PHYS" ] ||
+     { [ -n "${HOME:-}" ] && { [ "$SHARED_OC_RAW" = "$HOME" ] || [ "$SHARED_OC_STRIPPED" = "$HOME" ]; }; }; then
+    refuse_shared_oc "the HOME directory"
+  fi
+  SHARED_STATE="$SHARED_OC_CANON/state"
+fi
+
 MANIFEST="$DEST/.harness-manifest"
 if [ -L "$MANIFEST" ] || { [ -e "$MANIFEST" ] && [ ! -f "$MANIFEST" ]; }; then
   printf 'install.sh: manifest path is not a regular file: %s\n' "$MANIFEST" >&2
@@ -521,9 +572,10 @@ native_pin() {
 
 TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
 staged_profile=""
+ledger_tmp=""
 rendered_files=()
 cleanup() {
-  rm -f -- "$TMP_MANIFEST" ${staged_profile:+"$staged_profile"}
+  rm -f -- "$TMP_MANIFEST" ${staged_profile:+"$staged_profile"} ${ledger_tmp:+"$ledger_tmp"}
   if [ "${#rendered_files[@]}" -gt 0 ]; then
     rm -f -- "${rendered_files[@]}"
   fi
@@ -560,7 +612,14 @@ if [ "$TARGET_HOST" = "codex" ]; then
   rendered_files+=("$combined_doc")
   { cat "$SRC/AGENTS.md"; printf '\n\n'; cat "$PROFILE_FILE"; } >"$combined_doc"
   if [ "$(wc -c <"$combined_doc")" -ge 32768 ]; then
+    if [ "$preflight_only" -eq 0 ]; then
+      printf 'note: compacting %s profile prose to fit 32768-byte host instruction limit\n' "$TARGET_HOST"
+    fi
     { cat "$SRC/AGENTS.md"; printf '\n\n'; awk '/^[[:space:]]*```/ { f=!f; next } !f && (/^#/ || /^[[:space:]]*\|/)' "$PROFILE_FILE"; } >"$combined_doc"
+    if [ "$(wc -c <"$combined_doc")" -ge 32768 ]; then
+      printf 'install.sh: %s combined instruction file exceeds 32768 bytes\n' "$TARGET_HOST" >&2
+      exit 2
+    fi
   fi
   srcs+=("$combined_doc")
   rels+=("AGENTS.md")
@@ -570,7 +629,14 @@ elif [ "$TARGET_HOST" = "claude" ]; then
   rendered_files+=("$combined_doc")
   { cat "$SRC/AGENTS.md"; printf '\n\n'; cat "$PROFILE_FILE"; } >"$combined_doc"
   if [ "$(wc -c <"$combined_doc")" -ge 32768 ]; then
+    if [ "$preflight_only" -eq 0 ]; then
+      printf 'note: compacting %s profile prose to fit 32768-byte host instruction limit\n' "$TARGET_HOST"
+    fi
     { cat "$SRC/AGENTS.md"; printf '\n\n'; awk '/^[[:space:]]*```/ { f=!f; next } !f && (/^#/ || /^[[:space:]]*\|/)' "$PROFILE_FILE"; } >"$combined_doc"
+    if [ "$(wc -c <"$combined_doc")" -ge 32768 ]; then
+      printf 'install.sh: %s combined instruction file exceeds 32768 bytes\n' "$TARGET_HOST" >&2
+      exit 2
+    fi
   fi
   srcs+=("$combined_doc")
   rels+=("CLAUDE.md")
@@ -638,9 +704,11 @@ for i in "${!rels[@]}"; do
         fi
         srcs[$i]="$rendered"
       elif [ "$TARGET_HOST" = "antigravity" ]; then
+        is_readonly=0
         case "$seat" in
           scout|reviewer-a|reviewer-b|reviewer-c|reviewer-esc)
             agy_tools="[read_file, run_command]"
+            is_readonly=1
             ;;
           patch)
             agy_tools="[read_file, edit_file, write_file]"
@@ -655,7 +723,7 @@ for i in "${!rels[@]}"; do
         rendered="$(mktemp "${TMPDIR:-/tmp}/harness-agent.XXXXXXXX")"
         rendered_files+=("$rendered")
         cp -p "${srcs[$i]}" "$rendered"
-        SEAT_NAME="$seat" AGY_TOOLS="$agy_tools" awk '
+        SEAT_NAME="$seat" AGY_TOOLS="$agy_tools" IS_READONLY="$is_readonly" awk '
           NR == 1 && $0 == "---" { in_fm = 1; in_perm = 0; perm_block = ""; next }
           in_fm && /^description:[[:space:]]*/ {
             desc = $0
@@ -682,6 +750,10 @@ for i in "${!rels[@]}"; do
               print ""
               print "## Permissions policy (self-enforced)"
               print ""
+              if (ENVIRON["IS_READONLY"] == "1") {
+                print "Antigravity cannot narrow run_command in frontmatter; this seat is strictly read-only and MUST only run read-only inspection commands permitted by the policy below."
+                print ""
+              }
               print "```yaml"
               printf "%s", perm_block
               print "```"
@@ -817,14 +889,40 @@ for i in "${!rels[@]}"; do
   done
 done
 
-if [ "$TARGET_HOST" = "opencode" ]; then
+if [ "$TARGET_HOST" = "opencode" ] || [ "$DEST" = "$SHARED_OC_CANON" ]; then
   if [ -L "$DEST/state" ]; then
     parent_links+=("$DEST/state")
   elif [ -e "$DEST/state" ] && [ ! -d "$DEST/state" ]; then
     parent_blocks+=("$DEST/state")
   fi
 else
-  if [ -e "$DEST/state" ] && [ ! -d "$DEST/state" ] && [ ! -L "$DEST/state" ]; then
+  if [ -L "$SHARED_STATE" ] || { [ -e "$SHARED_STATE" ] && [ ! -d "$SHARED_STATE" ]; }; then
+    parent_blocks+=("$SHARED_STATE")
+  fi
+  if [ -L "$DEST/state" ]; then
+    if [ "$(readlink "$DEST/state")" != "$SHARED_STATE" ] && [ "$(canonical_dest "$DEST/state")" != "$SHARED_STATE" ]; then
+      collisions+=("$DEST/state")
+    fi
+  elif [ -d "$DEST/state" ]; then
+    shopt -s nullglob dotglob
+    state_entries=("$DEST/state"/*)
+    shopt -u nullglob dotglob
+    if [ "${#state_entries[@]}" -gt 0 ]; then
+      for se in "${state_entries[@]}"; do
+        se_base="$(basename -- "$se")"
+        case "$se_base" in
+          quota-ledger.tsv|quota-ledger.lock) ;;
+          *)
+            printf 'install.sh: refusing to replace state directory containing non-ledger files: %s\n' "$DEST/state" >&2
+            exit 1
+            ;;
+        esac
+      done
+      if [ "$force" -eq 0 ]; then
+        collisions+=("$DEST/state")
+      fi
+    fi
+  elif [ -e "$DEST/state" ]; then
     parent_blocks+=("$DEST/state")
   fi
 fi
@@ -925,13 +1023,50 @@ if [ "${#parent_links[@]}" -gt 0 ]; then
   done <<<"$sorted_parents"
 fi
 mkdir -p "$DEST"
-if [ "$TARGET_HOST" = "opencode" ]; then
+if [ "$TARGET_HOST" = "opencode" ] || [ "$DEST" = "$SHARED_OC_CANON" ]; then
   mkdir -p "$DEST/state"
 else
-  SHARED_STATE="${OPENCODE_CONFIG:-$HOME/.config/opencode}/state"
   mkdir -p "$SHARED_STATE"
   if [ -d "$DEST/state" ] && [ ! -L "$DEST/state" ]; then
-    rmdir "$DEST/state" 2>/dev/null || rm -rf -- "$DEST/state"
+    if [ -f "$DEST/state/quota-ledger.tsv" ]; then
+      if [ ! -f "$SHARED_STATE/quota-ledger.tsv" ]; then
+        mv -- "$DEST/state/quota-ledger.tsv" "$SHARED_STATE/quota-ledger.tsv"
+      else
+        ledger_tmp="$(mktemp "$SHARED_STATE/quota-ledger.XXXXXXXX")"
+        awk -F'\t' '
+          $1 == "pool" && $2 == "window_start" { next }
+          NF >= 2 && $1 != "" {
+            k = $1 "\t" $2
+            c = $3 + 0
+            u = $5
+            if (!(k in seen)) {
+              order[++n] = k
+              seen[k] = 1
+              best_c[k] = c
+              best_u[k] = u
+              best_line[k] = $0
+            } else if (c > best_c[k] || (c == best_c[k] && u > best_u[k])) {
+              best_c[k] = c
+              best_u[k] = u
+              best_line[k] = $0
+            }
+          }
+          END {
+            print "pool\twindow_start\tcount\tstatus\tupdated_at"
+            for (i = 1; i <= n; i++) {
+              print best_line[order[i]]
+            }
+          }
+        ' "$SHARED_STATE/quota-ledger.tsv" "$DEST/state/quota-ledger.tsv" >"$ledger_tmp"
+        chmod 0644 "$ledger_tmp"
+        mv -f -- "$ledger_tmp" "$SHARED_STATE/quota-ledger.tsv"
+        rm -f -- "$DEST/state/quota-ledger.tsv"
+      fi
+    fi
+    rm -f -- "$DEST/state/quota-ledger.lock"
+    rmdir "$DEST/state"
+  elif [ -L "$DEST/state" ]; then
+    rm -f -- "$DEST/state"
   fi
   ln -snf "$SHARED_STATE" "$DEST/state"
 fi
