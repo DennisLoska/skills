@@ -587,6 +587,8 @@ native_pin() {
 TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
 staged_profile=""
 ledger_tmp=""
+state_migrating=""
+state_migrating_orig=""
 rendered_files=()
 owned_locks=()
 cleanup() {
@@ -595,12 +597,31 @@ cleanup() {
   if [ "${#rendered_files[@]}" -gt 0 ]; then
     rm -f -- "${rendered_files[@]}"
   fi
+  if [ -n "$state_migrating" ] && [ -d "$state_migrating" ] && [ ! -L "$state_migrating" ]; then
+    if [ -n "$state_migrating_orig" ] && [ ! -e "$state_migrating_orig" ] && [ ! -L "$state_migrating_orig" ]; then
+      mv -- "$state_migrating" "$state_migrating_orig" 2>/dev/null || true
+    elif [ -n "$state_migrating_orig" ] && [ -L "$state_migrating_orig" ] &&
+         { [ -e "$state_migrating/quota-ledger.tsv" ] || [ -L "$state_migrating/quota-ledger.tsv" ]; }; then
+      rm -f -- "$state_migrating_orig" 2>/dev/null || true
+      mv -- "$state_migrating" "$state_migrating_orig" 2>/dev/null || true
+    fi
+  fi
   if [ "${#owned_locks[@]}" -gt 0 ]; then
     for lk in "${owned_locks[@]}"; do
       if [ -n "$lk" ] && [ -d "$lk" ] && [ ! -L "$lk" ]; then
         rmdir "$lk" 2>/dev/null || true
       fi
     done
+  fi
+  if [ -n "$state_migrating_orig" ] && [ ! -L "$state_migrating_orig" ] &&
+     [ -d "$state_migrating_orig/quota-ledger.lock" ] && [ ! -L "$state_migrating_orig/quota-ledger.lock" ]; then
+    rmdir "$state_migrating_orig/quota-ledger.lock" 2>/dev/null || true
+  fi
+  if [ -n "$state_migrating" ] && [ -d "$state_migrating" ] && [ ! -L "$state_migrating" ]; then
+    if [ -d "$state_migrating/quota-ledger.lock" ] && [ ! -L "$state_migrating/quota-ledger.lock" ]; then
+      rmdir "$state_migrating/quota-ledger.lock" 2>/dev/null || true
+    fi
+    rmdir "$state_migrating" 2>/dev/null || true
   fi
 }
 trap cleanup EXIT
@@ -1170,53 +1191,77 @@ else
   if [ -d "$DEST/state" ] && [ ! -L "$DEST/state" ]; then
     acquire_ledger_lock "$SHARED_STATE/quota-ledger.lock"
     acquire_ledger_lock "$DEST/state/quota-ledger.lock"
-    if [ -f "$DEST/state/quota-ledger.tsv" ]; then
-      if [ ! -f "$SHARED_STATE/quota-ledger.tsv" ]; then
-        mv -- "$DEST/state/quota-ledger.tsv" "$SHARED_STATE/quota-ledger.tsv"
-      else
-        ledger_tmp="$SHARED_STATE/.quota-ledger.$$.tmp"
-        rm -f -- "$ledger_tmp"
-        awk -F'\t' '
-          BEGIN { n = 0; want_header = 0 }
-          $0 == "" { next }
-          $1 == "pool" && $2 == "provider" && $3 == "exhausted_at" {
-            want_header = 1
-            next
-          }
-          $1 != "" {
-            k = $1
-            e = $3 ""
-            r = $4 ""
-            if (!(k in seen)) {
-              order[++n] = k
-              seen[k] = 1
-              best_r[k] = r
-              best_e[k] = e
-              best_line[k] = $0
-            } else if (r > best_r[k] || (r == best_r[k] && e > best_e[k])) {
-              best_r[k] = r
-              best_e[k] = e
-              best_line[k] = $0
-            }
-          }
-          END {
-            if (want_header) {
-              print "pool\tprovider\texhausted_at\tretry_after\tsource_role\tnote"
-            }
-            for (i = 1; i <= n; i++) {
-              print best_line[order[i]]
-            }
-          }
-        ' "$SHARED_STATE/quota-ledger.tsv" "$DEST/state/quota-ledger.tsv" >"$ledger_tmp"
-        chmod 0644 "$ledger_tmp"
-        mv -f -- "$ledger_tmp" "$SHARED_STATE/quota-ledger.tsv"
-        ledger_tmp=""
-      fi
-      rm -f -- "$DEST/state/quota-ledger.tsv"
+    migrating_dir="$DEST/.state-migrating.$$"
+    if [ -e "$migrating_dir" ] || [ -L "$migrating_dir" ]; then
+      printf 'install.sh: migration staging path already exists: %s\n' "$migrating_dir" >&2
+      exit 1
     fi
-    release_ledger_lock "$DEST/state/quota-ledger.lock"
-    rmdir "$DEST/state"
+    state_migrating="$migrating_dir"
+    state_migrating_orig="$DEST/state"
+    mv -- "$DEST/state" "$state_migrating"
+    if [ "${#owned_locks[@]}" -gt 0 ]; then
+      for lk_idx in "${!owned_locks[@]}"; do
+        if [ "${owned_locks[$lk_idx]}" = "$DEST/state/quota-ledger.lock" ]; then
+          owned_locks[$lk_idx]="$state_migrating/quota-ledger.lock"
+        fi
+      done
+    fi
     ln -snf "$SHARED_STATE" "$DEST/state"
+    if [ -L "$state_migrating/quota-ledger.tsv" ] ||
+       { [ -e "$state_migrating/quota-ledger.tsv" ] && [ ! -f "$state_migrating/quota-ledger.tsv" ]; }; then
+      printf 'install.sh: ledger path is not a regular file: %s\n' "$DEST/state/quota-ledger.tsv" >&2
+      exit 1
+    fi
+    if [ -f "$state_migrating/quota-ledger.tsv" ]; then
+      merge_inputs=()
+      if [ -f "$SHARED_STATE/quota-ledger.tsv" ]; then
+        merge_inputs+=("$SHARED_STATE/quota-ledger.tsv")
+      fi
+      merge_inputs+=("$state_migrating/quota-ledger.tsv")
+      ledger_tmp="$SHARED_STATE/.quota-ledger.$$.tmp"
+      rm -f -- "$ledger_tmp"
+      awk -F'\t' '
+        BEGIN { n = 0; want_header = 0 }
+        $0 == "" { next }
+        $1 == "pool" && $2 == "provider" && $3 == "exhausted_at" {
+          want_header = 1
+          next
+        }
+        $1 == "pool" && $2 == "window_start" { next }
+        NF >= 6 && $1 != "" {
+          k = $1
+          e = $3 ""
+          r = $4 ""
+          if (!(k in seen)) {
+            order[++n] = k
+            seen[k] = 1
+            best_r[k] = r
+            best_e[k] = e
+            best_line[k] = $0
+          } else if (r > best_r[k] || (r == best_r[k] && e > best_e[k])) {
+            best_r[k] = r
+            best_e[k] = e
+            best_line[k] = $0
+          }
+        }
+        END {
+          if (want_header) {
+            print "pool\tprovider\texhausted_at\tretry_after\tsource_role\tnote"
+          }
+          for (i = 1; i <= n; i++) {
+            print best_line[order[i]]
+          }
+        }
+      ' "${merge_inputs[@]}" >"$ledger_tmp"
+      chmod 0644 "$ledger_tmp"
+      mv -f -- "$ledger_tmp" "$SHARED_STATE/quota-ledger.tsv"
+      ledger_tmp=""
+      rm -f -- "$state_migrating/quota-ledger.tsv"
+    fi
+    release_ledger_lock "$state_migrating/quota-ledger.lock"
+    rmdir "$state_migrating"
+    state_migrating=""
+    state_migrating_orig=""
     release_ledger_lock "$SHARED_STATE/quota-ledger.lock"
   elif [ -L "$DEST/state" ]; then
     if [ "$(readlink "$DEST/state")" != "$SHARED_STATE" ]; then

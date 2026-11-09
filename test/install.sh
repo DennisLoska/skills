@@ -2,6 +2,7 @@
 # test/install.sh - contract tests for install.sh
 # Uses a throwaway HOME under a scratch dir; never touches the real config.
 set -euo pipefail
+export LC_ALL=C
 unset OPENCODE_CONFIG
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -1373,6 +1374,33 @@ HARNESS_INTERNAL_PREFLIGHT=yes OPENCODE_CONFIG="$TMPROOT/amb2-71" "$INSTALL" >"$
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/amb2-71.err" >&2; fail "ambient preflight=yes install exits 0 (got $rc)"; }
 [ -f "$TMPROOT/amb2-71/.harness-manifest" ] || fail "ambient preflight=yes installs manifest"
 [ ! -s "$TMPROOT/amb2-71.err" ] || fail "ambient preflight=yes emits no errors"
+
+mkdir -p "$TMPROOT/race-oc-71/state" "$TMPROOT/race-cx-71/state/quota-ledger.lock"
+printf 'agy-opus\tantigravity\t2026-11-09T10:00:00Z\t2026-11-09T15:00:00Z\treviewer-b\t429\n' >"$TMPROOT/race-cx-71/state/quota-ledger.tsv"
+touch -t 202001010000 "$TMPROOT/race-cx-71/state/quota-ledger.lock"
+(
+  for ((attempt = 0; attempt < 5000; attempt++)); do
+    if mkdir "$TMPROOT/race-cx-71/state/quota-ledger.lock" 2>/dev/null; then
+      ledger="$TMPROOT/race-cx-71/state/quota-ledger.tsv"
+      { [ ! -f "$ledger" ] || cat "$ledger"; printf 'codex-race\tcodex\t2026-11-09T14:00:00Z\t2026-11-09T19:00:00Z\treviewer-a\t429\n'; } >"$ledger.writer-tmp"
+      mv -f "$ledger.writer-tmp" "$ledger"
+      rmdir "$TMPROOT/race-cx-71/state/quota-ledger.lock"
+      exit 0
+    fi
+  done
+  exit 1
+) &
+writer_pid=$!
+rc=0
+OPENCODE_CONFIG="$TMPROOT/race-oc-71" CODEX_HOME="$TMPROOT/race-cx-71" "$INSTALL" --force --target codex >"$TMPROOT/race-71.out" 2>"$TMPROOT/race-71.err" || rc=$?
+writer_rc=0
+wait "$writer_pid" || writer_rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/race-71.err" >&2; fail "concurrent ledger migration exits 0 (got $rc)"; }
+[ "$writer_rc" -eq 0 ] || fail "concurrent ledger writer acquires lock"
+[ -L "$TMPROOT/race-cx-71/state" ] || fail "concurrent ledger migration links target state"
+grep -q "$(printf '^agy-opus\t')" "$TMPROOT/race-oc-71/state/quota-ledger.tsv" || fail "concurrent ledger migration preserves source row"
+grep -q "$(printf '^codex-race\t')" "$TMPROOT/race-oc-71/state/quota-ledger.tsv" || fail "concurrent ledger migration preserves writer row"
+[ ! -e "$TMPROOT/race-oc-71/state/quota-ledger.lock" ] || fail "concurrent ledger migration releases shared lock"
 pass "ledger directory locks (stale break, active refusal, release) and ambient preflight env immunity"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
