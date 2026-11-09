@@ -1,7 +1,6 @@
 ---
 description: Council reviewer seat C. Adversarial code audit from the third independent model family, findings only. Dispatched by the council skill, never fixes anything.
 mode: subagent
-model: opencode-go/glm-5.3-flash#high
 permissions:
   - action: read
     resource: "*"

@@ -1,7 +1,6 @@
 ---
-description: Surgical 1-2 file editor (high reasoning effort on DeepSeek's low/high/max scale). Use after scout located the exact spot. Typo fixes, single-function rewrites, mechanical renames. Refuses anything bigger.
+description: Surgical 1-2 file editor. Use after scout located the exact spot. Typo fixes, single-function rewrites, mechanical renames. Refuses anything bigger.
 mode: subagent
-model: opencode-go/deepseek-v4.1-flash#high
 permissions:
   - action: read
     resource: "*"

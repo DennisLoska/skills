@@ -1,7 +1,6 @@
 ---
 description: Council reviewer seat A. Adversarial code audit from the first independent model family, findings only. Dispatched by the council skill, never fixes anything.
 mode: subagent
-model: opencode-go/muse-spark-1.3-contributor#xhigh
 permissions:
   - action: read
     resource: "*"

@@ -15,13 +15,54 @@ cleanup() {
 }
 trap cleanup EXIT
 
-pass() { printf 'ok: %s\n' "$1"; }
+passed=0
+pass() { passed=$((passed + 1)); printf 'ok: %s\n' "$1"; }
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
 mkdir -p "$TMPROOT"
 HOME_DIR="$TMPROOT/home"
 DEST="$HOME_DIR/.config/opencode"
 MANIFEST="$DEST/.harness-manifest"
+
+# Independent legacy pin fixture: no git history is needed to run this suite.
+mkdir -p "$TMPROOT/legacy-agents"
+while read -r seat pin; do
+  awk -v pin="$pin" '
+    /^model: / { next }
+    { print }
+    /^mode: subagent$/ { print "model: " pin }
+  ' "$ROOT/agents/$seat.md" >"$TMPROOT/legacy-agents/$seat.md"
+done <<'PINS'
+scout opencode-go/mimo-v2.6-flash
+implementer opencode-go/deepseek-v4.1-flash#high
+implementer-b opencode-go/muse-spark-1.3-contributor#medium
+implementer-deep opencode-go/gemini-4-argon#high
+patch opencode-go/deepseek-v4.1-flash#high
+reviewer-a opencode-go/muse-spark-1.3-contributor#xhigh
+reviewer-b opencode-go/deepseek-v4.1-flash#max
+reviewer-c opencode-go/glm-5.3-flash#high
+reviewer-esc opencode-go/kimi-k3.1-pro#high
+PINS
+
+# Default render expectations are independent of the routing-table parser.
+mkdir -p "$TMPROOT/tri-agents"
+while read -r seat pin; do
+  awk -v pin="$pin" '
+    /^model: / { next }
+    { print }
+    /^mode: subagent$/ && pin != "-" { print "model: " pin }
+  ' "$ROOT/agents/$seat.md" >"$TMPROOT/tri-agents/$seat.md"
+done <<'PINS'
+scout opencode-go/mimo-v2.6-flash
+implementer opencode-go/deepseek-v4.1-flash#high
+implementer-b opencode-go/glm-5.3#high
+implementer-deep -
+patch opencode-go/deepseek-v4.1-flash#high
+reviewer-a opencode-go/glm-5.3#high
+reviewer-b opencode-go/claude-haiku-5-5#high
+reviewer-c opencode-go/gpt-6-luna#high
+reviewer-esc opencode-go/kimi-k3.1-pro#high
+PINS
 
 # 1. clean install into an empty HOME
 rc1=0
@@ -31,7 +72,7 @@ HOME="$HOME_DIR" "$INSTALL" >"$TMPROOT/case1.out" 2>&1 || rc1=$?
 pass "clean install into empty HOME"
 
 # 2. copied agent is byte-identical to the source
-cmp -s "$ROOT/agents/scout.md" "$DEST/agents/scout.md" || fail "copied agent is byte-identical"
+cmp -s "$TMPROOT/legacy-agents/scout.md" "$DEST/agents/scout.md" || fail "copied agent is byte-identical"
 pass "copied agent is byte-identical"
 
 # 3. HARNESS.md is the repo's AGENTS.md, byte for byte
@@ -41,7 +82,7 @@ pass "HARNESS.md is byte-identical to AGENTS.md"
 # 4. manifest records exactly the installed set, no more and no less
 [ -f "$MANIFEST" ] || fail "install writes .harness-manifest"
 (cd "$ROOT" && find agents skills -type f -print | sort >"$TMPROOT/case4.expected")
-printf 'HARNESS.md\nNOTICE\nLICENSE\n' >>"$TMPROOT/case4.expected"
+printf 'HARNESS.md\nNOTICE\nLICENSE\nPROVIDERS.md\n' >>"$TMPROOT/case4.expected"
 sort -o "$TMPROOT/case4.expected" "$TMPROOT/case4.expected"
 grep -v '^#' "$MANIFEST" | sort >"$TMPROOT/case4.actual"
 cmp -s "$TMPROOT/case4.expected" "$TMPROOT/case4.actual" || fail "manifest matches the installed file set exactly"
@@ -87,7 +128,7 @@ printf 'junk\n' >"$DEST/agents/scout.md"
 rc9=0
 HOME="$HOME_DIR" "$INSTALL" --force >"$TMPROOT/case9.out" 2>&1 || rc9=$?
 [ "$rc9" -eq 0 ] || { cat "$TMPROOT/case9.out" >&2; fail "--force repair install exits 0"; }
-cmp -s "$ROOT/agents/scout.md" "$DEST/agents/scout.md" || fail "--force restores tampered file content"
+cmp -s "$TMPROOT/legacy-agents/scout.md" "$DEST/agents/scout.md" || fail "--force restores tampered file content"
 pass "--force restores tampered file content"
 
 # 10. foreign files survive --force --prune
@@ -134,7 +175,7 @@ HOME="$HOME_DIR" "$INSTALL" --force >"$TMPROOT/case13.out" 2>&1 || rc13=$?
 [ "$rc13" -eq 0 ] || { cat "$TMPROOT/case13.out" >&2; fail "install over a destination symlink exits 0"; }
 [ "$(cat "$OUTSIDE/scout-target.md")" = "outside-content" ] || fail "--force never writes through a symlink"
 [ -f "$DEST/agents/scout.md" ] && [ ! -L "$DEST/agents/scout.md" ] || fail "symlink is replaced by a regular file"
-cmp -s "$ROOT/agents/scout.md" "$DEST/agents/scout.md" || fail "symlink target replaced with source content"
+cmp -s "$TMPROOT/legacy-agents/scout.md" "$DEST/agents/scout.md" || fail "symlink target replaced with source content"
 pass "--force replaces a destination symlink instead of writing through it"
 
 # 14. OPENCODE_CONFIG overrides the destination
@@ -290,6 +331,11 @@ while IFS= read -r mrel || [ -n "$mrel" ]; do
   entries=$((entries + 1))
   if [ "$mrel" = "HARNESS.md" ]; then
     src="$ROOT/AGENTS.md"
+  elif [ "$mrel" = "PROVIDERS.md" ]; then
+    src="$ROOT/providers/tri.md"
+  elif [[ "$mrel" == agents/*.md ]]; then
+    # Compare against the independent default pin fixture.
+    src="$TMPROOT/tri-agents/${mrel#agents/}"
   else
     src="$ROOT/$mrel"
   fi
@@ -571,4 +617,106 @@ grep -q 'inside the source checkout' "$TMPROOT/case28.link-interior-dot.out" || 
 [ -z "$(ls -A "$DOT_HOME")" ] || fail "./ and interior /./ destinations create nothing in HOME"
 pass "./ and <symlink-to-src>/missing/./sub exit 1 and create nothing"
 
-printf 'all install tests passed\n'
+# 38. default tri binding and native pins
+cmp -s "$ROOT/providers/tri.md" "$DEST/PROVIDERS.md" || fail "default selects tri"
+grep -qx 'PROVIDERS.md' "$MANIFEST" || fail "manifest owns PROVIDERS.md"
+[ "$(sed -n '2p' "$MANIFEST")" = '# profile tri' ] || fail "manifest line 2 names tri"
+if grep -q '^model:' "$DEST/agents/implementer-deep.md"; then
+  fail "tri implementer-deep has no native pin"
+fi
+grep -qxF 'note: implementer-deep has no opencode rung; dispatch it through delegate_task only' "$TMPROOT/case1.out" || fail "tri reports delegate-only seat"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$DEST/agents/implementer.md" || fail "tri implementer uses native last-resort"
+pass "default tri profile, manifest metadata, native pin and delegate-only note"
+
+# 39. legacy profile reproduces all nine historical seat pins and bytes
+LEGACY_DEST="$TMPROOT/legacy-install"
+OPENCODE_CONFIG="$LEGACY_DEST" "$INSTALL" --profile opencode-go >"$TMPROOT/legacy.out"
+for expected in "$TMPROOT/legacy-agents/"*.md; do
+  cmp -s "$expected" "$LEGACY_DEST/agents/${expected##*/}" || fail "legacy byte identity: ${expected##*/}"
+done
+cmp -s "$ROOT/providers/opencode-go.md" "$LEGACY_DEST/PROVIDERS.md" || fail "legacy profile is byte copied"
+[ "$(sed -n '2p' "$LEGACY_DEST/.harness-manifest")" = '# profile opencode-go' ] || fail "legacy metadata"
+pass "opencode-go reproduces all nine legacy agents byte for byte"
+
+# 40. both flag forms bind the same profile
+OPENCODE_CONFIG="$LEGACY_DEST" "$INSTALL" --force --profile=opencode-go >"$TMPROOT/equals.out"
+cmp -s "$ROOT/providers/opencode-go.md" "$LEGACY_DEST/PROVIDERS.md" || fail "equals flag binds legacy profile"
+pass "--profile=NAME is accepted"
+
+# 41. unknown and malformed names fail before any write, even with force/prune
+for profile in missing ../tri Tri '' 'tri/name' '-tri' 'tri.bad'; do
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/unknown-dest" "$INSTALL" --force --prune --profile="$profile" >"$TMPROOT/unknown.out" 2>"$TMPROOT/unknown.err" || rc=$?
+  [ "$rc" -eq 2 ] || fail "unknown profile exits 2: $profile"
+  grep -qF "install.sh: unknown profile: $profile (available: opencode-go tri)" "$TMPROOT/unknown.err" || fail "unknown profile diagnostic: $profile"
+  [ ! -e "$TMPROOT/unknown-dest" ] || fail "unknown profile creates nothing"
+done
+pass "unknown and malformed profiles exit 2 and write nothing"
+
+# 42. isolated installer fixture exercises validation without mutating the repo
+FIXTURE="$TMPROOT/profile-fixture"
+mkdir -p "$FIXTURE/providers"
+cp "$INSTALL" "$FIXTURE/install.sh"
+for defect in missing-primary invalid-rung; do
+  if [ "$defect" = missing-primary ]; then
+    awk '!/^[|] implementer-deep [|] primary [|]/' "$ROOT/providers/tri.md" >"$FIXTURE/providers/broken.md"
+  else
+    sed 's/| implementer-deep | fallback |/| implementer-deep | bogus |/' "$ROOT/providers/tri.md" >"$FIXTURE/providers/broken.md"
+  fi
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/incomplete-dest" "$FIXTURE/install.sh" --force --prune --profile broken >"$TMPROOT/incomplete.out" 2>"$TMPROOT/incomplete.err" || rc=$?
+  [ "$rc" -eq 1 ] || fail "incomplete profile exits 1: $defect"
+  grep -qxF 'install.sh: profile broken incomplete: implementer-deep' "$TMPROOT/incomplete.err" || fail "incomplete diagnostic: $defect"
+  [ ! -e "$TMPROOT/incomplete-dest" ] || fail "incomplete profile writes nothing"
+done
+pass "missing primary and invalid rung exit 1 before any write"
+
+# 43. PROVIDERS.md follows normal collision, force, symlink and prune rules
+PROFILE_DEST="$TMPROOT/profile-dest"
+mkdir -p "$PROFILE_DEST"
+printf 'keep\n' >"$PROFILE_DEST/PROVIDERS.md"
+rc=0
+OPENCODE_CONFIG="$PROFILE_DEST" "$INSTALL" >"$TMPROOT/profile-collision.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || fail "profile collision exits 1"
+[ ! -e "$PROFILE_DEST/agents" ] || fail "profile collision aborts before copying"
+[ "$(cat "$PROFILE_DEST/PROVIDERS.md")" = keep ] || fail "profile collision preserves content"
+rm -f "$PROFILE_DEST/PROVIDERS.md"
+printf 'outside\n' >"$TMPROOT/outside-profile.md"
+ln -s "$TMPROOT/outside-profile.md" "$PROFILE_DEST/PROVIDERS.md"
+OPENCODE_CONFIG="$PROFILE_DEST" "$INSTALL" --force >"$TMPROOT/profile-force.out"
+[ "$(cat "$TMPROOT/outside-profile.md")" = outside ] || fail "profile force preserves symlink target"
+[ ! -L "$PROFILE_DEST/PROVIDERS.md" ] || fail "profile force unlinks symlink"
+OPENCODE_CONFIG="$PROFILE_DEST" "$INSTALL" --force --prune --profile opencode-go >"$TMPROOT/profile-prune.out"
+cmp -s "$ROOT/providers/opencode-go.md" "$PROFILE_DEST/PROVIDERS.md" || fail "profile switch survives prune"
+[ ! -e "$PROFILE_DEST/providers" ] || fail "profiles directory is not installed"
+pass "PROVIDERS.md respects collision, force, symlink and prune rules"
+
+# 44. every required role is validated (including the ad-hoc task reviewer)
+for role in scout implementer implementer-b implementer-deep patch reviewer-a reviewer-b reviewer-c reviewer-esc task-reviewer; do
+  awk -F '|' -v role="$role" '!($2 == " " role " " && $3 == " primary ")' "$ROOT/providers/tri.md" >"$FIXTURE/providers/broken.md"
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/incomplete-dest" "$FIXTURE/install.sh" --profile broken >"$TMPROOT/role.out" 2>"$TMPROOT/role.err" || rc=$?
+  [ "$rc" -eq 1 ] || fail "missing primary for $role exits 1"
+  grep -qxF "install.sh: profile broken incomplete: $role" "$TMPROOT/role.err" || fail "missing primary names $role"
+  [ ! -e "$TMPROOT/incomplete-dest" ] || fail "missing $role creates nothing"
+done
+pass "all ten required roles must have a primary rung"
+
+# 45. table order cannot override ladder order; unrelated/advisory rows are ignored
+cp -R "$ROOT/agents" "$FIXTURE/agents"
+mkdir -p "$FIXTURE/skills"
+cp "$ROOT/NOTICE" "$ROOT/LICENSE" "$FIXTURE/"
+printf 'fixture harness\n' >"$FIXTURE/AGENTS.md"
+awk '
+  /^[|] (scout|implementer|implementer-b|implementer-deep|patch|reviewer-a|reviewer-b|reviewer-c|reviewer-esc|task-reviewer) [|]/ { rows[++n] = $0; next }
+  { print }
+  END { for (i = n; i >= 1; i--) print rows[i] }
+' "$ROOT/providers/opencode-go.md" >"$FIXTURE/providers/reordered.md"
+printf '| unknown-role | bogus | ignored |\n| driver | bogus | ignored |\n| compaction | bogus | ignored |\n' >>"$FIXTURE/providers/reordered.md"
+OPENCODE_CONFIG="$TMPROOT/reordered-dest" "$FIXTURE/install.sh" --profile reordered >"$TMPROOT/reordered.out"
+for expected in "$TMPROOT/legacy-agents/"*.md; do
+  cmp -s "$expected" "$TMPROOT/reordered-dest/agents/${expected##*/}" || fail "reordered ladder: ${expected##*/}"
+done
+pass "native pins follow ladder order and parser ignores unknown and advisory roles"
+
+printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

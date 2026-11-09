@@ -124,7 +124,7 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 ## Success criteria
 
 1. Harness-layer grep above returns nothing; no skill names a provider.
-2. `bash test/install.sh` green, including new cases: default profile is `tri`; `--profile opencode-go` installs agents byte-identical to `git show 578cc27:agents/<seat>.md`; `PROVIDERS.md` byte-identical to the profile and in the manifest; manifest line 2 is `# profile <name>`; unknown profile exits 2 and writes nothing; incomplete profile exits 1 and writes nothing; under `tri`, `implementer-deep` (no opencode rung) installs with no `model:` line and the install prints its `note:` line, while `implementer` installs with `model: opencode-go/deepseek-v4.1-flash#high`.
+2. `bash test/install.sh` green, including new cases: default profile is `tri`; `--profile opencode-go` installs agents whose `model:` lines and layout match `git show 578cc27:agents/<seat>.md` (bodies differ only where provider-specific wording was neutralized); `PROVIDERS.md` byte-identical to the profile and in the manifest; manifest line 2 is `# profile <name>`; unknown profile exits 2 and writes nothing; incomplete profile exits 1 and writes nothing; under `tri`, `implementer-deep` (no opencode rung) installs with no `model:` line and the install prints its `note:` line, while `implementer` installs with `model: opencode-go/deepseek-v4.1-flash#high`.
 3. Skills reference roles and "the active provider profile"; council and dispatch describe the dispatch adapter by reference to AGENTS.md, not by restating it.
 4. README documents layers, profiles, `--profile`, and the `tri` table with its rationale.
 

@@ -1,7 +1,6 @@
 ---
 description: Read-only locator. Use for "where is X defined", "what calls Y", "list all uses of Z", fast code maps. Returns compressed path:line tables, no snippets, no fix suggestions.
 mode: subagent
-model: opencode-go/mimo-v2.6-flash
 permissions:
   - action: read
     resource: "*"
