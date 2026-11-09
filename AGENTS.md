@@ -1,6 +1,6 @@
 # Cybernetic SDLC Harness
 
-Instructions for the `oneshot` cybernetic control system. Skills and ad-hoc dispatches never hardcode model IDs; the nine seat agents pin theirs in their own agent files; this file is the single source for routing and fallback ladders.
+Instructions for the `oneshot` cybernetic control system. Skills and ad-hoc dispatches never hardcode model IDs, providers, or effort values; the active provider profile (`PROVIDERS.md`) is the single source for which model runs each role, and this file is the single source for the routing rules, the dispatch adapter, and the contracts.
 
 ## Context Hygiene and Subagent Routing
 
@@ -8,41 +8,36 @@ Instructions for the `oneshot` cybernetic control system. Skills and ad-hoc disp
 - The main session orchestrates and never writes implementation code inline; dispatch a fresh subagent per task (`implementer`, `implementer-b`, or `implementer-deep`) via `dispatch`.
 - `patch` handles 1 to 2 file edits that need no test run (micro-loops, typo fixes, mechanical renames). Council and CI fixers that must run tests are implementation seats.
 
-## Model Tank
+## Provider Profiles
 
-Provider: exclusively OpenCode Go (`opencode-go/*`, $10/mo tier). No local or non-Go providers are used in this harness. Most seats sit on high-allowance request tiers (6,320 to 45,300 req/5h). Two are scarce and reserved: `implementer-deep` (440) for complex tasks and hard bugs, and `reviewer-esc` (147) for escalation only.
+This file is provider-neutral: it names roles, never concrete models. Which provider instance, model, and effort runs each role lives in the active provider profile.
 
-Effort defaults:
-- **Implementers:** each seat pins its own effort variant (`implementer` `#high`, `implementer-b` `#medium`, `implementer-deep` `#high`; `patch` also pins `#high`). `deepseek-v4.1-flash` exposes `low|high|max` only, so `#high` is its middle tier, while `reviewer-b` pins `#max`.
-- **Reviewers:** `high` or higher reasoning effort (`#xhigh`, `#max`, `#high` on primaries; `#high` on every fallback and last resort).
-- **Scout:** `mimo-v2.6-flash` (catalog exposes a single default reasoning tier, no `#variant` suffix; fallbacks pin `#low`).
+- **Where it lives:** the active routing table is `PROVIDERS.md` next to `HARNESS.md` in the install directory; in this repo its source is `providers/<profile>.md`, bound to an install by `install.sh --profile <name>`. Skills say "the active provider profile (`PROVIDERS.md`)", never a provider name.
+- **Role vocabulary:** seat roles (each has an agent contract file in `agents/`): `scout`, `implementer`, `implementer-b`, `implementer-deep`, `patch`, `reviewer-a`, `reviewer-b`, `reviewer-c`, `reviewer-esc`. Ad-hoc role (no agent file; the dispatch brief carries the contract): `task-reviewer`, the dispatch stage-1 spec and stage-2 quality reviewers. Advisory roles (documented host setup only, never validated or rendered by the installer): `driver` (the main session running oneshot) and `compaction`. Every profile defines a `primary` rung for all ten dispatched roles (nine seats plus `task-reviewer`).
+- **Columns:** the routing table has one row per role and rung with columns `role | rung | provider | model | effort | family | privacy`. `rung` is `primary`, `fallback`, or `last-resort` (ladder order is that order). `provider` is the provider instance serving the model (`opencode` is the only value an OpenCode host can dispatch natively). `model` is the id exactly as that provider's catalog names it. `effort` is `<option-id>=<value>` in the provider's own vocabulary, or `-` for the provider default. `family` is the model family used by the independence rules (the same family on two providers is the same family). `privacy` is `ok` or `trains` (trains on request data; the privacy gate skips it on confidential work). Quotas, privacy notes, and other provider facts are prose in the profile, not harness rules.
 
-Skills reference the ROLE NAME or SEAT AGENT only. On a provider error mentioning usage limit, allowance, or 429, re-dispatch with the next entry in the ladder and announce the demotion.
+## Dispatch Adapter
 
-| Role | Seat agent (pinned) | Primary (est. req / 5h) | Fallback | Last resort |
-| --- | --- | --- | --- | --- |
-| Implementation (default A) | `implementer` | `opencode-go/deepseek-v4.1-flash#high` (43,330) | `opencode-go/muse-spark-1.3-contributor#medium` (45,300) | `opencode-go/gpt-6-luna#medium` (4,230) |
-| Implementation (default B) | `implementer-b` | `opencode-go/muse-spark-1.3-contributor#medium` (45,300) | `opencode-go/deepseek-v4.1-flash#high` (43,330) | `opencode-go/gpt-6-luna#medium` (4,230) |
-| Complex tasks / difficult bugs | `implementer-deep` | `opencode-go/gemini-4-argon#high` (440) | `opencode-go/deepseek-v4.1-flash#max` (43,330) | `opencode-go/muse-spark-1.3-contributor#high` (45,300) |
-| Surgical fixes (1-2 files, no test run) | `patch` | `opencode-go/deepseek-v4.1-flash#high` (43,330) | `opencode-go/muse-spark-1.3-contributor#medium` (45,300) | `opencode-go/gpt-6-luna#medium` (4,230) |
-| Task-stage reviewers (spec + quality) | ad-hoc, explicit model | `opencode-go/glm-5.3-flash#high` (6,320) | `opencode-go/claude-haiku-5-5#high` (3,850) | `opencode-go/gpt-6-luna#high` (4,230) |
-| Scout / discovery | `scout` | `opencode-go/mimo-v2.6-flash` (30,100) | `opencode-go/deepseek-v4.1-flash#low` (43,330) | `opencode-go/glm-5.3-flash#low` (6,320) |
-| Council reviewer A | `reviewer-a` | `opencode-go/muse-spark-1.3-contributor#xhigh` (45,300) | `opencode-go/claude-haiku-5-5#high` (3,850) | `opencode-go/kimi-k3.1-pro#high` (147) |
-| Council reviewer B | `reviewer-b` | `opencode-go/deepseek-v4.1-flash#max` (43,330) | `opencode-go/gpt-6-luna#high` (4,230) | `opencode-go/kimi-k3.1-pro#high` (147) |
-| Council reviewer C | `reviewer-c` | `opencode-go/glm-5.3-flash#high` (6,320) | `opencode-go/claude-haiku-5-5#high` (3,850) | `opencode-go/gpt-6-luna#high` (4,230) |
-| Council escalation (last resort) | `reviewer-esc` | `opencode-go/kimi-k3.1-pro#high` (147) | `opencode-go/gemini-4-argon#high` (440) | `opencode-go/gpt-6-luna#high` (4,230) |
-| Compaction / summary / memory | built-in agent config | `opencode-go/claude-haiku-5-5#low` (3,850) | `opencode-go/gpt-6-luna#low` (4,230) | - |
+How the controller turns a role into a running subagent. For each rung, in this order of preference:
 
-Rules:
+1. **Host pins the rung natively.** On an OpenCode host, a rung with `provider: opencode` dispatches through the `subagent` tool (some builds register it as `task`; use whichever the session exposes) with the seat agent id. A native pin is rendered into the installed seat agent file at install time from the profile: the first `opencode` rung of the seat's ladder, plus `#<value>` when its effort id is `variant`. Non-pinned rungs pass an explicit `model` (`<model>#<variant>`).
+2. **T3 Code orchestration tools are available.** Use `delegate_task` with `target.providerInstanceId` = `provider`, `target.model` = `model`, `target.options` = `{<option-id>: <value>}` (omit for `-`), `isolation: shared`, and `mode: async` for parallel fan-out. Pass `role` = `research` for `scout`, `implementation` for implementers and `patch`, `review` for reviewers. The `task` text starts with the role contract line `Role contract: read <harness-dir>/agents/<seat>.md; follow its body; its permissions block is your policy and you enforce it yourself.` followed by the normal brief; `<harness-dir>` is the directory holding `HARNESS.md`. `task-reviewer` briefs come from `dispatch/*-reviewer-prompt.md` and need no contract line.
+3. **Neither works.** The rung is unreachable on this host: skip it like an exhausted rung and announce `seat <seat>: <provider>/<model> unreachable on this host, demoted to <next>`.
 
-- Only `opencode-go/*` models are permitted in this harness.
-- Never run the council with fewer than 2 independent reviewer families. If fewer than 2 independent reviewer families are healthy, stop with `yellow: degraded council`. Never continue on one reviewer.
-- Council runs at most 3 rounds per PR. Primary reviewers (`muse-spark-1.3-contributor#xhigh`, `deepseek-v4.1-flash#max`, `glm-5.3-flash#high`) have 6,320 to 45,300 req/5h so normal PRs never touch scarce limits; `kimi-k3.1-pro#high` (147 req/5h) is strictly last-resort / escalation.
-- Deepseek v4 models are cheapest off-peak: 01:00-04:00, 06:00-10:00 UTC Mon-Fri is peak.
-- Council budget guard: at most 14 reviewer dispatches per PR including escalation (9 seat, 3 seat demotion, 1 escalation, 1 escalation demotion); a seat that demoted once holds its new rung for the rest of the day.
-- Family independence holds across the whole PR, not just one round: when two seats demote in the same round, skip any fallback whose family is already active on another seat anywhere in this PR (for example, if Seat A already demoted to `claude-haiku-5-5#high`, Seat C skips straight to `gpt-6-luna#high`). Escalation only runs on a family no seat used this PR; if `kimi-k3.1-pro#high` was already consumed as a seat last-resort, `reviewer-esc` demotes to `gemini-4-argon#high`.
-- Privacy gate: any rung marked as training on request data auto-skips when the task or diff carries a confidential flag; demote to the next privacy-safe rung and announce.
-- Action-name aliases: some OpenCode builds register permission actions as `bash`/`task`, some as `shell`/`subagent`; agent files carry both spellings so denies never go inert.
+Off OpenCode, permissions are self-enforced by the child: T3 runtime modes pause for approval and are not read-only sandboxes. The "best-effort guardrails, not a sandbox" wording under Permission rules extends to this.
+
+Never let a subagent inherit the driver's model by omission: every dispatch names a rung.
+
+## Routing Rules
+
+- **Ladder:** on a usage-limit, allowance, quota, or 429-style error, or when a rung is unreachable (Dispatch Adapter step 3), re-dispatch the same role on the next rung of its ladder in the active profile and announce the demotion.
+- **Family independence (council):** a seat may demote within its own family; it never takes a rung whose family is active on another council seat anywhere in this PR. This holds across the whole PR, not just one round: when two seats demote in the same round, each skips any rung whose family is already active on another seat. Escalation (`reviewer-esc`) only runs on a family no seat used this PR.
+- **Author independence (task loop):** a `task-reviewer` rung whose family equals the implementing rung's family is skipped for that task.
+- **Privacy gate:** any rung marked `privacy: trains` auto-skips when the task or diff carries a confidential flag; demote to the next privacy-safe rung and announce. Compaction and summary never route to a `trains` rung.
+- **Council budget guard:** at most 14 reviewer dispatches per PR including escalation (9 seat, 3 seat demotion, 1 escalation, 1 escalation demotion); a seat that demoted once holds its new rung for the rest of the day.
+- **Degraded council:** never run the council with fewer than 2 independent reviewer families. If fewer than 2 independent reviewer families are healthy, stop with `yellow: degraded council`. Never continue on one reviewer. The canonical statement lives under Review contracts.
+- **Rounds:** the council runs at most 3 rounds per PR.
+- **Action-name aliases:** some OpenCode builds register permission actions as `bash`/`task`, some as `shell`/`subagent`; agent files carry both spellings so denies never go inert.
 
 ### Permission rules
 
@@ -63,22 +58,9 @@ Rules:
 - A degraded council stops with `yellow: degraded council` and never reports a provisional PASS.
 - A fixer that must run tests is an implementation seat, never `patch`.
 
-## Privacy Footnotes
-
-| Model | Reads your code as | Note |
-| --- | --- | --- |
-| muse-spark-\* | trains on request data | High-allowance workhorse (45,300 req/5h). Skip on confidential diffs via the privacy gate |
-| claude-haiku-5-5 | 30-day retention on requests | Reviewer fallback and compaction primary |
-| deepseek v4 family | region-gated | Confirm Global region is enabled in Console Privacy |
-
-GPT Luna models: not used for training, 30-day abuse-monitor retention.
-GLM / Kimi / Gemini 4 Argon / MiMo via Go: not used for training, 0-day retention.
-
-Compaction and summary never route to a training family.
-
 ## Council Contract
 
-- Seats are named agents: `implementer` and `implementer-b` (default planned tasks), `implementer-deep` (complex tasks / difficult bugs), `scout`, `patch`, `reviewer-a`, `reviewer-b`, `reviewer-c`, escalation `reviewer-esc`; each file pins its seat model and `#variant` effort level, so subagents never inherit the main session model.
+- Seats are named agents: `implementer` and `implementer-b` (default planned tasks), `implementer-deep` (complex tasks / difficult bugs), `scout`, `patch`, `reviewer-a`, `reviewer-b`, `reviewer-c`, escalation `reviewer-esc`; the active provider profile names each seat's rung and the install renders a native pin into the seat file, so subagents never inherit the main session model.
 - When a GLOSSARY.md exists, the task brief carries the terms the change must honor; spec review flags new undefined terms.
 - Three reviewers, three independent model families, fresh subagent each.
 - One line per finding: `path:line: emoji severity: problem. fix.`
@@ -103,9 +85,9 @@ Compaction and summary never route to a training family.
 | council | consensus review (skill) |
 | land | finish branch, PR options |
 | make-ci-green | CI babysitting loop |
-| implementer, implementer-b, implementer-deep, scout, patch | actuation / discovery agents (pinned Go models + effort) |
-| reviewer-a, reviewer-b, reviewer-c, reviewer-esc | council seat agents (pinned Go models + high/xhigh/max effort) |
+| implementer, implementer-b, implementer-deep, scout, patch | actuation / discovery agents (model and effort per the active provider profile) |
+| reviewer-a, reviewer-b, reviewer-c, reviewer-esc | council seat agents (model and effort per the active provider profile) |
 
 ## Fallback Mechanics
 
-Every agent file pins its primary model, so a subagent session never silently runs the main session model. When a seat's primary returns a usage-limit, allowance, or 429-style provider error: re-dispatch the SAME agent id with an explicit `model` pointing at the next ladder entry for that role in the Model Tank. Announce the demotion. Skip any ladder entry whose model family already serves another seat anywhere in this PR (independence rule). A seat with zero healthy ladder entries is lost; the council stops at `yellow: degraded council` when fewer than 2 independent families remain healthy.
+Every dispatch names a rung (native pin rendered at install from the active profile, or an explicit target through the Dispatch Adapter), so a subagent session never silently runs the main session model. When a seat's rung returns a usage-limit, allowance, or 429-style provider error, or is unreachable: re-dispatch the SAME role on the next ladder rung in the active provider profile through the Dispatch Adapter. Announce the demotion. Skip any rung whose family is active on another council seat anywhere in this PR (Routing Rules, family independence). A seat with zero healthy ladder rungs is lost; the council stops at `yellow: degraded council` when fewer than 2 independent families remain healthy.

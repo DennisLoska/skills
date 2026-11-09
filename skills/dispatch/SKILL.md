@@ -42,7 +42,7 @@ digraph when_to_use {
 
 ## Working Branch & Worktrees
 
-Work on a feature branch from a clean tree - either in the current checkout or inside a dedicated git worktree (such as a T3 Code worktree thread or one created via `tools.opencode.worktree_create` + `tools.opencode.session_move`). If the working tree is on `master` or `main`, create a feature branch or worktree before dispatching. Never develop on `master` or `main` without explicit user consent; `master`/`main` advances only via PR merge (the `land` skill handles that).
+Work on a feature branch from a clean tree - either in the current checkout or inside a dedicated git worktree (created with the host's worktree tool, e.g. OpenCode `tools.opencode.worktree_create` + `session_move`, or a T3 Code worktree thread). If the working tree is on `master` or `main`, create a feature branch or worktree before dispatching. Never develop on `master` or `main` without explicit user consent; `master`/`main` advances only via PR merge (the `land` skill handles that).
 
 ## The Process
 
@@ -101,23 +101,23 @@ Standalone (no oneshot): after final review PASS, run the verify skill yourself,
 
 ## Model Routing
 
-Skills never hardcode model IDs. Route every subagent through the AGENTS.md ladder ("Model Tank"), by role. Named seat agents pin their primary in the agent file; ad-hoc dispatches must always pass an explicit `model` field so nothing inherits the main session model by accident.
+Skills never hardcode model IDs. Route every subagent by role through the active provider profile (`PROVIDERS.md`) and the AGENTS.md Routing Rules, dispatching through the AGENTS.md Dispatch Adapter (the native `subagent` tool is one adapter path). Every dispatch names a rung so nothing inherits the main session model by accident.
 
-**Three implementation seats exist** (models and effort levels pinned in their agent files; ladders in AGENTS.md "Model Tank"):
-- `implementer` and `implementer-b` - the two default high-allowance implementation seats (pinned variant in their agent files). Alternate or pick either for standard and mechanical tasks (`implementer` for confidential briefs).
-- `implementer-deep` - the heavy-reasoning seat (`#high` effort) reserved for complex multi-file architecture tasks and difficult bugs escalated by `debug`.
+**Three implementation seats exist** (models and effort levels per the active provider profile; native pin rendered at install):
+- `implementer` and `implementer-b` - the two default high-allowance implementation seats (rungs from the active provider profile). Alternate or pick either for standard and mechanical tasks (`implementer` for confidential briefs).
+- `implementer-deep` - the heavy-reasoning seat reserved for complex multi-file architecture tasks and difficult bugs escalated by `debug`.
 
-Per-task dispatch = one of the three seats + the brief from `implementer-prompt.md`, via the `subagent` tool (some builds register this tool as `task`; use whichever the session exposes). On a usage-limit/429 error from a seat: re-dispatch the same seat agent id with an explicit `model` override along its AGENTS.md ladder, announce the demotion, and continue.
+Per-task dispatch = one of the three seats + the brief from `implementer-prompt.md`, through the AGENTS.md Dispatch Adapter. On a usage-limit/429 error from a seat, or an unreachable rung: re-dispatch the same role on the next rung of its ladder in the active provider profile, announce the demotion, and continue.
 
-**Stage reviewers dispatch ad-hoc:** spec-reviewer and quality-reviewer subagents always carry an explicit `model` from the AGENTS.md "task-stage reviewers" rung, chosen after the seat matrix call above. They are not seat agents; fresh context each time, model override each time.
+**Stage reviewers dispatch ad-hoc:** spec-reviewer and quality-reviewer subagents are role `task-reviewer` from the active provider profile, chosen after the seat matrix call above; skip any `task-reviewer` rung whose family wrote the code for that task (AGENTS.md Routing Rules, author independence). They are not seat agents; fresh context each time, explicit rung each time.
 
-**Seat matrix (route every implementation through a named seat agent; models and effort levels are pinned in the agent files):**
+**Seat matrix (route every implementation through a named seat agent; models and effort levels per the active provider profile):**
 - Default single-task work -> `implementer`.
 - Second parallel track or lower-risk mechanical work -> `implementer-b`.
 - Multi-file architecture, concurrency, or a bug that resisted one standard attempt -> `implementer-deep`.
 - 1-2 file surgical edits with no test run -> `patch`.
 
-Confidential briefs: when a task brief is marked confidential, any rung marked as training on request data in AGENTS.md Privacy Footnotes auto-skips; demote straight to the next privacy-safe rung per the AGENTS.md ladder and announce.
+Confidential briefs: when a task brief is marked confidential, the AGENTS.md Routing Rules privacy gate applies (`privacy: trains` rungs in the active provider profile auto-skip); demote straight to the next privacy-safe rung and announce.
 
 ## Handling Implementer Status
 
@@ -221,7 +221,7 @@ Quality reviewer: PASS
 ...
 
 [After all tasks]
-[Dispatch final reviewer for entire implementation (explicit `model` from the `Task-stage reviewers` row in `AGENTS.md`)]
+[Dispatch final reviewer for entire implementation (role `task-reviewer` from the active provider profile)]
 Final reviewer: All requirements met, ready to merge
 
 [Return to the controller with the final review verdict]
@@ -396,7 +396,7 @@ Integration: all fixes independent, no conflicts, full suite green. 3 problems s
 - Let implementer self-review replace actual review (both are needed)
 - Start code quality review before spec compliance passes (wrong order)
 - Move to the next task while either review has open issues
-- Hardcode a model ID (route by role through AGENTS.md)
+- Hardcode a model ID (route by role through the active provider profile and AGENTS.md)
 - Violate plan task dependency order
 
 **If the subagent asks questions:** answer clearly and completely, provide additional context if needed, don't rush into implementation.
@@ -417,6 +417,6 @@ Integration: all fixes independent, no conflicts, full suite green. 3 problems s
 - Invoke the `tdd` skill via the skill tool: each task implements failing-test-first
 
 **Routing:**
-- The AGENTS.md routing file: model ladders and roles, never model IDs in skill text
+- The active provider profile (`PROVIDERS.md`) holds model ladders per role; AGENTS.md holds the routing rules and Dispatch Adapter; never model IDs in skill text
 
 **Oneshot:** dispatch is the execution phase of the oneshot pipeline. The pipeline hub lives in the oneshot skill; it enters here at Phase 3 with a user-approved plan. Verify and council follow it inside that pipeline, but this skill runs correctly standalone against any plan file.

@@ -7,7 +7,7 @@ description: Use when a PR should be watched through CI and review bots until gr
 
 Watch a PR through CI checks and bot reviews. Fix real findings. Kill flakes with evidence, not reruns.
 
-**Model routing:** fixer subagents come from the AGENTS.md implementation role ladder. This skill never calls a model directly.
+**Model routing:** fixer subagents come from the implementation roles in the active provider profile (`PROVIDERS.md`), dispatched through the AGENTS.md Dispatch Adapter. This skill never calls a model directly.
 
 ## Loop
 

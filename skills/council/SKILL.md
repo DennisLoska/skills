@@ -9,12 +9,12 @@ Consensus review by 3 independent reviewers, followed by disciplined application
 
 **Why:** One reviewer = one blind spot. Three independent model families = three different failure patterns. Agreement matters more than any single opinion.
 
-**Model routing:** Reviewer roles A/B/C + escalation come from AGENTS.md "Model Tank" rows. Never hardcode IDs. On usage-limit/429: demote along that seat's ladder, announce the demotion. Minimum 2 healthy independent families or stop and surface yellow.
+**Model routing:** Reviewer roles A/B/C + escalation come from the active provider profile (`PROVIDERS.md`), routed by the AGENTS.md Routing Rules and Dispatch Adapter. Never hardcode IDs. On usage-limit/429 or an unreachable rung: demote along that seat's ladder, announce the demotion. Minimum 2 healthy independent families or stop and surface yellow.
 
 ## Request phase
 
 1. Scope: diff of the branch (git diff against target), or PR, or given files. Read spec + plan when present.
-2. Dispatch the three council seat agents via the `subagent` tool (some builds register this tool as `task`; use whichever the session exposes), one fresh subagent each: `reviewer-a`, `reviewer-b`, `reviewer-c`. Same scope, same instructions, one independent model family per seat (each agent file pins its seat model, so no seat ever inherits the main session model).
+2. Dispatch the three council seat roles through the AGENTS.md Dispatch Adapter (the native `subagent` tool is one adapter path), one fresh subagent each: `reviewer-a`, `reviewer-b`, `reviewer-c`. Same scope, same instructions, one independent model family per seat (every dispatch names a rung from the active provider profile, so no seat ever inherits the main session model).
 3. Reviewer instruction block:
 
 ```
@@ -30,28 +30,28 @@ Output:
 No praise. No "looks good". No scope creep.
 ```
 
-4. If a seat's model is exhausted mid-round: re-dispatch the SAME seat agent id with an explicit `model` field set to the seat's next ladder entry from AGENTS.md "Model Tank" (mechanics below). Rerun only that seat. Never fill a seat with a model from a family already used anywhere in this PR.
-5. Confidentiality gate: if the review brief or referenced diff carries a confidential flag, any rung marked as training on request data in AGENTS.md Privacy Footnotes auto-skips for every seat; demote to the next privacy-safe rung and announce.
+4. If a seat's rung is exhausted or unreachable mid-round: re-dispatch the SAME seat role on its next ladder rung from the active provider profile (mechanics below). Rerun only that seat. Never fill a seat with a rung whose family is active on another council seat anywhere in this PR (AGENTS.md Routing Rules).
+5. Confidentiality gate: if the review brief or referenced diff carries a confidential flag, the AGENTS.md Routing Rules privacy gate applies to every seat (`privacy: trains` rungs in the active provider profile auto-skip); demote to the next privacy-safe rung and announce.
 
 ## Fallback mechanics
 
-Every seat lives in an agent file with a pinned primary model. When its primary returns a usage-limit or 429-style provider error:
+Every seat has a contract file (`agents/<seat>.md`) and a primary rung in the active provider profile. When its rung returns a usage-limit or 429-style provider error, or is unreachable:
 
 ```
-re-dispatch: subagent: agent <seat>, model <next ladder entry>
-announce: "seat <seat> demoted to <model>"
+re-dispatch: AGENTS.md Dispatch Adapter, role <seat>, rung <next ladder rung>
+announce: "seat <seat> demoted to <provider>/<model>"
 ```
 
-- A demotion never breaks family independence: skip any ladder entry whose family already serves another seat used anywhere in this PR.
-- A seat with zero healthy ladder entries = seat lost. Continue if at least 2 independent families remain; otherwise stop with `yellow: degraded council`.
-- The escalation seat is a separate agent (`reviewer-esc`), pinned to the AGENTS.md escalation row. It never substitutes a lost seat mid-round; it enters only after the round budget is spent.
+- A demotion never breaks family independence: a seat may demote within its own family, but skip any ladder rung whose family is active on another council seat anywhere in this PR.
+- A seat with zero healthy ladder rungs = seat lost. Continue if at least 2 independent families remain; otherwise stop with `yellow: degraded council`.
+- The escalation seat is a separate agent (`reviewer-esc`), routed by its rung in the active provider profile. It never substitutes a lost seat mid-round; it enters only after the round budget is spent.
 
 ## Verdict phase
 
 - PASS = at least 2 of 3 seats vote PASS AND zero unresolved confirmed red findings from any seat, and tests green, or the no-tests rule satisfied. A confirmed red from a single FAIL seat blocks PASS just the same, until it is fixed or rebutted with evidence.
 - Fewer than 2 families healthy: STOP with `yellow: degraded council` per the canonical degraded-council rule in `AGENTS.md` Review contracts.
 - Merge findings into one list, severity sorted red -> yellow -> blue. Dedupe identical findings, keep the sharpest wording.
-- Escalation seat independence spans the whole PR: `reviewer-esc` never runs on a model family another seat already used this PR (check AGENTS.md family map per ladder rung). On conflict, demote along the `reviewer-esc` ladder in AGENTS.md until an unused Go family is found, else stop and surface `yellow: degraded council`.
+- Escalation seat independence spans the whole PR: `reviewer-esc` never runs on a model family another seat already used this PR (check the `family` column of the active provider profile per ladder rung). On conflict, demote along the `reviewer-esc` ladder in the profile until an unused family is found, else stop and surface `yellow: degraded council`.
 
 ## Receiving phase (rigor)
 
@@ -74,7 +74,7 @@ total review batches = 3, counted out loud:
     streamed, no user pause
 ```
 
-- Rounds exhausted -> escalation review on the AGENTS.md escalation row (own family, not one already used).
+- Rounds exhausted -> escalation review on the `reviewer-esc` rung of the active provider profile (own family, not one already used).
 - Escalation still FAIL -> STOP: report rounds, final findings, test output. This is one of the council stop points (alongside the degraded-council stop).
 - Reviewer never fixes. Fixer never reviews. Fresh subagent each round, both ways.
 

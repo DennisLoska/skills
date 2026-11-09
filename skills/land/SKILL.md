@@ -7,7 +7,7 @@ description: Use when a branch is done and needs push, PR, merge decision, or th
 
 Finish a development branch: PR body that leads with the problem, then the merge decision, then the handoff back to default.
 
-**Model routing:** no model calls of its own; it coordinates. Subagents come from the AGENTS.md implementation role when needed for fixes.
+**Model routing:** no model calls of its own; it coordinates. Subagents come from the implementation roles (active provider profile, AGENTS.md Dispatch Adapter) when needed for fixes.
 
 ## Part 1 - File the PR (oneshot Phase 5)
 
@@ -43,7 +43,7 @@ Same menu as the standalone flow, reusable any time a PR is merged:
    - Report: "Ready for next task on `<default branch>` at `<short-sha>`"
 2. **Linked git worktree (where `<default branch>` is already checked out in the main repository root, e.g. a T3 Code worktree thread):**
    - Do not run `git checkout <default>` inside the linked worktree if git reports `<default>` is already used by another worktree. Instead, fast-forward the default branch ref via `git fetch origin <default>:<default>` (or `git fetch origin <default>`).
-   - If the session is inside a temporary worktree the user asked to clean up, move the session back to the main checkout (`tools.opencode.session_move`) and remove the worktree (`tools.opencode.worktree_remove`), then prune the merged local branch if requested (`git branch -d <branch>`). Otherwise, detach HEAD at `origin/<default>` (`git checkout --detach origin/<default>`) so the merged feature branch is free and the worktree stays at the latest default commit.
+   - If the session is inside a temporary worktree the user asked to clean up, move the session back to the main checkout and remove the worktree (use the host's worktree tool, e.g. OpenCode `tools.opencode.session_move` + `tools.opencode.worktree_remove`, or close the T3 Code worktree thread), then prune the merged local branch if requested (`git branch -d <branch>`). Otherwise, detach HEAD at `origin/<default>` (`git checkout --detach origin/<default>`) so the merged feature branch is free and the worktree stays at the latest default commit.
    - Report: "Ready for next task on `<default branch>` at `<short-sha>`"
 
 ## Rules

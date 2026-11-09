@@ -2,14 +2,14 @@
 
 <p align="center">
   <em>Sense, act, verify, reach consensus, and land.</em><br/>
-  A self-owned cybernetic SDLC control system for OpenCode V2 - one gated controller (<code>oneshot</code>), four closed feedback loops, nine model-pinned agent seats on OpenCode Go, and twelve pipeline skills.
+  A self-owned cybernetic SDLC control system for OpenCode V2 - one gated controller (<code>oneshot</code>), four closed feedback loops, nine role-contract agent seats routed through a swappable provider profile, and twelve pipeline skills.
 </p>
 
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="License: MIT" /></a>
   <img src="https://img.shields.io/badge/OpenCode-V2-111111?style=flat-square" alt="OpenCode V2" />
-  <img src="https://img.shields.io/badge/Provider-OpenCode%20Go-00A67E?style=flat-square" alt="OpenCode Go" />
-  <img src="https://img.shields.io/badge/Agents-9%20Model--Pinned%20Seats-6A5ACD?style=flat-square" alt="9 Model-Pinned Seats" />
+  <img src="https://img.shields.io/badge/Provider-Swappable%20Profiles-00A67E?style=flat-square" alt="Swappable Provider Profiles" />
+  <img src="https://img.shields.io/badge/Agents-9%20Role%20Seats-6A5ACD?style=flat-square" alt="9 Role Seats" />
   <img src="https://img.shields.io/badge/Skills-12%20Pipeline%20Units-1AD1A5?style=flat-square" alt="12 Pipeline Skills" />
   <img src="https://img.shields.io/badge/Council-3%20Independent%20Families-FF6B35?style=flat-square" alt="3-Family Council" />
   <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
@@ -20,7 +20,7 @@
   <a href="#-cybernetic-architecture">Architecture</a> •
   <a href="#-all-12-skills-by-role">Skills Map</a> •
   <a href="#-usage--example-prompts">Usage & Prompts</a> •
-  <a href="#-model-tank-opencode-go">Model Tank</a> •
+  <a href="#-provider-layer">Provider Layer</a> •
   <a href="#-structure">Structure</a> •
   <a href="#️-installation-for-agents-and-humans">Installation</a> •
   <a href="#-testing">Testing</a>
@@ -30,7 +30,7 @@
 
 > **License:** MIT - see [LICENSE](LICENSE) and [NOTICE](NOTICE) (upstream MIT attribution for `domain-modeling` and `codebase-design` adapted from `mattpocock/skills`).
 
-Autonomous software delivery for **OpenCode V2**. Orchestrates **12 composable pipeline skills** and **9 model-pinned subagent seats** across four closed feedback loops (**L1 Task**, **L2 Branch Council**, **L3 CI**, **L4 Meta**). Every seat pins its model and effort tier in its own agent file and enforces last-match-wins permission guardrails so subagents never inherit the main session context or leak secrets.
+Autonomous software delivery for **OpenCode V2**. Orchestrates **12 composable pipeline skills** and **9 role-contract subagent seats** across four closed feedback loops (**L1 Task**, **L2 Branch Council**, **L3 CI**, **L4 Meta**). The harness is provider-neutral: which provider, model, and effort runs each role comes from a swappable provider profile (default `tri`, legacy `opencode-go`), and every dispatch names a rung so subagents never inherit the main session model. Every seat enforces last-match-wins permission guardrails so subagents never leak secrets.
 
 ---
 
@@ -63,7 +63,7 @@ flowchart LR
 +--------------------------------------------------------------------------------------+
 | PHASE 1: DESIGN & ARCHITECTURE                                                       |
 |                                                                                      |
-|   [2. shape]  <--- explores context via ---> (scout: mimo-v2.6-flash)                |
+|   [2. shape]  <--- explores context via ---> (scout)                                 |
 |       |                                                                              |
 |       +---> [3. domain-modeling]  (if domain terms/decisions change)                 |
 |       |         writes/updates GLOSSARY.md, GLOSSARY-MAP.md, docs/adr/NNNN-slug.md   |
@@ -79,7 +79,7 @@ flowchart LR
 +--------------------------------------------------------------------------------------+
 | PHASE 2: TASK DECOMPOSITION                                                          |
 |                                                                                      |
-|   [5. plan]   <--- maps exact file:line via ---> (scout: mimo-v2.6-flash)            |
+|   [5. plan]   <--- maps exact file:line via ---> (scout)                             |
 |       |                                                                              |
 |       +---> decomposes spec into bite-size TDD tasks + glossary/seam invariants      |
 |       +---> writes & commits docs/plans/YYYY-MM-DD-<feature>.md                      |
@@ -95,16 +95,16 @@ flowchart LR
 |       +---> Step 0 branch check (`git branch --show-current` != main/master)         |
 |       |                                                                              |
 |       +---> Actuators (execute task via [7. tdd] red -> green -> refactor):          |
-|       |       - (implementer:      deepseek-v4.1-flash#high)        default A        |
-|       |       - (implementer-b:    muse-spark-1.3-contributor#med)  default B        |
-|       |       - (implementer-deep: gemini-4-argon#high)             complex/hard     |
-|       |       - (patch:            deepseek-v4.1-flash#high)        1-2 file no-test |
+|       |       - (implementer)                default A                               |
+|       |       - (implementer-b)              default B                               |
+|       |       - (implementer-deep)           complex/hard                            |
+|       |       - (patch)                      1-2 file no-test                        |
 |       |                                                                              |
 |       +---> On task failure / test red (up to 3 fix attempts -> 2 debug rotations):  |
 |       |       routes to [8. debug] (root-cause tracing, defense-in-depth, polluter)  |
 |       |       then re-dispatches (escalating to implementer-deep if needed)          |
 |       |                                                                              |
-|       +---> Per-Task Sensors (ad-hoc `glm-5.3-flash#high`):                          |
+|       +---> Per-Task Sensors (ad-hoc role `task-reviewer`):                          |
 |               Stage 1: spec-reviewer-prompt.md (checks spec + GLOSSARY.md drift)     |
 |               Stage 2: quality-reviewer-prompt.md (council rules on task diff)       |
 +--------------------------------------------------------------------------------------+
@@ -146,10 +146,10 @@ flowchart LR
 |                                                                                      |
 |   [12. council]                                                                      |
 |       +---> 3 independent adversarial reviewer families in parallel:                 |
-|       |       - Seat A:   (reviewer-a:   muse-spark-1.3-contributor#xhigh, 45.3k/5h) |
-|       |       - Seat B:   (reviewer-b:   deepseek-v4.1-flash#max,          43.3k/5h) |
-|       |       - Seat C:   (reviewer-c:   glm-5.3-flash#high,                6.3k/5h) |
-|       |       - Last-res: (reviewer-esc: kimi-k3.1-pro#high,                 147/5h) |
+|       |       - Seat A:   (reviewer-a)    independent family 1                       |
+|       |       - Seat B:   (reviewer-b)    independent family 2                       |
+|       |       - Seat C:   (reviewer-c)    independent family 3                       |
+|       |       - Last-res: (reviewer-esc)  fourth family, escalation only             |
 |       |                                                                              |
 |       +---> checks diff vs spec/plan, security, edge cases, and GLOSSARY.md drift    |
 |       +---> on FAIL: dispatches (implementer / implementer-b) or no-test (patch),    |
@@ -207,14 +207,14 @@ What happens across the 7 numbered phases plus 6.5:
 1. **Phase 1 - `shape` + `domain-modeling` + `codebase-design` (Design & Spec):** creates branch `feat/webhook-delivery-worker`, explores context via `scout`, invokes `domain-modeling` (when domain terms or ADRs change) and `codebase-design` (when module interfaces or seams change), and writes and commits `docs/specs/YYYY-MM-DD-webhook-delivery-worker-design.md` alongside any created or modified `GLOSSARY.md` / `docs/adr/` files. **Pauses at Gate 1 for design approval.**
 2. **Phase 2 - `plan` (Task Decomposition):** maps exact `path:line` targets via `scout` and breaks the approved spec into bite-size TDD tasks with exact file paths, glossary/seam invariants, and verification commands in `docs/plans/YYYY-MM-DD-webhook-delivery-worker.md`. **Pauses at Gate 2 for plan approval.**
 3. **Phase 3 - `dispatch` + `tdd` (L1 Task Loop):**
-   - Dispatches `scout` (`mimo-v2.6-flash`) for compressed `path:line` discovery without polluting main-session context.
-   - Dispatches fresh per-task `implementer` (`deepseek-v4.1-flash#high`) or `implementer-b` (`muse-spark-1.3-contributor#medium`) subagents following strict red-green-refactor TDD.
-   - Escalates complex multi-file architecture tasks or 3x task failures (via `debug`) to `implementer-deep` (`gemini-4-argon#high`).
-   - Runs two-stage review after every task: Stage 1 spec compliance, then Stage 2 code quality (`glm-5.3-flash#high`).
+   - Dispatches `scout` for compressed `path:line` discovery without polluting main-session context.
+   - Dispatches fresh per-task `implementer` or `implementer-b` subagents following strict red-green-refactor TDD.
+   - Escalates complex multi-file architecture tasks or 3x task failures (via `debug`) to `implementer-deep`.
+   - Runs two-stage review after every task: Stage 1 spec compliance, then Stage 2 code quality (role `task-reviewer`, skipping any rung whose family wrote the code).
 4. **Phase 4 - `verify` (Evidence Gate):** runs the full test suite, typecheck, linter, and build, confirming every spec checklist item with fresh command output.
 5. **Phase 5 - `land` (PR Filing):** pushes the feature branch and opens a problem-led GitHub PR (`## Summary`, `## Changes`, `## Test plan`).
 6. **Phase 6.5 - `make-ci-green` (L3 CI Loop):** watches GitHub Actions and review bots, dispatches implementation-seat fixers on real failures, and requires concrete log-line evidence before retrying a suspected flake.
-7. **Phase 6 - `council` (L2 Branch Loop):** dispatches 3 adversarial reviewers from independent model families in parallel (`reviewer-a` on `muse-spark-1.3-contributor#xhigh`, `reviewer-b` on `deepseek-v4.1-flash#max`, `reviewer-c` on `glm-5.3-flash#high`). Any confirmed red finding triggers implementation-seat fixers and re-review (up to 3 rounds, then `reviewer-esc` on `kimi-k3.1-pro#high`).
+7. **Phase 6 - `council` (L2 Branch Loop):** dispatches 3 adversarial reviewers from independent model families in parallel (`reviewer-a`, `reviewer-b`, `reviewer-c`, one family each per the active provider profile). Any confirmed red finding triggers implementation-seat fixers and re-review (up to 3 rounds, then `reviewer-esc` on a fourth family).
 8. **Phase 7 - `land` (Gate 3 Finish & Handoff):** presents finish options (merge PR and hand off to default branch, keep PR open, keep branch, or Discard).
 
 ### 2. Zero-Gate Unattended Mode (`oneshot` Auto-Approve)
@@ -235,7 +235,7 @@ Mark a prompt or diff as confidential to engage the privacy gate automatically:
 oneshot [confidential] implement HMAC signature rotation for partner billing webhooks
 ```
 
-Any rung marked as training on request data in [`AGENTS.md`](./AGENTS.md) (`muse-spark-*`) is automatically skipped across both implementation and council seats, routing exclusively to zero-training rungs (`deepseek-v4.1-flash`, `glm-5.3-flash`, `gemini-4-argon`, `claude-haiku-5-5`, `gpt-6-luna`, `kimi-k3.1-pro`).
+Any rung marked `privacy: trains` in the active provider profile (`PROVIDERS.md`; the routing rule lives in [`AGENTS.md`](./AGENTS.md)) is automatically skipped across both implementation and council seats, routing only to `privacy: ok` rungs. The default `tri` profile has none; the legacy `opencode-go` profile marks `muse-spark-*`.
 
 ### 4. Standalone Skills & Individual Loops
 
@@ -257,24 +257,78 @@ Every pipeline skill and seat agent can also be triggered directly outside a ful
 
 ---
 
-## 🧠 Model Tank (OpenCode Go)
+## 🧠 Provider layer
 
-All seats use `opencode-go/*` exclusively. Most seats sit on high-allowance tiers (6,320 to 45,300 req/5h), so everyday work never hits rate limits; `implementer-deep` (440 req/5h) and `reviewer-esc` (147 req/5h) are scarce and reserved for complex work, hard bugs, and escalation only. [`AGENTS.md`](./AGENTS.md) is the single source for seat models, fallback ladders, effort tiers, and review contracts (`deepseek-v4.1-flash` exposes `low|high|max` in the Go catalog; `mimo-v2.6-flash` exposes a single default tier; a fixer that must run tests is an implementation seat, never `patch`).
+The harness is split into three layers so providers can be swapped or mixed without editing it:
 
-*Privacy note:* `muse-spark-*` trains on request data and is skipped automatically when the confidential flag is set; `claude-haiku-5-5` and `gpt-6-luna` carry 30-day retention (not used for training), while `glm-5.3-flash`, `kimi-k3.1-pro`, `gemini-4-argon`, and `mimo-v2.6-flash` via Go have 0-day retention and are not used for training. Compaction and summary never route to a training family; see [`AGENTS.md`](./AGENTS.md) Privacy Footnotes for the full table.
+| Layer | Owns | Files |
+| --- | --- | --- |
+| Harness (provider-neutral) | pipeline, loops, caps, gates, council contract, permission policy, role contracts, the Dispatch Adapter, the routing *rules* (ladder walk, family independence, privacy gate, budget guard) | `skills/**`, `agents/*.md` (no `model:` line), [`AGENTS.md`](./AGENTS.md) |
+| Provider (swappable) | which provider instance, model, and effort runs each role; fallback ladders; model families; privacy class; quotas and provider notes | `providers/<profile>.md` |
+| Install (binding) | binds one profile to one install: copies it as `<dest>/PROVIDERS.md` and renders each seat's native pin | `install.sh --profile <name>` |
+
+No harness file names a concrete model ID, provider quota, or provider-specific effort value. The Dispatch Adapter in [`AGENTS.md`](./AGENTS.md) turns a role into a running subagent: natively through the OpenCode `subagent` tool for `opencode` rungs, or through T3 Code `delegate_task` (provider instance, model, and effort options from the profile) for any other provider; a rung neither path can reach is skipped like an exhausted one.
+
+### Default profile `tri`
+
+Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI models), and OpenCode Go (open-weight long tail, cheap high-allowance quota). The distribution principle is token-output efficiency: spend frontier output tokens only where each token carries the most judgment, and push volume to the cheapest model that is still reliable for it.
+
+- **Driver** emits little (briefs, verdicts, gate decisions) but its mistakes fan out to every child: frontier model, high effort.
+- **Discovery** is read-heavy, write-light: a long-context flash model at low effort. Output is a compressed `path:line` table, so the expensive part is input, which flash models price lowest.
+- **Implementation** produces the bulk of all output tokens: strong mid-tier coders at medium effort; frontier only for `implementer-deep`.
+- **Per-task review** runs once per task, often: a flash model from a family that did not write the code.
+- **Council** outputs are short and decide the merge: one frontier model per family (Google, Anthropic, OpenAI) at equal `high` effort so votes are comparable. Each seat demotes inside its own family first (across providers where possible), then out of family.
+- **Escalation** is a fourth family none of the seats uses, so its verdict stays independent.
+
+| role | primary | fallback | last-resort |
+| --- | --- | --- | --- |
+| driver (advisory) | antigravity `claude-opus-5-5` high | codex `gpt-6.1-sol` high | - |
+| scout | antigravity `gemini-3.8-flash` low | opencode `mimo-v2.6-flash` | codex `gpt-6-luna` low |
+| implementer | codex `gpt-6.1-terra` medium | antigravity `claude-sonnet-5-5` medium | opencode `deepseek-v4.1-flash` high |
+| implementer-b | antigravity `claude-sonnet-5-5` medium | codex `gpt-6.1-terra` medium | opencode `glm-5.3` high |
+| implementer-deep | codex `gpt-6.1-sol` high | antigravity `gemini-4-argon` high | antigravity `claude-opus-5-5` high |
+| patch | codex `gpt-6-luna` medium | opencode `deepseek-v4.1-flash` high | antigravity `gemini-3.8-flash` medium |
+| task-reviewer | antigravity `gemini-3.8-flash` high | opencode `glm-5.3-flash` high | codex `gpt-6-luna` high |
+| reviewer-a (Google) | antigravity `gemini-4-argon` high | antigravity `gemini-3.8-flash` high | opencode `glm-5.3` high |
+| reviewer-b (Anthropic) | antigravity `claude-opus-5-5` high | antigravity `claude-sonnet-5-5` high | opencode `claude-haiku-5-5` high |
+| reviewer-c (OpenAI) | codex `gpt-6.1-sol` high | codex `gpt-6-sol` high | opencode `gpt-6-luna` high |
+| reviewer-esc | opencode `kimi-k3.1-pro` high | opencode `deepseek-v4.1-flash` max | opencode `glm-5.3` high |
+| compaction (advisory) | antigravity `gemini-3.8-flash` low | opencode `claude-haiku-5-5` low | - |
+
+`muse-spark-*` (trains on request data) is dropped from `tri`. See [`providers/tri.md`](./providers/tri.md) for the full machine-readable table.
+
+### Legacy profile `opencode-go`
+
+[`providers/opencode-go.md`](./providers/opencode-go.md) carries the original single-provider setup unchanged: every seat on `opencode-go/*`, the same models, efforts, ladders, request quotas, privacy footnotes, and off-peak note, plus `task-reviewer`, advisory `driver`, and `compaction` rows. Install it with `./install.sh --profile opencode-go`; the installed agent files are byte-identical to the pre-decoupling seat files.
+
+### Writing a new profile
+
+Copy an existing profile to `providers/<name>.md` (the name matches `[a-z0-9][a-z0-9-]*`). It is free markdown prose (quotas, privacy notes, rationale) plus one routing table; the installer parses only table rows whose first cell is a known role name:
+
+```text
+| role | rung | provider | model | effort | family | privacy |
+| --- | --- | --- | --- | --- | --- | --- |
+| scout | primary | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |
+```
+
+- `rung` is `primary`, `fallback`, or `last-resort`; ladder order is that order. Every profile must define a `primary` row for all ten dispatched roles (the nine seats plus `task-reviewer`); `driver` and `compaction` are advisory and never validated or rendered.
+- `provider` is the provider instance id (`antigravity`, `codex`, `opencode`, ...); `opencode` is the only value an OpenCode host can dispatch natively.
+- `model` is the id exactly as that provider's catalog names it; `effort` is `<option-id>=<value>` in the provider's own vocabulary (`thinking_level=high`, `reasoningEffort=medium`, `variant=max`) or `-` for the provider default.
+- `family` drives the independence rules; the same family on two providers is the same family. `privacy` is `ok` or `trains`.
 
 ---
 
 ## 📂 Structure
 
 ```text
-agents/           9 model-pinned seats:        implementer, implementer-b,
+agents/           9 role-contract seats:       implementer, implementer-b,
                   implementer-deep,            scout, patch,
                   reviewer-a, reviewer-b,      reviewer-c, reviewer-esc
 skills/           12 pipeline skills:          oneshot, shape, plan, dispatch,
                                                tdd, debug, verify, council, land,
                                                make-ci-green, domain-modeling,
                                                codebase-design
+providers/        swappable provider profiles: tri (default), opencode-go (legacy)
 docs/             design specs and plans:      docs/specs/, docs/plans/
 test/install.sh   40-assertion contract suite  (runs in throwaway HOME on Bash >=3.2)
 AGENTS.md         harness routing instructions (installed as ~/.config/opencode/HARNESS.md)
@@ -287,7 +341,7 @@ LICENSE           MIT license
 
 ## 🛠️ Installation (For Agents and Humans)
 
-Requires OpenCode V2 with a connected OpenCode Go provider (`/connect`). Config reloads automatically without a restart.
+Requires OpenCode V2 as the host. Connect whichever providers your chosen profile uses: the default `tri` profile expects Antigravity, Codex, and OpenCode Go; `--profile opencode-go` needs only OpenCode Go (`/connect`). Config reloads automatically without a restart.
 
 ### 1. Clone and run `./install.sh`
 
@@ -297,12 +351,15 @@ cd skills
 ./install.sh
 ```
 
-`./install.sh` copies `agents/`, `skills/`, `NOTICE`, and `LICENSE` into `${OPENCODE_CONFIG:-$HOME/.config/opencode}` and writes [`AGENTS.md`](./AGENTS.md) to `<dest>/HARNESS.md` so any existing `AGENTS.md` is never overwritten. It also records every path it installed in `<dest>/.harness-manifest`: the first line is `# harness <sha>`, followed by one relative path per line.
+`./install.sh` copies `agents/`, `skills/`, `NOTICE`, and `LICENSE` into `${OPENCODE_CONFIG:-$HOME/.config/opencode}` and writes [`AGENTS.md`](./AGENTS.md) to `<dest>/HARNESS.md` so any existing `AGENTS.md` is never overwritten. The selected provider profile is copied byte for byte to `<dest>/PROVIDERS.md` (the active routing table that `HARNESS.md` points to); `providers/` itself is not installed. It also records every path it installed in `<dest>/.harness-manifest`: line 1 is `# harness <sha>`, line 2 is `# profile <name>`, followed by one relative path per line.
+
+**Native pin rule:** source `agents/<seat>.md` files carry no `model:` line. At install, a seat's native pin is the first rung (in ladder order) of its profile whose `provider` is `opencode`; the installer writes `model: <model>` (plus `#<value>` when the effort id is `variant`) directly after the `mode: subagent` line so a natively dispatched seat never inherits the main session model. A seat with no `opencode` rung is installed without a `model:` line and the installer prints `note: <seat> has no opencode rung; dispatch it through delegate_task only`.
 
 The copy is collision-safe. Before touching anything, the installer runs preflight checks in strict refusal order: destination checks first (refusing empty/whitespace paths, paths equal to `/`, `.`, `..`, `$HOME`, or the repo root, and a destination that exists but is not a directory; an existing symlinked destination is resolved and the install lands in the real directory), then parent-path checks under the destination (exiting immediately on any symlinked or file parent directory before scanning targets, or replacing a symlinked parent with a real directory under `--force`), and finally target collision checks (printing one `collision: <dest path>` line per conflict plus `refusing to overwrite; rerun with --force` and exiting 1 before copying). Preflight refusal is atomic; a mid-copy failure can leave a partial tree, which rerunning the installer repairs. Content is not compared, so a second run always needs `--force`, even when nothing changed.
 
 | Flag | Effect |
 | --- | --- |
+| `--profile <name>` | bind the install to `providers/<name>.md` (also `--profile=<name>`; default `tri`). An unknown profile exits 2 with `install.sh: unknown profile: <name> (available: ...)`; an incomplete profile (a required role without a `primary` row, or an invalid `rung`) exits 1 with `install.sh: profile <name> incomplete: <role>`; both are checked before anything is written |
 | `--force` | overwrite files that already exist in the destination, and repair any symlinked parent directory under the destination by replacing the link with a real directory (warning: this removes the link) |
 | `--prune` | after copying, remove files that the previous `<dest>/.harness-manifest` records as installed but this run no longer produces, then print `pruned N stale file(s)`. Files the installer never wrote are never removed, so personal agents and skills in the same directory survive. With no previous manifest it prints `no previous manifest; prune skipped` and removes nothing |
 | `-h`, `--help` | print usage and exit 0 without copying |
@@ -311,6 +368,7 @@ Reinstall after pulling changes:
 
 ```sh
 ./install.sh --force              # refresh the harness files
+./install.sh --force --profile opencode-go   # switch to the legacy single-provider profile
 ./install.sh --force --prune      # also drop harness files removed upstream
 ```
 
@@ -339,6 +397,7 @@ OpenCode V2 loads `~/.config/opencode/AGENTS.md` automatically and then concaten
 
 ```sh
 test -f ~/.config/opencode/HARNESS.md &&
+  test -f ~/.config/opencode/PROVIDERS.md &&
   test -f ~/.config/opencode/agents/implementer.md &&
   test -f ~/.config/opencode/agents/implementer-b.md &&
   test -f ~/.config/opencode/agents/implementer-deep.md &&

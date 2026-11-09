@@ -3,7 +3,7 @@
 Use this template when dispatching an implementer subagent.
 
 ```
-subagent dispatch: agent `implementer` or `implementer-b` for standard tasks, `implementer-deep` for complex/escalated tasks (seat models and effort levels pinned in agents/implementer*.md; on a usage-limit/429 error re-dispatch the same agent id with an explicit `model` override per AGENTS.md)
+dispatch through the AGENTS.md Dispatch Adapter: role `implementer` or `implementer-b` for standard tasks, `implementer-deep` for complex/escalated tasks (seat models and effort levels per the active provider profile; on a usage-limit/429 error or unreachable rung re-dispatch the same role on the next rung per the AGENTS.md Routing Rules)
   description: "Implement Task N: [task name]"
   prompt: |
     You are implementing Task N: [task name]
@@ -75,7 +75,7 @@ subagent dispatch: agent `implementer` or `implementer-b` for standard tasks, `i
     **How to escalate:** Report back with status BLOCKED or NEEDS_CONTEXT. Describe
     specifically what you're stuck on, what you've tried, and what kind of help you need.
     The controller can provide more context, re-dispatch on a stronger rung of the
-    AGENTS.md ladder, or break the task into smaller pieces.
+    provider-profile ladder, or break the task into smaller pieces.
 
     ## Before Reporting Back: Self-Review
 
