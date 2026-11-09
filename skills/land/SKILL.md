@@ -41,9 +41,9 @@ Same menu as the standalone flow, reusable any time a PR is merged:
    - Pull: `git pull --ff-only`
    - Prune merged local branches only if user asked: `git branch -d <branch>` per branch, never a wildcard, never `git branch -D` without explicit user instruction.
    - Report: "Ready for next task on `<default branch>` at `<short-sha>`"
-2. **Linked git worktree (where `<default branch>` is already checked out in the main repository root, e.g. a T3 Code worktree thread):**
+2. **Linked git worktree (where `<default branch>` is already checked out in the main repository root):**
    - Do not run `git checkout <default>` inside the linked worktree if git reports `<default>` is already used by another worktree. Instead, fast-forward the default branch ref via `git fetch origin <default>:<default>` (or `git fetch origin <default>`).
-   - If the session is inside a temporary worktree the user asked to clean up, move the session back to the main checkout and remove the worktree (use the host's worktree tool, e.g. OpenCode `tools.opencode.session_move` + `tools.opencode.worktree_remove`, or close the T3 Code worktree thread), then prune the merged local branch if requested (`git branch -d <branch>`). Otherwise, detach HEAD at `origin/<default>` (`git checkout --detach origin/<default>`) so the merged feature branch is free and the worktree stays at the latest default commit.
+   - If the session is inside a temporary worktree the user asked to clean up, move the session back to the main checkout and remove the worktree (use the host's worktree tool when available, or `git worktree remove` from the main checkout), then prune the merged local branch if requested (`git branch -d <branch>`). Otherwise, detach HEAD at `origin/<default>` (`git checkout --detach origin/<default>`) so the merged feature branch is free and the worktree stays at the latest default commit.
    - Report: "Ready for next task on `<default branch>` at `<short-sha>`"
 
 ## Rules

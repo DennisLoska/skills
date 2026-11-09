@@ -3,7 +3,7 @@
 # Uses a throwaway HOME under a scratch dir; never touches the real config.
 set -euo pipefail
 export LC_ALL=C
-unset OPENCODE_CONFIG
+unset OPENCODE_CONFIG CODEX_HOME ANTIGRAVITY_CONFIG CLAUDE_CONFIG_DIR T3_USERDATA_DIR
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INSTALL="$ROOT/install.sh"
@@ -651,7 +651,7 @@ for profile in missing ../tri Tri 'tri/name' '-tri' 'tri.bad'; do
   rc=0
   OPENCODE_CONFIG="$TMPROOT/unknown-dest" "$INSTALL" --force --prune --profile="$profile" >"$TMPROOT/unknown.out" 2>"$TMPROOT/unknown.err" || rc=$?
   [ "$rc" -eq 2 ] || fail "unknown profile exits 2: $profile"
-  grep -qF "install.sh: unknown profile: $profile (available: opencode-go quad tri)" "$TMPROOT/unknown.err" || fail "unknown profile diagnostic: $profile"
+  grep -qF "install.sh: unknown profile: $profile (available: antigravity claude codex opencode-go quad tri)" "$TMPROOT/unknown.err" || fail "unknown profile diagnostic: $profile"
   [ ! -e "$TMPROOT/unknown-dest" ] || fail "unknown profile creates nothing"
 done
 pass "unknown and malformed profiles exit 2 and write nothing"
@@ -1161,32 +1161,41 @@ grep -qxF '## Dispatch Adapter' "$TMPROOT/codex-dest/AGENTS.md" || fail "codex A
 grep -qxF '## Quota pools' "$TMPROOT/codex-dest/AGENTS.md" || fail "codex AGENTS.md carries the active profile"
 pass "--target codex installs skills, agents, HARNESS.md, PROVIDERS.md, and combined AGENTS.md"
 
-# 63. --target antigravity installs the oneshot-harness plugin
-# under ${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config}/plugins/oneshot-harness
+# 63. --target antigravity installs the flat layout under
+# ${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config} with an allowlisted skills/_harness/
+# bundle; the legacy plugins/oneshot-harness plugin is dropped.
 rc=0
-ANTIGRAVITY_CONFIG="$TMPROOT/agy-config" "$INSTALL" --target antigravity >"$TMPROOT/agy.out" 2>&1 || rc=$?
+OPENCODE_CONFIG="$TMPROOT/agy-oc-63" ANTIGRAVITY_CONFIG="$TMPROOT/agy-config" "$INSTALL" --target antigravity >"$TMPROOT/agy.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/agy.out" >&2; fail "--target antigravity install exits 0"; }
-AGY_PLUGIN="$TMPROOT/agy-config/plugins/oneshot-harness"
-[ -f "$AGY_PLUGIN/plugin.json" ] || fail "antigravity target writes plugin.json"
-[ -f "$AGY_PLUGIN/skills/oneshot/SKILL.md" ] || fail "antigravity target writes skills/oneshot/SKILL.md"
-[ -f "$AGY_PLUGIN/agents/implementer.md" ] || fail "antigravity target writes agents/implementer.md"
-[ -f "$AGY_PLUGIN/rules/HARNESS.md" ] || fail "antigravity target writes rules/HARNESS.md"
-[ -f "$AGY_PLUGIN/rules/PROVIDERS.md" ] || fail "antigravity target writes rules/PROVIDERS.md"
-[ -f "$AGY_PLUGIN/HARNESS.md" ] || fail "antigravity target writes plugin-root HARNESS.md"
-[ -f "$AGY_PLUGIN/PROVIDERS.md" ] || fail "antigravity target writes plugin-root PROVIDERS.md"
-[ -d "$AGY_PLUGIN/state" ] || fail "antigravity target writes state/"
-[ -f "$AGY_PLUGIN/.harness-manifest" ] || fail "antigravity target writes .harness-manifest"
-grep -qxF 'trigger: always_on' "$AGY_PLUGIN/rules/HARNESS.md" || fail "antigravity rules/HARNESS.md is always_on"
-grep -qxF 'trigger: always_on' "$AGY_PLUGIN/rules/PROVIDERS.md" || fail "antigravity rules/PROVIDERS.md is always_on"
-[ "$(wc -c <"$AGY_PLUGIN/rules/HARNESS.md")" -lt 24000 ] || fail "antigravity rules/HARNESS.md is under 24KB"
-[ "$(wc -c <"$AGY_PLUGIN/rules/PROVIDERS.md")" -lt 24000 ] || fail "antigravity rules/PROVIDERS.md is under 24KB"
-grep -qxF 'subagent: true' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer is a subagent"
-grep -qxF 'mainAgent: false' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer is not a main agent"
-grep -q '^tools:' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer carries a tools frontmatter line"
-grep -qxF 'permissions:' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer preserves the permissions policy block"
-grep -qxF 'permissions:' "$AGY_PLUGIN/agents/reviewer-a.md" || fail "antigravity reviewer-a preserves the permissions policy block"
-grep -qF 'Antigravity cannot narrow run_command in frontmatter' "$AGY_PLUGIN/agents/reviewer-a.md" || fail "antigravity reviewer-a documents the read-only run_command constraint"
-pass "--target antigravity installs oneshot-harness plugin with always_on rules (<24KB), Antigravity subagent frontmatter, and the permissions policy"
+AGY_DEST="$TMPROOT/agy-config"
+[ ! -e "$AGY_DEST/plugin.json" ] || fail "antigravity target drops plugin.json"
+[ ! -e "$AGY_DEST/plugins/oneshot-harness" ] || fail "antigravity target drops plugins/oneshot-harness"
+[ -f "$AGY_DEST/skills/oneshot/SKILL.md" ] && [ ! -L "$AGY_DEST/skills/oneshot/SKILL.md" ] || fail "antigravity target writes real skills/oneshot/SKILL.md"
+[ -f "$AGY_DEST/skills/_harness/HARNESS.md" ] || fail "antigravity target writes skills/_harness/HARNESS.md"
+[ -f "$AGY_DEST/skills/_harness/PROVIDERS.md" ] || fail "antigravity target writes skills/_harness/PROVIDERS.md"
+[ -f "$AGY_DEST/skills/_harness/NOTICE" ] || fail "antigravity target writes skills/_harness/NOTICE"
+[ -f "$AGY_DEST/skills/_harness/LICENSE" ] || fail "antigravity target writes skills/_harness/LICENSE"
+[ -f "$AGY_DEST/skills/_harness/agents/implementer.md" ] || fail "antigravity target writes skills/_harness/agents/implementer.md"
+[ ! -e "$AGY_DEST/skills/_harness/SKILL.md" ] || fail "skills/_harness has no SKILL.md"
+[ -f "$AGY_DEST/agents/implementer.md" ] || fail "antigravity target writes agents/implementer.md"
+cmp -s "$AGY_DEST/agents/implementer.md" "$AGY_DEST/skills/_harness/agents/implementer.md" || fail "skills/_harness/agents matches rendered agents"
+[ -f "$AGY_DEST/rules/HARNESS.md" ] || fail "antigravity target writes rules/HARNESS.md"
+[ -f "$AGY_DEST/rules/PROVIDERS.md" ] || fail "antigravity target writes rules/PROVIDERS.md"
+[ -f "$AGY_DEST/HARNESS.md" ] || fail "antigravity target writes root HARNESS.md"
+[ -f "$AGY_DEST/PROVIDERS.md" ] || fail "antigravity target writes root PROVIDERS.md"
+[ -d "$AGY_DEST/state" ] || fail "antigravity target writes state/"
+[ -f "$AGY_DEST/.harness-manifest" ] || fail "antigravity target writes .harness-manifest"
+grep -qxF 'trigger: always_on' "$AGY_DEST/rules/HARNESS.md" || fail "antigravity rules/HARNESS.md is always_on"
+grep -qxF 'trigger: always_on' "$AGY_DEST/rules/PROVIDERS.md" || fail "antigravity rules/PROVIDERS.md is always_on"
+[ "$(wc -c <"$AGY_DEST/rules/HARNESS.md")" -lt 24000 ] || fail "antigravity rules/HARNESS.md is under 24KB"
+[ "$(wc -c <"$AGY_DEST/rules/PROVIDERS.md")" -lt 24000 ] || fail "antigravity rules/PROVIDERS.md is under 24KB"
+grep -qxF 'subagent: true' "$AGY_DEST/skills/_harness/agents/implementer.md" || fail "antigravity implementer is a subagent"
+grep -qxF 'mainAgent: false' "$AGY_DEST/skills/_harness/agents/implementer.md" || fail "antigravity implementer is not a main agent"
+grep -q '^tools:' "$AGY_DEST/skills/_harness/agents/implementer.md" || fail "antigravity implementer carries a tools frontmatter line"
+grep -qxF 'permissions:' "$AGY_DEST/skills/_harness/agents/implementer.md" || fail "antigravity implementer preserves the permissions policy block"
+grep -qxF 'permissions:' "$AGY_DEST/skills/_harness/agents/reviewer-a.md" || fail "antigravity reviewer-a preserves the permissions policy block"
+grep -qF 'Antigravity cannot narrow run_command in frontmatter' "$AGY_DEST/skills/_harness/agents/reviewer-a.md" || fail "antigravity reviewer-a documents the read-only run_command constraint"
+pass "--target antigravity installs flat skills, allowlisted skills/_harness bundle, always_on rules (<24KB), and Antigravity subagent contracts"
 
 # 64. --target claude installs into ${CLAUDE_CONFIG_DIR:-$HOME/.claude}
 rc=0
@@ -1210,7 +1219,7 @@ rc=0
 OPENCODE_CONFIG="$TMPROOT/all-oc" CODEX_HOME="$TMPROOT/all-codex" ANTIGRAVITY_CONFIG="$TMPROOT/all-agy" CLAUDE_CONFIG_DIR="$TMPROOT/all-claude" \
   "$INSTALL" --target all >"$TMPROOT/all.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/all.out" >&2; fail "--target all install exits 0"; }
-for manifest in "$TMPROOT/all-oc/.harness-manifest" "$TMPROOT/all-codex/.harness-manifest" "$TMPROOT/all-agy/plugins/oneshot-harness/.harness-manifest" "$TMPROOT/all-claude/.harness-manifest"; do
+for manifest in "$TMPROOT/all-oc/.harness-manifest" "$TMPROOT/all-codex/.harness-manifest" "$TMPROOT/all-agy/.harness-manifest" "$TMPROOT/all-claude/.harness-manifest"; do
   [ -f "$manifest" ] || fail "--target all writes $manifest"
 done
 rc=0
@@ -1232,7 +1241,7 @@ pass "unknown --target exits 2 without writing"
 rc=0
 ( cd "$ROOT" && OPENCODE_CONFIG="$TMPROOT/rel-oc" CODEX_HOME="$TMPROOT/rel-codex" ANTIGRAVITY_CONFIG="$TMPROOT/rel-agy" CLAUDE_CONFIG_DIR="$TMPROOT/rel-claude" bash install.sh --target all ) >"$TMPROOT/rel-all.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/rel-all.out" >&2; fail "relative bash install.sh --target all exits 0 (got $rc)"; }
-for manifest in "$TMPROOT/rel-oc/.harness-manifest" "$TMPROOT/rel-codex/.harness-manifest" "$TMPROOT/rel-agy/plugins/oneshot-harness/.harness-manifest" "$TMPROOT/rel-claude/.harness-manifest"; do
+for manifest in "$TMPROOT/rel-oc/.harness-manifest" "$TMPROOT/rel-codex/.harness-manifest" "$TMPROOT/rel-agy/.harness-manifest" "$TMPROOT/rel-claude/.harness-manifest"; do
   [ -f "$manifest" ] || fail "relative bash install.sh --target all writes $manifest"
 done
 # A collision in the second target must abort before the first target is written.
@@ -1251,7 +1260,7 @@ OPENCODE_CONFIG="$TMPROOT/shared-oc" CODEX_HOME="$TMPROOT/shared-codex" ANTIGRAV
 [ "$rc" -eq 0 ] || fail "--target all install for the shared ledger exits 0 (got $rc)"
 SHARED_LEDGER_OC="$TMPROOT/shared-oc/state/quota-ledger.tsv"
 SHARED_LEDGER_CODEX="$TMPROOT/shared-codex/state/quota-ledger.tsv"
-SHARED_LEDGER_AGY="$TMPROOT/shared-agy/plugins/oneshot-harness/state/quota-ledger.tsv"
+SHARED_LEDGER_AGY="$TMPROOT/shared-agy/state/quota-ledger.tsv"
 SHARED_LEDGER_CLAUDE="$TMPROOT/shared-claude/state/quota-ledger.tsv"
 printf 'shared-pool\topencode\t2026-11-09T14:00:00Z\t2026-11-09T19:00:00Z\treviewer-a\tshared\n' >"$SHARED_LEDGER_CODEX"
 [ -f "$SHARED_LEDGER_OC" ] || fail "opencode state/quota-ledger.tsv receives the ledger written through codex state/"
@@ -1332,7 +1341,7 @@ rc=0
 ANTIGRAVITY_CONFIG="$TMPROOT/cap-agy-bad-70" OPENCODE_CONFIG="$TMPROOT/cap-oc-70" "$INSTALL" --profile-file "$TMPROOT/prose-big-70.md" --target antigravity >"$TMPROOT/cap-agy-70.out" 2>"$TMPROOT/cap-agy-70.err" || rc=$?
 [ "$rc" -eq 2 ] || { cat "$TMPROOT/cap-agy-70.err" >&2; fail "oversized antigravity rule exits 2 (got $rc)"; }
 grep -qF 'exceeds 24000 bytes' "$TMPROOT/cap-agy-70.err" || fail "oversized antigravity rule reports the 24000-byte limit"
-[ ! -e "$TMPROOT/cap-agy-bad-70/plugins/oneshot-harness/.harness-manifest" ] || fail "refused antigravity install writes no manifest"
+[ ! -e "$TMPROOT/cap-agy-bad-70/.harness-manifest" ] || fail "refused antigravity install writes no manifest"
 
 {
   cat "$ROOT/providers/tri.md"
@@ -1402,5 +1411,593 @@ grep -q "$(printf '^agy-opus\t')" "$TMPROOT/race-oc-71/state/quota-ledger.tsv" |
 grep -q "$(printf '^codex-race\t')" "$TMPROOT/race-oc-71/state/quota-ledger.tsv" || fail "concurrent ledger migration preserves writer row"
 [ ! -e "$TMPROOT/race-oc-71/state/quota-ledger.lock" ] || fail "concurrent ledger migration releases shared lock"
 pass "ledger directory locks (stale break, active refusal, release) and ambient preflight env immunity"
+
+# 72. Flat Antigravity layout safety: a symlinked skills/oneshot refuses without
+# --force and is repaired without touching the outside tree; a legacy
+# plugins/oneshot-harness install migrates into the flat layout under
+# --force --prune while preserving sibling plugins; and a non-ledger file in the
+# legacy state/ refuses during preflight.
+AGY_SYM="$TMPROOT/agy-sym-72"
+SYM_OC="$TMPROOT/sym-oc-72"
+OUTSIDE_SKILL="$TMPROOT/outside-skill"
+mkdir -p "$AGY_SYM/skills" "$OUTSIDE_SKILL"
+printf 'OUTSIDE\n' >"$OUTSIDE_SKILL/SKILL.md"
+ln -s "$OUTSIDE_SKILL" "$AGY_SYM/skills/oneshot"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_SYM" OPENCODE_CONFIG="$SYM_OC" "$INSTALL" --target antigravity >"$TMPROOT/sym-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/sym-72.out" >&2; fail "symlinked skills/oneshot refuses without --force (got $rc)"; }
+grep -q 'parent symlink under destination' "$TMPROOT/sym-72.out" || fail "symlinked skills/oneshot names the parent symlink"
+[ -L "$AGY_SYM/skills/oneshot" ] || fail "refused symlinked skills/oneshot run leaves the symlink in place"
+[ "$(cat "$OUTSIDE_SKILL/SKILL.md")" = "OUTSIDE" ] || fail "refused symlinked skills/oneshot run preserves the outside sentinel"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_SYM" OPENCODE_CONFIG="$SYM_OC" "$INSTALL" --force --target antigravity >"$TMPROOT/sym-force-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/sym-force-72.out" >&2; fail "symlinked skills/oneshot repair install exits 0 (got $rc)"; }
+[ -d "$AGY_SYM/skills/oneshot" ] && [ ! -L "$AGY_SYM/skills/oneshot" ] || fail "--force replaces the symlinked skills/oneshot with a real directory"
+[ -f "$AGY_SYM/skills/oneshot/SKILL.md" ] && [ ! -L "$AGY_SYM/skills/oneshot/SKILL.md" ] || fail "--force writes a real skills/oneshot/SKILL.md"
+cmp -s "$ROOT/skills/oneshot/SKILL.md" "$AGY_SYM/skills/oneshot/SKILL.md" || fail "--force repairs skills/oneshot with source content"
+[ -f "$AGY_SYM/skills/_harness/HARNESS.md" ] || fail "repaired antigravity destination carries skills/_harness/HARNESS.md"
+[ "$(cat "$OUTSIDE_SKILL/SKILL.md")" = "OUTSIDE" ] || fail "--force repair never modifies the outside skill tree"
+pass "--target antigravity refuses a symlinked skills/oneshot without --force and repairs it under --force without touching the outside tree"
+
+AGY_MIG="$TMPROOT/agy-mig-72"
+MIG_OC="$TMPROOT/mig-oc"
+MIG_LEGACY="$AGY_MIG/plugins/oneshot-harness"
+mkdir -p "$MIG_LEGACY/rules" "$MIG_LEGACY/skills/oneshot" "$MIG_LEGACY/agents" "$AGY_MIG/plugins/user-plugin" "$MIG_OC/state"
+printf '# harness deadbee\n# profile quad\nplugin.json\nrules/HARNESS.md\nskills/oneshot/SKILL.md\nagents/implementer.md\n' >"$MIG_LEGACY/.harness-manifest"
+printf '{"name":"oneshot-harness"}\n' >"$MIG_LEGACY/plugin.json"
+printf 'trigger: always_on\nlegacy\n' >"$MIG_LEGACY/rules/HARNESS.md"
+printf 'legacy skill\n' >"$MIG_LEGACY/skills/oneshot/SKILL.md"
+printf 'legacy agent\n' >"$MIG_LEGACY/agents/implementer.md"
+ln -s "$MIG_OC/state" "$MIG_LEGACY/state"
+printf 'keep\n' >"$AGY_MIG/plugins/user-plugin/keep.json"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_MIG" OPENCODE_CONFIG="$MIG_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/mig-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/mig-72.out" >&2; fail "legacy antigravity plugin migration exits 0 (got $rc)"; }
+grep -qxF '# profile quad' "$AGY_MIG/.harness-manifest" || fail "legacy migration inherits # profile quad"
+grep -qF 'pruned 4 stale file(s)' "$TMPROOT/mig-72.out" || { cat "$TMPROOT/mig-72.out" >&2; fail "legacy migration prunes the four stale plugin files"; }
+grep -q "harness updated: deadbee -> $CUR_SHA" "$TMPROOT/mig-72.out" || { cat "$TMPROOT/mig-72.out" >&2; fail "legacy migration reports harness sha update"; }
+[ ! -e "$MIG_LEGACY" ] || fail "legacy plugins/oneshot-harness and empty nested dirs are removed"
+[ -f "$AGY_MIG/plugins/user-plugin/keep.json" ] || fail "legacy migration preserves a sibling user plugin"
+[ -f "$AGY_MIG/skills/oneshot/SKILL.md" ] || fail "legacy migration installs the flat skills layout"
+
+AGY_MIG_KEEP="$TMPROOT/agy-mig-keep-72"
+MIG_KEEP_LEGACY="$AGY_MIG_KEEP/plugins/oneshot-harness"
+mkdir -p "$MIG_KEEP_LEGACY/skills/oneshot" "$MIG_KEEP_LEGACY/agents" "$MIG_KEEP_LEGACY/nested"
+printf '# harness deadbee\n# profile quad\nplugin.json\nskills/oneshot/SKILL.md\nagents/implementer.md\n' >"$MIG_KEEP_LEGACY/.harness-manifest"
+printf '{"name":"oneshot-harness"}\n' >"$MIG_KEEP_LEGACY/plugin.json"
+printf 'legacy skill\n' >"$MIG_KEEP_LEGACY/skills/oneshot/SKILL.md"
+printf 'legacy agent\n' >"$MIG_KEEP_LEGACY/agents/implementer.md"
+printf 'user note\n' >"$MIG_KEEP_LEGACY/nested/user-keep.txt"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_MIG_KEEP" OPENCODE_CONFIG="$MIG_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/mig-keep-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/mig-keep-72.out" >&2; fail "legacy migration with unowned nested file exits 0 (got $rc)"; }
+[ -f "$MIG_KEEP_LEGACY/nested/user-keep.txt" ] && [ "$(cat "$MIG_KEEP_LEGACY/nested/user-keep.txt")" = "user note" ] || fail "unowned plugins/oneshot-harness/nested/user-keep.txt survives --prune"
+[ ! -e "$MIG_KEEP_LEGACY/plugin.json" ] || fail "managed plugin.json is pruned when unowned file remains"
+[ ! -e "$MIG_KEEP_LEGACY/skills" ] || fail "empty managed skills/ dir is removed when unowned file remains"
+[ ! -e "$MIG_KEEP_LEGACY/agents" ] || fail "empty managed agents/ dir is removed when unowned file remains"
+[ ! -e "$MIG_KEEP_LEGACY/.harness-manifest" ] || fail "legacy .harness-manifest is removed when unowned file remains"
+pass "legacy plugins/oneshot-harness migrates to the flat layout, prunes nested entries, and preserves sibling plugins and unowned files"
+
+AGY_BAD="$TMPROOT/agy-bad-72"
+BAD_OC="$TMPROOT/bad-oc-72"
+BAD_LEGACY="$AGY_BAD/plugins/oneshot-harness"
+mkdir -p "$BAD_LEGACY/state"
+printf '# harness deadbee\n# profile quad\nplugin.json\n' >"$BAD_LEGACY/.harness-manifest"
+printf '{"name":"oneshot-harness"}\n' >"$BAD_LEGACY/plugin.json"
+printf 'not a ledger\n' >"$BAD_LEGACY/state/foreign.db"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_BAD" OPENCODE_CONFIG="$BAD_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/bad-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/bad-72.out" >&2; fail "legacy state non-ledger file refuses even with --force --prune (got $rc)"; }
+[ ! -e "$AGY_BAD/.harness-manifest" ] || fail "refused legacy migration writes no root manifest"
+[ -f "$BAD_LEGACY/state/foreign.db" ] || fail "refused legacy migration preserves the foreign state file"
+pass "a non-ledger file in a legacy state/ refuses during preflight and writes no root manifest"
+
+AGY_LSTATE="$TMPROOT/agy-lstate-72"
+LSTATE_OC="$TMPROOT/lstate-oc-72"
+mkdir -p "$AGY_LSTATE/plugins/oneshot-harness/state" "$LSTATE_OC/state"
+printf '# harness deadbee\n# profile tri\nplugin.json\nstate/quota-ledger.tsv\n' >"$AGY_LSTATE/plugins/oneshot-harness/.harness-manifest"
+printf '{"name":"oneshot-harness"}\n' >"$AGY_LSTATE/plugins/oneshot-harness/plugin.json"
+printf 'agy-pool\tantigravity\t2026-11-09T12:00:00Z\t2026-11-09T17:00:00Z\timplementer\t429\n' >"$AGY_LSTATE/plugins/oneshot-harness/state/quota-ledger.tsv"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_LSTATE" OPENCODE_CONFIG="$LSTATE_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/lstate-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/lstate-72.out" >&2; fail "legacy real state/ ledger migration exits 0 (got $rc)"; }
+grep -q "$(printf '^agy-pool\t')" "$LSTATE_OC/state/quota-ledger.tsv" || fail "legacy real state/ ledger merges into shared state"
+grep -qF 'pruned 1 stale file(s)' "$TMPROOT/lstate-72.out" || { cat "$TMPROOT/lstate-72.out" >&2; fail "legacy state/quota-ledger.tsv is migrated rather than pruned"; }
+[ ! -e "$AGY_LSTATE/plugins" ] || fail "empty legacy plugins/ directory is removed when no sibling plugins exist"
+
+AGY_NOMANI="$TMPROOT/agy-nomani-72"
+NOMANI_OC="$TMPROOT/nomani-oc-72"
+mkdir -p "$AGY_NOMANI/plugins/oneshot-harness/state"
+printf 'nomani-pool\tantigravity\t2026-11-09T13:00:00Z\t2026-11-09T18:00:00Z\timplementer\t429\n' >"$AGY_NOMANI/plugins/oneshot-harness/state/quota-ledger.tsv"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_NOMANI" OPENCODE_CONFIG="$NOMANI_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/nomani-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/nomani-72.out" >&2; fail "manifestless legacy directory under --prune exits 0 (got $rc)"; }
+grep -qF 'no previous manifest; prune skipped' "$TMPROOT/nomani-72.out" || { cat "$TMPROOT/nomani-72.out" >&2; fail "manifestless plugins/oneshot-harness prints no previous manifest; prune skipped"; }
+[ -f "$AGY_NOMANI/plugins/oneshot-harness/state/quota-ledger.tsv" ] && grep -q "$(printf '^nomani-pool\t')" "$AGY_NOMANI/plugins/oneshot-harness/state/quota-ledger.tsv" || fail "manifestless plugins/oneshot-harness/state/quota-ledger.tsv is left untouched"
+if [ -f "$NOMANI_OC/state/quota-ledger.tsv" ] && grep -q "$(printf '^nomani-pool\t')" "$NOMANI_OC/state/quota-ledger.tsv"; then
+  fail "manifestless plugins/oneshot-harness ledger must not merge into shared state"
+fi
+mkdir -p "$AGY_NOMANI/plugins/oneshot-harness/state/quota-ledger.lock" "$AGY_NOMANI/plugins/oneshot-harness/empty-sub"
+printf 'foreign\n' >"$AGY_NOMANI/plugins/oneshot-harness/state/foreign.db"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_NOMANI" OPENCODE_CONFIG="$NOMANI_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/nomani-72b.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/nomani-72b.out" >&2; fail "repeat --prune ignores locks and non-ledger files under manifestless plugins/oneshot-harness (got $rc)"; }
+[ -d "$AGY_NOMANI/plugins/oneshot-harness/empty-sub" ] || fail "repeat --prune never rmdirs under manifestless plugins/oneshot-harness"
+[ -f "$AGY_NOMANI/plugins/oneshot-harness/state/quota-ledger.tsv" ] || fail "repeat --prune leaves manifestless plugins/oneshot-harness/state/quota-ledger.tsv untouched"
+[ -f "$AGY_NOMANI/plugins/oneshot-harness/state/foreign.db" ] || fail "repeat --prune leaves manifestless plugins/oneshot-harness/state/foreign.db untouched"
+pass "manifestless plugins/oneshot-harness and its state/ are left untouched under --prune"
+
+printf 'state\n./state/quota-ledger.tsv\n' >>"$AGY_LSTATE/.harness-manifest"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_LSTATE" OPENCODE_CONFIG="$LSTATE_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/lstate-root-agy-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/lstate-root-agy-72.out" >&2; fail "root manifest with state entries exits 0 on antigravity (got $rc)"; }
+[ -L "$AGY_LSTATE/state" ] || fail "root manifest prune never unlinks state symlink"
+grep -qF 'pruned 0 stale file(s)' "$TMPROOT/lstate-root-agy-72.out" || { cat "$TMPROOT/lstate-root-agy-72.out" >&2; fail "root manifest skips state and state/* entries on antigravity"; }
+OPENCODE_CONFIG="$LSTATE_OC" "$INSTALL" --force --target opencode >/dev/null
+printf 'state\nstate/quota-ledger.tsv\n' >>"$LSTATE_OC/.harness-manifest"
+rc=0
+OPENCODE_CONFIG="$LSTATE_OC" "$INSTALL" --force --prune --target opencode >"$TMPROOT/lstate-root-oc-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/lstate-root-oc-72.out" >&2; fail "root manifest with state entries exits 0 on opencode (got $rc)"; }
+grep -q "$(printf '^agy-pool\t')" "$LSTATE_OC/state/quota-ledger.tsv" || fail "root manifest prune never unlinks state/quota-ledger.tsv"
+grep -qF 'pruned 0 stale file(s)' "$TMPROOT/lstate-root-oc-72.out" || { cat "$TMPROOT/lstate-root-oc-72.out" >&2; fail "root manifest skips state and state/* entries on opencode"; }
+pass "prune_manifest_entries excludes state and state/* on root and legacy manifests"
+
+AGY_LSYM="$TMPROOT/agy-lsym-72"
+mkdir -p "$AGY_LSYM/plugins" "$TMPROOT/outside-plugin-72"
+ln -s "$TMPROOT/outside-plugin-72" "$AGY_LSYM/plugins/oneshot-harness"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_LSYM" OPENCODE_CONFIG="$LSTATE_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/lsym-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/lsym-72.out" >&2; fail "symlinked legacy plugins/oneshot-harness refuses under --prune (got $rc)"; }
+grep -qF 'refusing to prune through symlink' "$TMPROOT/lsym-72.out" || fail "symlinked legacy plugin refusal diagnostic"
+[ ! -e "$AGY_LSYM/.harness-manifest" ] || fail "symlinked legacy plugin refusal writes no root manifest"
+pass "legacy real state/ ledger merges cleanly, empty plugins/ is removed, and symlinked legacy plugin refuses under --prune"
+
+# 73. T3 Code Antigravity instances: without a .t3 tree the standalone root
+# installs and no .t3 is created; each hash-<id> instance under the T3 userdata
+# tree gets a real flat layout sharing one state root; an explicit
+# ANTIGRAVITY_CONFIG wins unless T3_USERDATA_DIR opts the instances back in; a
+# collision in any discovered root aborts every root before anything is written;
+# and unsafe T3 userdata roots, provider paths, and instance symlinks refuse.
+state_phys() { ( cd "$1/state" 2>/dev/null && pwd -P ); }
+
+T3_NO_HOME="$TMPROOT/no-t3-home"
+rc=0
+HOME="$T3_NO_HOME" "$INSTALL" --target antigravity >"$TMPROOT/t3-not3-agy-73.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/t3-not3-agy-73.out" >&2; fail "antigravity install without T3 Code exits 0 (got $rc)"; }
+[ -f "$T3_NO_HOME/.gemini/config/skills/_harness/HARNESS.md" ] || fail "standalone antigravity root carries skills/_harness/HARNESS.md"
+[ ! -e "$T3_NO_HOME/.t3" ] || fail "an install with no T3 Code never creates a .t3 tree"
+rc=0
+HOME="$T3_NO_HOME" "$INSTALL" --force --target all >"$TMPROOT/t3-not3-all-73.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/t3-not3-all-73.out" >&2; fail "--target all without T3 Code exits 0 (got $rc)"; }
+[ -f "$T3_NO_HOME/.gemini/config/skills/_harness/HARNESS.md" ] || fail "--target all without T3 Code keeps the standalone antigravity root"
+[ ! -e "$T3_NO_HOME/.t3" ] || fail "--target all without T3 Code never creates a .t3 tree"
+pass "antigravity installs without T3 Code and never creates a .t3 tree"
+
+T3_HOME="$TMPROOT/with-t3-home"
+T3_PROV="$T3_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$T3_PROV/hash-one" "$T3_PROV/hash-two"
+printf '{}\n' >"$T3_PROV/metadata.json"
+rc=0
+HOME="$T3_HOME" "$INSTALL" --target antigravity >"$TMPROOT/t3-multi-73.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/t3-multi-73.out" >&2; fail "T3 multi-instance antigravity install exits 0 (got $rc)"; }
+for t3_root in "$T3_HOME/.gemini/config" "$T3_PROV/hash-one/config" "$T3_PROV/hash-two/config"; do
+  [ -f "$t3_root/skills/oneshot/SKILL.md" ] && [ ! -L "$t3_root/skills/oneshot/SKILL.md" ] || fail "T3 discovery writes a real skills/oneshot/SKILL.md under $t3_root"
+  [ -f "$t3_root/skills/_harness/agents/implementer.md" ] || fail "T3 discovery writes skills/_harness/agents/implementer.md under $t3_root"
+  [ -f "$t3_root/.harness-manifest" ] || fail "T3 discovery writes .harness-manifest under $t3_root"
+  [ -L "$t3_root/state" ] || fail "T3 discovery links state under $t3_root"
+  [ "$(state_phys "$t3_root")" = "$(state_phys "$T3_HOME/.config/opencode")" ] || fail "T3 discovery state under $t3_root resolves to the shared opencode state"
+done
+[ ! -e "$T3_PROV/metadata.json/config" ] || fail "a stray T3 provider file is never treated as an instance"
+mkdir -p "$T3_PROV/hash-three"
+rc=0
+HOME="$T3_HOME" "$INSTALL" --force --target all >"$TMPROOT/t3-multi-all-73.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/t3-multi-all-73.out" >&2; fail "T3 multi-instance --target all exits 0 (got $rc)"; }
+[ -f "$T3_PROV/hash-three/config/.harness-manifest" ] || fail "a newly minted T3 instance is discovered on the next install"
+[ -f "$T3_PROV/hash-three/config/skills/oneshot/SKILL.md" ] && [ ! -L "$T3_PROV/hash-three/config/skills/oneshot/SKILL.md" ] || fail "a newly minted T3 instance gets real skill files"
+pass "T3 Code Antigravity instances are discovered, installed, and share one state root"
+
+ISO_HOME="$TMPROOT/iso-home"
+ISO_AGY="$TMPROOT/iso-custom"
+ISO_OC="$TMPROOT/iso-oc"
+ISO_INST="$ISO_HOME/.t3/userdata/providers/antigravity/hash-untouched"
+mkdir -p "$ISO_INST"
+rc=0
+HOME="$ISO_HOME" ANTIGRAVITY_CONFIG="$ISO_AGY" OPENCODE_CONFIG="$ISO_OC" "$INSTALL" --target antigravity >"$TMPROOT/iso-73a.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/iso-73a.out" >&2; fail "explicit ANTIGRAVITY_CONFIG install exits 0 (got $rc)"; }
+[ -f "$ISO_AGY/.harness-manifest" ] || fail "explicit ANTIGRAVITY_CONFIG installs the standalone root"
+[ -L "$ISO_AGY/state" ] || fail "explicit ANTIGRAVITY_CONFIG root links shared state"
+[ "$(state_phys "$ISO_AGY")" = "$(state_phys "$ISO_OC")" ] || fail "explicit ANTIGRAVITY_CONFIG root state resolves to OPENCODE_CONFIG/state"
+[ ! -e "$ISO_INST/config" ] || fail "an explicit ANTIGRAVITY_CONFIG does not force T3 instance discovery"
+rc=0
+HOME="$ISO_HOME" ANTIGRAVITY_CONFIG="$ISO_AGY" T3_USERDATA_DIR="$ISO_HOME/.t3/userdata" OPENCODE_CONFIG="$ISO_OC" "$INSTALL" --force --target antigravity >"$TMPROOT/iso-73b.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/iso-73b.out" >&2; fail "ANTIGRAVITY_CONFIG with T3_USERDATA_DIR exits 0 (got $rc)"; }
+[ -f "$ISO_AGY/.harness-manifest" ] || fail "ANTIGRAVITY_CONFIG with T3_USERDATA_DIR keeps the standalone root"
+[ -f "$ISO_INST/config/.harness-manifest" ] || fail "an explicit T3_USERDATA_DIR opts T3 instances back in"
+[ -f "$ISO_INST/config/skills/_harness/agents/implementer.md" ] || fail "an opted-in T3 instance gets skills/_harness/agents/implementer.md"
+pass "ANTIGRAVITY_CONFIG isolates the standalone root and T3_USERDATA_DIR opts T3 instances back in"
+
+ATOMIC_HOME="$TMPROOT/atomic-t3-home"
+ATOMIC_PROV="$ATOMIC_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$ATOMIC_PROV/hash-a" "$ATOMIC_PROV/hash-b/config"
+printf 'PRE-EXISTING\n' >"$ATOMIC_PROV/hash-b/config/HARNESS.md"
+rc=0
+HOME="$ATOMIC_HOME" "$INSTALL" --target all >"$TMPROOT/atomic-73a.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/atomic-73a.out" >&2; fail "a collision in a T3 instance aborts --target all (got $rc)"; }
+grep -q 'collision:' "$TMPROOT/atomic-73a.out" || fail "a collision in a T3 instance reports a collision line under --target all"
+for atomic_root in "$ATOMIC_HOME/.config/opencode" "$ATOMIC_HOME/.gemini/config" "$ATOMIC_PROV/hash-a/config"; do
+  [ ! -e "$atomic_root/.harness-manifest" ] || fail "atomic preflight writes no manifest under $atomic_root"
+  [ ! -e "$atomic_root/HARNESS.md" ] || fail "atomic preflight writes no HARNESS.md under $atomic_root"
+done
+[ "$(cat "$ATOMIC_PROV/hash-b/config/HARNESS.md")" = "PRE-EXISTING" ] || fail "atomic preflight preserves the colliding instance file"
+rc=0
+HOME="$ATOMIC_HOME" "$INSTALL" --target antigravity >"$TMPROOT/atomic-73b.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/atomic-73b.out" >&2; fail "a collision in a T3 instance aborts --target antigravity (got $rc)"; }
+grep -q 'collision:' "$TMPROOT/atomic-73b.out" || fail "a collision in a T3 instance reports a collision line under --target antigravity"
+[ ! -e "$ATOMIC_HOME/.gemini/config/.harness-manifest" ] || fail "antigravity-only atomic preflight writes no standalone manifest"
+[ ! -e "$ATOMIC_HOME/.gemini/config/HARNESS.md" ] || fail "antigravity-only atomic preflight writes no standalone HARNESS.md"
+[ ! -e "$ATOMIC_PROV/hash-a/config/.harness-manifest" ] || fail "antigravity-only atomic preflight writes no clean-instance manifest"
+pass "a collision in any discovered root aborts every root before anything is written"
+
+UNSAFE_HOME="$TMPROOT/unsafe-home"
+UNSAFE_AGY="$TMPROOT/unsafe-agy"
+mkdir -p "$UNSAFE_HOME"
+unsafe_idx=0
+for unsafe_t3 in "" "/" "$UNSAFE_HOME" "$ROOT"; do
+  unsafe_idx=$((unsafe_idx + 1))
+  rc=0
+  HOME="$UNSAFE_HOME" T3_USERDATA_DIR="$unsafe_t3" ANTIGRAVITY_CONFIG="$UNSAFE_AGY" "$INSTALL" --target antigravity >"$TMPROOT/unsafe-73-$unsafe_idx.out" 2>"$TMPROOT/unsafe-73-$unsafe_idx.err" || rc=$?
+  [ "$rc" -eq 1 ] || { cat "$TMPROOT/unsafe-73-$unsafe_idx.err" >&2; fail "unsafe T3_USERDATA_DIR '$unsafe_t3' exits 1 (got $rc)"; }
+  grep -qF 'install.sh: refusing unsafe T3 userdata directory:' "$TMPROOT/unsafe-73-$unsafe_idx.err" || { cat "$TMPROOT/unsafe-73-$unsafe_idx.err" >&2; fail "unsafe T3_USERDATA_DIR '$unsafe_t3' refuses with the userdata diagnostic"; }
+  [ ! -e "$UNSAFE_AGY/.harness-manifest" ] || fail "unsafe T3_USERDATA_DIR '$unsafe_t3' writes nothing"
+done
+
+SYM_T3_HOME="$TMPROOT/sym-t3-home"
+SYM_T3_OUT="$TMPROOT/sym-t3-outside"
+mkdir -p "$SYM_T3_HOME/.t3/userdata" "$SYM_T3_OUT"
+ln -s "$SYM_T3_OUT" "$SYM_T3_HOME/.t3/userdata/providers"
+rc=0
+HOME="$SYM_T3_HOME" "$INSTALL" --target antigravity >"$TMPROOT/sym-t3-a.out" 2>"$TMPROOT/sym-t3-a.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/sym-t3-a.err" >&2; fail "a symlinked T3 providers directory refuses (got $rc)"; }
+grep -qF 'install.sh: refusing unsafe T3 provider path:' "$TMPROOT/sym-t3-a.err" || { cat "$TMPROOT/sym-t3-a.err" >&2; fail "a symlinked T3 providers directory refuses with the provider path diagnostic"; }
+[ ! -e "$SYM_T3_HOME/.gemini/config/.harness-manifest" ] || fail "a symlinked T3 providers directory writes nothing"
+[ -z "$(ls -A "$SYM_T3_OUT")" ] || fail "a symlinked T3 providers directory never writes into the outside tree"
+
+SYM_T3_HOME2="$TMPROOT/sym-t3-home-2"
+SYM_T3_OUT2="$TMPROOT/sym-t3-outside-2"
+mkdir -p "$SYM_T3_HOME2/.t3/userdata/providers" "$SYM_T3_OUT2"
+ln -s "$SYM_T3_OUT2" "$SYM_T3_HOME2/.t3/userdata/providers/antigravity"
+rc=0
+HOME="$SYM_T3_HOME2" "$INSTALL" --target antigravity >"$TMPROOT/sym-t3-b.out" 2>"$TMPROOT/sym-t3-b.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/sym-t3-b.err" >&2; fail "a symlinked T3 antigravity provider directory refuses (got $rc)"; }
+grep -qF 'install.sh: refusing unsafe T3 provider path:' "$TMPROOT/sym-t3-b.err" || { cat "$TMPROOT/sym-t3-b.err" >&2; fail "a symlinked T3 antigravity provider directory refuses with the provider path diagnostic"; }
+[ ! -e "$SYM_T3_HOME2/.gemini/config/.harness-manifest" ] || fail "a symlinked T3 antigravity provider directory writes nothing"
+[ -z "$(ls -A "$SYM_T3_OUT2")" ] || fail "a symlinked T3 antigravity provider directory never writes into the outside tree"
+
+LINK_T3_HOME="$TMPROOT/sym-t3-home-link"
+LINK_T3_OUT="$TMPROOT/outside-t3"
+mkdir -p "$LINK_T3_HOME/.t3/userdata/providers/antigravity" "$LINK_T3_OUT"
+ln -s "$LINK_T3_OUT" "$LINK_T3_HOME/.t3/userdata/providers/antigravity/hash-link"
+rc=0
+HOME="$LINK_T3_HOME" "$INSTALL" --target antigravity >"$TMPROOT/sym-t3-c.out" 2>"$TMPROOT/sym-t3-c.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/sym-t3-c.err" >&2; fail "a symlinked T3 provider instance refuses (got $rc)"; }
+grep -qF 'install.sh: refusing symlinked T3 provider instance:' "$TMPROOT/sym-t3-c.err" || { cat "$TMPROOT/sym-t3-c.err" >&2; fail "a symlinked T3 provider instance refuses with the instance diagnostic"; }
+[ ! -e "$LINK_T3_HOME/.gemini/config/.harness-manifest" ] || fail "a symlinked T3 provider instance writes nothing"
+[ -z "$(ls -A "$LINK_T3_OUT")" ] || fail "a symlinked T3 provider instance never writes into the outside tree"
+pass "unsafe T3 userdata roots and symlinked provider paths and instances refuse before writing anything"
+
+SPOOF_HOME="$TMPROOT/spoof-t3-home"
+SPOOF_PROV="$SPOOF_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$SPOOF_PROV/hash-spoof" "$SPOOF_PROV/.hidden-dir"
+printf '' >"$SPOOF_PROV/.DS_Store"
+rc=0
+HOME="$SPOOF_HOME" HARNESS_AGY_SINGLE_ROOT=1 ANTIGRAVITY_CONFIG="$SPOOF_PROV/hash-spoof/config" T3_USERDATA_DIR="$SPOOF_HOME/.t3/userdata" \
+  "$INSTALL" --target antigravity >"$TMPROOT/spoof-73.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/spoof-73.out" >&2; fail "ambient HARNESS_AGY_SINGLE_ROOT=1 and deduplicated ANTIGRAVITY_CONFIG install exits 0 (got $rc)"; }
+[ -f "$SPOOF_PROV/hash-spoof/config/.harness-manifest" ] || fail "deduplicated T3 instance config installs cleanly without --force"
+[ ! -e "$SPOOF_PROV/.hidden-dir/config" ] || fail "dotfiles under providers/antigravity are ignored"
+mkdir -p "$SPOOF_PROV/hash-spoof-2"
+rc=0
+HOME="$SPOOF_HOME" HARNESS_AGY_SINGLE_ROOT=1 "$INSTALL" --force --target antigravity >"$TMPROOT/spoof-73b.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/spoof-73b.out" >&2; fail "ambient HARNESS_AGY_SINGLE_ROOT=1 does not suppress T3 discovery (got $rc)"; }
+[ -f "$SPOOF_PROV/hash-spoof-2/config/.harness-manifest" ] || fail "ambient HARNESS_AGY_SINGLE_ROOT=1 still discovers hash-spoof-2"
+
+T3_FILE_BAD="$TMPROOT/t3-is-file"
+printf 'file\n' >"$T3_FILE_BAD"
+ln -s "$TMPROOT/t3-missing-target" "$TMPROOT/t3-dangling"
+for extra_unsafe_t3 in "$T3_FILE_BAD" "$TMPROOT/t3-dangling" "$TMPROOT/a/../b" "$ROOT/skills"; do
+  rc=0
+  HOME="$UNSAFE_HOME" T3_USERDATA_DIR="$extra_unsafe_t3" ANTIGRAVITY_CONFIG="$UNSAFE_AGY" "$INSTALL" --target antigravity >"$TMPROOT/unsafe-extra.out" 2>"$TMPROOT/unsafe-extra.err" || rc=$?
+  [ "$rc" -eq 1 ] || { cat "$TMPROOT/unsafe-extra.err" >&2; fail "unsafe T3_USERDATA_DIR '$extra_unsafe_t3' exits 1 (got $rc)"; }
+  grep -qF 'install.sh: refusing unsafe T3 userdata directory:' "$TMPROOT/unsafe-extra.err" || { cat "$TMPROOT/unsafe-extra.err" >&2; fail "unsafe T3_USERDATA_DIR '$extra_unsafe_t3' diagnostic"; }
+  [ ! -e "$UNSAFE_AGY/.harness-manifest" ] || fail "unsafe T3_USERDATA_DIR '$extra_unsafe_t3' writes nothing"
+done
+pass "ambient single-root env spoofing is ignored, duplicate roots deduplicate cleanly, and file/dangling/dotdot/source-nested T3 roots refuse"
+
+CFG_SYM_HOME="$TMPROOT/cfg-sym-home"
+CFG_SYM_OUT="$TMPROOT/cfg-sym-outside"
+mkdir -p "$CFG_SYM_HOME/.t3/userdata/providers/antigravity/hash-cfg-sym" "$CFG_SYM_OUT"
+ln -s "$CFG_SYM_OUT" "$CFG_SYM_HOME/.t3/userdata/providers/antigravity/hash-cfg-sym/config"
+rc=0
+HOME="$CFG_SYM_HOME" "$INSTALL" --target antigravity >"$TMPROOT/cfg-sym.out" 2>"$TMPROOT/cfg-sym.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/cfg-sym.err" >&2; fail "a symlinked T3 instance <id>/config refuses (got $rc)"; }
+grep -qF 'install.sh: refusing symlinked T3 provider instance:' "$TMPROOT/cfg-sym.err" || { cat "$TMPROOT/cfg-sym.err" >&2; fail "a symlinked T3 instance <id>/config emits the refusal diagnostic"; }
+[ ! -e "$CFG_SYM_HOME/.gemini/config/.harness-manifest" ] || fail "a symlinked T3 instance <id>/config writes no standalone manifest"
+[ -z "$(ls -A "$CFG_SYM_OUT")" ] || fail "a symlinked T3 instance <id>/config leaves the outside target empty"
+
+CFG_FILE_HOME="$TMPROOT/cfg-file-home"
+mkdir -p "$CFG_FILE_HOME/.t3/userdata/providers/antigravity/hash-cfg-file"
+printf 'not-a-dir\n' >"$CFG_FILE_HOME/.t3/userdata/providers/antigravity/hash-cfg-file/config"
+rc=0
+HOME="$CFG_FILE_HOME" "$INSTALL" --target antigravity >"$TMPROOT/cfg-file.out" 2>"$TMPROOT/cfg-file.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/cfg-file.err" >&2; fail "a non-directory T3 instance <id>/config refuses (got $rc)"; }
+grep -qF 'install.sh: refusing symlinked T3 provider instance:' "$TMPROOT/cfg-file.err" || { cat "$TMPROOT/cfg-file.err" >&2; fail "a non-directory T3 instance <id>/config emits the refusal diagnostic"; }
+[ ! -e "$CFG_FILE_HOME/.gemini/config/.harness-manifest" ] || fail "a non-directory T3 instance <id>/config writes no standalone manifest"
+pass "a symlinked or non-directory T3 <id>/config refuses with exit 1 before writing anything"
+
+UNSET_T3_HOME1="$TMPROOT/unset-t3-file-home"
+UNSET_T3_HOME2="$TMPROOT/unset-t3-dangle-home"
+mkdir -p "$UNSET_T3_HOME1/.t3" "$UNSET_T3_HOME2/.t3"
+printf 'regular-file\n' >"$UNSET_T3_HOME1/.t3/userdata"
+ln -s "$TMPROOT/unset-t3-missing-target" "$UNSET_T3_HOME2/.t3/userdata"
+rc=0
+( unset T3_USERDATA_DIR; HOME="$UNSET_T3_HOME1" "$INSTALL" --target antigravity ) >"$TMPROOT/unset-t3-1.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/unset-t3-1.out" >&2; fail "unset T3_USERDATA_DIR ignores a regular file at ~/.t3/userdata (got $rc)"; }
+[ -f "$UNSET_T3_HOME1/.gemini/config/.harness-manifest" ] || fail "unset T3_USERDATA_DIR with file ~/.t3/userdata installs ~/.gemini/config"
+[ -f "$UNSET_T3_HOME1/.t3/userdata" ] && [ ! -d "$UNSET_T3_HOME1/.t3/userdata" ] || fail "unset T3_USERDATA_DIR leaves file ~/.t3/userdata untouched"
+rc=0
+( unset T3_USERDATA_DIR; HOME="$UNSET_T3_HOME2" "$INSTALL" --target antigravity ) >"$TMPROOT/unset-t3-2.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/unset-t3-2.out" >&2; fail "unset T3_USERDATA_DIR ignores a dangling symlink at ~/.t3/userdata (got $rc)"; }
+[ -f "$UNSET_T3_HOME2/.gemini/config/.harness-manifest" ] || fail "unset T3_USERDATA_DIR with dangling ~/.t3/userdata installs ~/.gemini/config"
+[ -L "$UNSET_T3_HOME2/.t3/userdata" ] && [ ! -e "$TMPROOT/unset-t3-missing-target" ] || fail "unset T3_USERDATA_DIR leaves dangling ~/.t3/userdata untouched without creating target"
+pass "unset T3_USERDATA_DIR treats non-directory ~/.t3/userdata as no T3 Code"
+
+INH_HOME="$TMPROOT/inh-t3-home"
+INH_PROV="$INH_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$INH_HOME/.gemini/config/plugins/oneshot-harness" "$INH_PROV/hash-x" "$INH_PROV/hash-y/config"
+printf '# harness deadbee\n# profile quad\nplugin.json\n' >"$INH_HOME/.gemini/config/plugins/oneshot-harness/.harness-manifest"
+printf '{"name":"oneshot-harness"}\n' >"$INH_HOME/.gemini/config/plugins/oneshot-harness/plugin.json"
+printf '# harness deadbee\n# profile opencode-go\nHARNESS.md\n' >"$INH_PROV/hash-y/config/.harness-manifest"
+printf 'old\n' >"$INH_PROV/hash-y/config/HARNESS.md"
+rc=0
+HOME="$INH_HOME" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/inh-t3-a.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/inh-t3-a.out" >&2; fail "multi-root antigravity profile inheritance exits 0 (got $rc)"; }
+for inh_root in "$INH_HOME/.gemini/config" "$INH_PROV/hash-x/config" "$INH_PROV/hash-y/config"; do
+  grep -qxF '# profile quad' "$inh_root/.harness-manifest" || fail "multi-root antigravity inheritance writes '# profile quad' into $inh_root/.harness-manifest"
+  cmp -s "$ROOT/providers/quad.md" "$inh_root/PROVIDERS.md" || fail "multi-root antigravity inheritance writes quad PROVIDERS.md into $inh_root"
+done
+cmp -s "$INH_HOME/.gemini/config/PROVIDERS.md" "$INH_PROV/hash-x/config/PROVIDERS.md" || fail "standalone and hash-x PROVIDERS.md are byte-identical"
+cmp -s "$INH_HOME/.gemini/config/PROVIDERS.md" "$INH_PROV/hash-y/config/PROVIDERS.md" || fail "standalone and hash-y PROVIDERS.md are byte-identical"
+
+INH_CUSTOM_PROF="$TMPROOT/inh-custom-profile.md"
+{ cat "$ROOT/providers/tri.md"; printf '\n# custom-t3-inherited-marker\n'; } >"$INH_CUSTOM_PROF"
+rc=0
+HOME="$INH_HOME" "$INSTALL" --force --profile-file "$INH_CUSTOM_PROF" --target antigravity >"$TMPROOT/inh-t3-pf1.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/inh-t3-pf1.out" >&2; fail "--profile-file multi-root antigravity install exits 0 (got $rc)"; }
+HOME="$INH_HOME" "$INSTALL" --profile opencode-go --target opencode >"$TMPROOT/inh-t3-oc.out" 2>&1
+mkdir -p "$INH_PROV/hash-z"
+rc=0
+HOME="$INH_HOME" "$INSTALL" --force --target all >"$TMPROOT/inh-t3-pf2.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/inh-t3-pf2.out" >&2; fail "refresh without flags inherits --profile-file into new T3 instance hash-z (got $rc)"; }
+expected_pf_line="$(sed -n '2p' "$INH_HOME/.gemini/config/.harness-manifest")"
+case "$expected_pf_line" in
+  '# profile-file '*) ;;
+  *) fail "standalone manifest carries # profile-file line (got: $expected_pf_line)" ;;
+esac
+[ "$(sed -n '2p' "$INH_PROV/hash-z/config/.harness-manifest")" = "$expected_pf_line" ] || fail "hash-z inherits # profile-file from standalone antigravity manifest"
+cmp -s "$INH_CUSTOM_PROF" "$INH_PROV/hash-z/config/PROVIDERS.md" || fail "hash-z receives the inherited external profile file"
+grep -qxF '# profile opencode-go' "$INH_HOME/.config/opencode/.harness-manifest" || fail "non-antigravity target preserves its own manifest profile under --target all"
+
+INH_LEG_HOME="$TMPROOT/inh-leg-home"
+mkdir -p "$INH_LEG_HOME/.gemini/config" "$INH_LEG_HOME/.t3/userdata/providers/antigravity/hash-leg"
+printf 'legacy harness\n' >"$INH_LEG_HOME/.gemini/config/HARNESS.md"
+rc=0
+HOME="$INH_LEG_HOME" "$INSTALL" --force --target antigravity >"$TMPROOT/inh-leg.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/inh-leg.out" >&2; fail "pre-profiles antigravity multi-root inheritance exits 0 (got $rc)"; }
+grep -qF 'profile: opencode-go (previous install predates profiles)' "$TMPROOT/inh-leg.out" || fail "standalone antigravity preserves pre-profiles diagnostic"
+grep -qxF '# profile opencode-go' "$INH_LEG_HOME/.gemini/config/.harness-manifest" || fail "standalone pre-profiles root records opencode-go"
+grep -qxF '# profile opencode-go' "$INH_LEG_HOME/.t3/userdata/providers/antigravity/hash-leg/config/.harness-manifest" || fail "T3 child inherits opencode-go from pre-profiles standalone root"
+pass "multi-root antigravity installs propagate standalone profile, profile-file, and legacy bindings to all T3 instances"
+
+REAL_AGY="$TMPROOT/real-agy-sym"
+SYM_INH_HOME="$TMPROOT/sym-inh-home"
+SYM_INH_PROV="$SYM_INH_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$REAL_AGY" "$SYM_INH_HOME/.gemini" "$SYM_INH_PROV/hash-sym-inh"
+HOME="$SYM_INH_HOME" ANTIGRAVITY_CONFIG="$REAL_AGY" "$INSTALL" --profile quad --target antigravity >"$TMPROOT/sym-inh-seed.out" 2>&1
+ln -s "$REAL_AGY" "$SYM_INH_HOME/.gemini/config"
+rc=0
+HOME="$SYM_INH_HOME" "$INSTALL" --force --target antigravity >"$TMPROOT/sym-inh-a.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/sym-inh-a.out" >&2; fail "symlinked ~/.gemini/config multi-root refresh exits 0 (got $rc)"; }
+[ -L "$SYM_INH_HOME/.gemini/config" ] || fail "symlinked ~/.gemini/config remains a symlink after refresh"
+for sym_root in "$SYM_INH_HOME/.gemini/config" "$REAL_AGY" "$SYM_INH_PROV/hash-sym-inh/config"; do
+  grep -qxF '# profile quad' "$sym_root/.harness-manifest" || fail "symlinked ~/.gemini/config refresh writes '# profile quad' into $sym_root/.harness-manifest"
+  cmp -s "$ROOT/providers/quad.md" "$sym_root/PROVIDERS.md" || fail "symlinked ~/.gemini/config refresh writes quad PROVIDERS.md into $sym_root"
+done
+cmp -s "$SYM_INH_HOME/.gemini/config/PROVIDERS.md" "$SYM_INH_PROV/hash-sym-inh/config/PROVIDERS.md" || fail "symlinked standalone and T3 PROVIDERS.md are byte-identical"
+
+REAL_AGY_LEG="$TMPROOT/real-agy-sym-leg"
+SYM_AGY_CFG="$TMPROOT/sym-antigravity-config"
+SYM_ENV_HOME="$TMPROOT/sym-env-home"
+SYM_ENV_PROV="$SYM_ENV_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$REAL_AGY_LEG/plugins/oneshot-harness" "$SYM_ENV_PROV/hash-sym-env"
+printf '# harness deadbee\n# profile quad\nplugin.json\n' >"$REAL_AGY_LEG/plugins/oneshot-harness/.harness-manifest"
+printf '{"name":"oneshot-harness"}\n' >"$REAL_AGY_LEG/plugins/oneshot-harness/plugin.json"
+ln -s "$REAL_AGY_LEG" "$SYM_AGY_CFG"
+rc=0
+HOME="$SYM_ENV_HOME" ANTIGRAVITY_CONFIG="$SYM_AGY_CFG" T3_USERDATA_DIR="$SYM_ENV_HOME/.t3/userdata" \
+  "$INSTALL" --force --prune --target antigravity >"$TMPROOT/sym-inh-b.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/sym-inh-b.out" >&2; fail "symlinked ANTIGRAVITY_CONFIG legacy multi-root refresh exits 0 (got $rc)"; }
+[ -L "$SYM_AGY_CFG" ] || fail "symlinked ANTIGRAVITY_CONFIG remains a symlink after refresh"
+for sym_env_root in "$SYM_AGY_CFG" "$REAL_AGY_LEG" "$SYM_ENV_PROV/hash-sym-env/config"; do
+  grep -qxF '# profile quad' "$sym_env_root/.harness-manifest" || fail "symlinked ANTIGRAVITY_CONFIG refresh writes '# profile quad' into $sym_env_root/.harness-manifest"
+  cmp -s "$ROOT/providers/quad.md" "$sym_env_root/PROVIDERS.md" || fail "symlinked ANTIGRAVITY_CONFIG refresh writes quad PROVIDERS.md into $sym_env_root"
+done
+cmp -s "$SYM_AGY_CFG/PROVIDERS.md" "$SYM_ENV_PROV/hash-sym-env/config/PROVIDERS.md" || fail "symlinked ANTIGRAVITY_CONFIG and T3 PROVIDERS.md are byte-identical"
+
+INH_SYM_HARN_HOME="$TMPROOT/inh-sym-harn-home"
+mkdir -p "$INH_SYM_HARN_HOME/.gemini/config" "$INH_SYM_HARN_HOME/.t3/userdata/providers/antigravity/hash-sym-harn"
+printf 'legacy target\n' >"$TMPROOT/legacy-harness-target.md"
+ln -s "$TMPROOT/legacy-harness-target.md" "$INH_SYM_HARN_HOME/.gemini/config/HARNESS.md"
+rc=0
+HOME="$INH_SYM_HARN_HOME" "$INSTALL" --force --target antigravity >"$TMPROOT/inh-sym-harn.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/inh-sym-harn.out" >&2; fail "symlinked legacy HARNESS.md multi-root refresh exits 0 (got $rc)"; }
+grep -qxF '# profile opencode-go' "$INH_SYM_HARN_HOME/.gemini/config/.harness-manifest" || fail "standalone symlinked HARNESS.md fallback records opencode-go"
+grep -qxF '# profile opencode-go' "$INH_SYM_HARN_HOME/.t3/userdata/providers/antigravity/hash-sym-harn/config/.harness-manifest" || fail "T3 child shares symlinked HARNESS.md fallback opencode-go"
+
+BAD_MAN_HOME="$TMPROOT/bad-man-inh-home"
+mkdir -p "$BAD_MAN_HOME/.gemini/config/.harness-manifest" "$BAD_MAN_HOME/.t3/userdata/providers/antigravity/hash-bad-man"
+rc=0
+HOME="$BAD_MAN_HOME" "$INSTALL" --force --target antigravity >"$TMPROOT/bad-man-inh.out" 2>"$TMPROOT/bad-man-inh.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/bad-man-inh.err" >&2; fail "directory at standalone .harness-manifest exits 1 in multi-root run (got $rc)"; }
+grep -qF 'install.sh: manifest path is not a regular file:' "$TMPROOT/bad-man-inh.err" || fail "multi-root bad standalone manifest emits regular-file diagnostic"
+[ ! -e "$BAD_MAN_HOME/.t3/userdata/providers/antigravity/hash-bad-man/config/.harness-manifest" ] || fail "multi-root bad standalone manifest writes nothing to T3 instance"
+
+FRESH_SA_HOME="$TMPROOT/fresh-sa-home"
+FRESH_SA_PROV="$FRESH_SA_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$FRESH_SA_PROV/hash-a-fresh" "$FRESH_SA_PROV/hash-existing/config"
+printf '# harness deadbee\n# profile quad\nHARNESS.md\n' >"$FRESH_SA_PROV/hash-existing/config/.harness-manifest"
+printf 'old\n' >"$FRESH_SA_PROV/hash-existing/config/HARNESS.md"
+rc=0
+HOME="$FRESH_SA_HOME" "$INSTALL" --force --target antigravity >"$TMPROOT/fresh-sa.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/fresh-sa.out" >&2; fail "fresh standalone with existing T3 binding exits 0 (got $rc)"; }
+for fsa_root in "$FRESH_SA_HOME/.gemini/config" "$FRESH_SA_PROV/hash-a-fresh/config" "$FRESH_SA_PROV/hash-existing/config"; do
+  grep -qxF '# profile quad' "$fsa_root/.harness-manifest" || fail "fresh standalone + existing T3 converges $fsa_root to '# profile quad'"
+  cmp -s "$ROOT/providers/quad.md" "$fsa_root/PROVIDERS.md" || fail "fresh standalone + existing T3 writes quad PROVIDERS.md into $fsa_root"
+done
+cmp -s "$FRESH_SA_HOME/.gemini/config/PROVIDERS.md" "$FRESH_SA_PROV/hash-existing/config/PROVIDERS.md" || fail "fresh standalone and hash-existing PROVIDERS.md are byte-identical"
+
+FRESH_ALL_HOME="$TMPROOT/fresh-all-home"
+FRESH_ALL_PROV="$FRESH_ALL_HOME/.t3/userdata/providers/antigravity"
+HOME="$FRESH_ALL_HOME" "$INSTALL" --profile opencode-go --target opencode >"$TMPROOT/fresh-all-oc.out" 2>&1
+mkdir -p "$FRESH_ALL_PROV/hash-existing/config"
+printf '# harness deadbee\n# profile quad\nHARNESS.md\n' >"$FRESH_ALL_PROV/hash-existing/config/.harness-manifest"
+printf 'old\n' >"$FRESH_ALL_PROV/hash-existing/config/HARNESS.md"
+rc=0
+HOME="$FRESH_ALL_HOME" "$INSTALL" --force --target all >"$TMPROOT/fresh-all.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/fresh-all.out" >&2; fail "fresh standalone + existing T3 under --target all exits 0 (got $rc)"; }
+grep -qxF '# profile quad' "$FRESH_ALL_HOME/.gemini/config/.harness-manifest" || fail "--target all converges fresh standalone antigravity root to T3 quad binding"
+grep -qxF '# profile quad' "$FRESH_ALL_PROV/hash-existing/config/.harness-manifest" || fail "--target all keeps T3 hash-existing on quad"
+grep -qxF '# profile opencode-go' "$FRESH_ALL_HOME/.config/opencode/.harness-manifest" || fail "--target all leaves opencode binding untouched when inheriting from T3"
+grep -qxF '# profile tri' "$FRESH_ALL_HOME/.codex/.harness-manifest" || fail "--target all leaves fresh codex target on default tri"
+pass "symlinked standalone antigravity roots and fresh-standalone T3 roots converge on a single shared profile binding"
+
+BIG_T3_HOME="$TMPROOT/big-t3-home"
+BIG_T3_PROV="$BIG_T3_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$BIG_T3_PROV/hash-big"
+BIG_T3_PROF="$TMPROOT/prose-big-t3.md"
+{
+  cat "$ROOT/providers/tri.md"
+  awk 'BEGIN { for (i = 0; i < 180; i++) printf "prose filler line %04d ......................................................................\n", i }'
+} >"$BIG_T3_PROF"
+[ "$(wc -c <"$BIG_T3_PROF")" -gt 24000 ] || fail "oversized test profile fixture exceeds 24000 bytes"
+rc=0
+HOME="$BIG_T3_HOME" "$INSTALL" --profile-file "$BIG_T3_PROF" --target antigravity >"$TMPROOT/big-t3-agy.out" 2>"$TMPROOT/big-t3-agy.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/big-t3-agy.err" >&2; fail "multi-root oversized antigravity rule exits 2 (got $rc)"; }
+grep -qF 'antigravity rule file exceeds 24000 bytes' "$TMPROOT/big-t3-agy.err" || fail "multi-root oversized antigravity rule reports 24000-byte diagnostic"
+[ ! -e "$BIG_T3_HOME/.gemini/config/.harness-manifest" ] || fail "multi-root oversized rule writes no standalone .harness-manifest"
+[ ! -e "$BIG_T3_PROV/hash-big/config/.harness-manifest" ] || fail "multi-root oversized rule writes no T3 instance .harness-manifest"
+rc=0
+HOME="$BIG_T3_HOME" "$INSTALL" --profile-file "$BIG_T3_PROF" --target all >"$TMPROOT/big-t3-all.out" 2>"$TMPROOT/big-t3-all.err" || rc=$?
+[ "$rc" -eq 2 ] || { cat "$TMPROOT/big-t3-all.err" >&2; fail "multi-target oversized antigravity rule exits 2 under --target all (got $rc)"; }
+grep -qF 'antigravity rule file exceeds 24000 bytes' "$TMPROOT/big-t3-all.err" || fail "multi-target oversized antigravity rule reports 24000-byte diagnostic"
+[ ! -e "$BIG_T3_HOME/.config/opencode/.harness-manifest" ] || fail "atomic preflight on exit 2 writes no opencode .harness-manifest"
+[ ! -e "$BIG_T3_HOME/.gemini/config/.harness-manifest" ] || fail "atomic preflight on exit 2 writes no standalone antigravity .harness-manifest"
+[ ! -e "$BIG_T3_PROV/hash-big/config/.harness-manifest" ] || fail "atomic preflight on exit 2 writes no T3 antigravity .harness-manifest"
+pass "oversized antigravity rule file exits 2 atomically before writing any standalone, T3, or sibling host manifest"
+
+for oneshot_skill in \
+  "$T3_HOME/.gemini/config/skills/oneshot/SKILL.md" \
+  "$T3_PROV/hash-one/config/skills/oneshot/SKILL.md"; do
+  skills_dir="$(dirname "$(dirname "$oneshot_skill")")"
+  [ -f "$skills_dir/_harness/agents/implementer.md" ] && [ ! -L "$skills_dir/_harness/agents/implementer.md" ] || fail "grandparent <skills-dir> resolves real _harness/agents/implementer.md from $oneshot_skill"
+done
+pass "<skills-dir> grandparent resolution finds real _harness/agents/implementer.md across standalone and T3 roots"
+
+# 74. standalone single-provider profiles, multi-provider backup ladders,
+# multi-host native dispatch, and strict 3-way decoupling of skills/agents,
+# providers/, and the T3 Code host.
+rc=0
+"$INSTALL" --help >"$TMPROOT/help-74.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/help-74.out" >&2; fail "--help exits 0 (got $rc)"; }
+grep -qF 'available profiles: antigravity claude codex opencode-go quad tri' "$TMPROOT/help-74.out" || {
+  cat "$TMPROOT/help-74.out" >&2
+  fail "--help lists all six built-in profiles"
+}
+tr '\n' ' ' <"$TMPROOT/help-74.out" | tr -s ' ' | grep -qF "sharing the standalone root's profile binding on refresh" || {
+  cat "$TMPROOT/help-74.out" >&2
+  fail "--help notes Antigravity standalone and T3 roots share the standalone root's profile binding on refresh"
+}
+
+for profile in tri quad opencode-go codex antigravity claude; do
+  rc=0
+  HOME="$TMPROOT/prof-home-$profile" "$INSTALL" --profile "$profile" --target all >"$TMPROOT/prof-$profile.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prof-$profile.out" >&2; fail "--profile $profile --target all exits 0 (got $rc)"; }
+  if grep -q 'compacting .* profile prose' "$TMPROOT/prof-$profile.out"; then
+    cat "$TMPROOT/prof-$profile.out" >&2
+    fail "--profile $profile --target all ships profile prose uncompacted under the 32768-byte limit"
+  fi
+done
+
+for profile in codex antigravity claude; do
+  prof_home="$TMPROOT/prof-home-$profile"
+  for manifest in \
+    "$prof_home/.config/opencode/.harness-manifest" \
+    "$prof_home/.codex/.harness-manifest" \
+    "$prof_home/.gemini/config/.harness-manifest" \
+    "$prof_home/.claude/.harness-manifest"; do
+    [ -f "$manifest" ] || fail "--profile $profile --target all writes $manifest"
+    grep -qxF "# profile $profile" "$manifest" || fail "--profile $profile records '# profile $profile' in $manifest"
+  done
+done
+
+for profile in tri quad opencode-go codex antigravity claude; do
+  prof_home="$TMPROOT/prof-home-$profile"
+  [ "$(wc -c <"$prof_home/.gemini/config/rules/HARNESS.md")" -lt 24000 ] || fail "$profile profile rules/HARNESS.md is under 24000 bytes"
+  [ "$(wc -c <"$prof_home/.gemini/config/rules/PROVIDERS.md")" -lt 24000 ] || fail "$profile profile rules/PROVIDERS.md is under 24000 bytes"
+  [ "$(wc -c <"$prof_home/.codex/AGENTS.md")" -lt 32768 ] || fail "$profile profile AGENTS.md is under 32768 bytes"
+  [ "$(wc -c <"$prof_home/.claude/CLAUDE.md")" -lt 32768 ] || fail "$profile profile CLAUDE.md is under 32768 bytes"
+done
+
+backup_ladder() {
+  awk '/^## Backup ladder/ { found = 1; next } found && /^## / { exit } found' "$1"
+}
+backup_ladder "$ROOT/providers/tri.md" >"$TMPROOT/tri-backup-74.txt"
+grep -qF '* | codex |' "$TMPROOT/tri-backup-74.txt" || fail "tri backup ladder carries a wildcard codex fallback rung"
+grep -qF '* | antigravity |' "$TMPROOT/tri-backup-74.txt" || fail "tri backup ladder carries a wildcard antigravity fallback rung"
+backup_ladder "$ROOT/providers/quad.md" >"$TMPROOT/quad-backup-74.txt"
+grep -qF '* | codex |' "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries a wildcard codex fallback rung"
+grep -qF '* | antigravity |' "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries a wildcard antigravity fallback rung"
+grep -qF '* | claudeAgent |' "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries a wildcard claudeAgent fallback rung"
+
+for needle in '<skills-dir>/_harness/agents/<seat>.md' spawn_agent invoke_subagent 'degraded task-review: single-family host'; do
+  grep -qF "$needle" "$ROOT/AGENTS.md" || fail "AGENTS.md documents the standalone dispatch adapter via $needle"
+done
+grep -qF 'grandparent of `oneshot/SKILL.md`' "$ROOT/AGENTS.md" || fail "AGENTS.md documents <skills-dir> as grandparent of oneshot/SKILL.md"
+grep -qF 'in your `<skills>` list' "$ROOT/AGENTS.md" || fail "AGENTS.md passes literal <skills-dir> instruction to antigravity children"
+grep -qE 'never substitut(e|ing) the driver'\''s path' "$ROOT/AGENTS.md" || fail "AGENTS.md forbids substituting the driver's path for antigravity <contract-path>"
+[ "$(wc -c <"$ROOT/AGENTS.md")" -lt 21500 ] || fail "AGENTS.md stays under 21500 bytes"
+[ $(( $(wc -c <"$ROOT/AGENTS.md") + 2 + $(wc -c <"$ROOT/providers/tri.md") )) -le 32500 ] || fail "combined AGENTS.md + providers/tri.md stays within 32500 bytes"
+
+if grep -rnE 'opencode-go/|req/5h|#(low|medium|high|xhigh|max)\b|gpt-[0-9]|gemini-[0-9]|claude-(opus|sonnet|haiku|fable)' "$ROOT/AGENTS.md" "$ROOT/skills" "$ROOT/agents" >"$TMPROOT/leak-74.out" 2>&1; then
+  cat "$TMPROOT/leak-74.out" >&2
+  fail "AGENTS.md, skills/ and agents/ carry no model ids or host quota strings"
+fi
+if grep -rnEi 'opencode|antigravity|codex|claude|t3[-_ ]code|delegate_task|orchestrator_capabilities' "$ROOT/skills" "$ROOT/agents" >"$TMPROOT/host-74.out" 2>&1; then
+  cat "$TMPROOT/host-74.out" >&2
+  fail "skills/ and agents/ name no providers, hosts, or T3 tools"
+fi
+for skill_doc in \
+  skills/oneshot/SKILL.md \
+  skills/dispatch/SKILL.md \
+  skills/council/SKILL.md \
+  skills/codebase-design/DESIGN-IT-TWICE.md; do
+  grep -qF '../_harness/HARNESS.md' "$ROOT/$skill_doc" || fail "$skill_doc carries the host-neutral _harness fallback"
+done
+for dispatch_doc in \
+  skills/dispatch/SKILL.md \
+  skills/dispatch/spec-reviewer-prompt.md \
+  skills/dispatch/quality-reviewer-prompt.md; do
+  grep -qF 'degraded task-review: single-family host' "$ROOT/$dispatch_doc" || fail "$dispatch_doc documents the single-family host fallback for task-reviewer"
+done
+pass "standalone profiles, multi-provider backup ladders, multi-host dispatch adapter, and strict 3-way decoupling"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

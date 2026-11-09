@@ -3,10 +3,10 @@
 Use this template when dispatching an implementer subagent.
 
 ```
-dispatch through the AGENTS.md Dispatch Adapter: role `implementer` for standard tasks, `implementer-deep` for complex/escalated tasks (seat models and effort levels per the active provider profile; on a usage-limit/429 error or unreachable rung re-dispatch the same role on the next rung per the AGENTS.md Routing Rules)
+dispatch through the AGENTS.md Dispatch Adapter: role `implementer` for standard tasks, `implementer-deep` for complex/escalated tasks (seat models and effort levels per the active provider profile; `<contract-path>` per AGENTS.md Dispatch Adapter; on a usage-limit/429 error or unreachable rung re-dispatch the same role on the next rung per the AGENTS.md Routing Rules)
   description: "Implement Task N: [task name]"
   prompt: |
-    Role contract: read <harness-dir>/agents/<seat>.md; follow its body; its permissions block is your policy and you enforce it yourself.
+    Role contract: read <contract-path>; follow its body; its permissions block is your policy and you enforce it yourself.
     Rung: <provider>/<model> (<effort>), privacy: <ok|trains>.
 
     You are implementing Task N: [task name]
