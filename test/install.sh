@@ -49,10 +49,10 @@ implementer opencode-go/gemini-4-argon#high
 implementer-deep -
 patch opencode-go/deepseek-v4.1-flash#high
 tester opencode-go/deepseek-v4.1-flash#high
-reviewer-a opencode-go/kimi-k3.1-pro#high
+reviewer-a opencode-go/gemini-4-argon#high
 reviewer-b opencode-go/claude-haiku-5-5#high
-reviewer-c opencode-go/gpt-6-luna#high
-reviewer-esc opencode-go/deepseek-v4-pro
+reviewer-c -
+reviewer-esc opencode-go/kimi-k3.1-pro#high
 PINS
 
 # 1. clean install into an empty HOME
@@ -616,8 +616,12 @@ if grep -q '^model:' "$DEST/agents/implementer-deep.md"; then
   fail "tri implementer-deep has no native pin"
 fi
 grep -qxF 'note: implementer-deep has no opencode rung; dispatch it through delegate_task only' "$TMPROOT/case1.out" || fail "tri reports delegate-only seat"
+if grep -q '^model:' "$DEST/agents/reviewer-c.md"; then
+  fail "tri reviewer-c has no native pin"
+fi
+grep -qxF 'note: reviewer-c has no opencode rung; dispatch it through delegate_task only' "$TMPROOT/case1.out" || fail "tri reports the reviewer-c delegate-only seat"
 grep -qxF 'model: opencode-go/gemini-4-argon#high' "$DEST/agents/implementer.md" || fail "tri implementer uses its OpenCode fallback"
-pass "default tri profile, manifest metadata, native pin and delegate-only note"
+pass "default tri profile, manifest metadata, native pin and delegate-only notes"
 
 # 39. legacy profile preserves historical pin values and line positions
 LEGACY_DEST="$TMPROOT/legacy-install"
@@ -643,7 +647,7 @@ for profile in missing ../tri Tri 'tri/name' '-tri' 'tri.bad'; do
   rc=0
   OPENCODE_CONFIG="$TMPROOT/unknown-dest" "$INSTALL" --force --prune --profile="$profile" >"$TMPROOT/unknown.out" 2>"$TMPROOT/unknown.err" || rc=$?
   [ "$rc" -eq 2 ] || fail "unknown profile exits 2: $profile"
-  grep -qF "install.sh: unknown profile: $profile (available: opencode-go tri)" "$TMPROOT/unknown.err" || fail "unknown profile diagnostic: $profile"
+  grep -qF "install.sh: unknown profile: $profile (available: opencode-go quad tri)" "$TMPROOT/unknown.err" || fail "unknown profile diagnostic: $profile"
   [ ! -e "$TMPROOT/unknown-dest" ] || fail "unknown profile creates nothing"
 done
 pass "unknown and malformed profiles exit 2 and write nothing"
@@ -923,7 +927,7 @@ grep -q 'invalid row: scout last-resort: invalid privacy' "$TMPROOT/profile-inva
 [ ! -e "$TMPROOT/profile-invalid-dest" ] || fail "an invalid profile file writes nothing"
 pass "--profile-file conflicts with --profile and shares named-profile validation"
 
-# 51. the default tri profile renders the rebalanced native pins
+# 51. the default tri profile renders the Revision 2 native pins
 PINS_DEST="$TMPROOT/rebalance-pins"
 rc=0
 OPENCODE_CONFIG="$PINS_DEST" "$INSTALL" >"$TMPROOT/pins.out" 2>&1 || rc=$?
@@ -931,12 +935,60 @@ OPENCODE_CONFIG="$PINS_DEST" "$INSTALL" >"$TMPROOT/pins.out" 2>&1 || rc=$?
 grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$PINS_DEST/agents/scout.md" || fail "tri scout pin"
 grep -qxF 'model: opencode-go/gemini-4-argon#high' "$PINS_DEST/agents/implementer.md" || fail "tri implementer pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$PINS_DEST/agents/tester.md" || fail "tri tester pin"
-grep -qxF 'model: opencode-go/kimi-k3.1-pro#high' "$PINS_DEST/agents/reviewer-a.md" || fail "tri reviewer-a pin"
-grep -qxF 'model: opencode-go/deepseek-v4-pro' "$PINS_DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$PINS_DEST/agents/patch.md" || fail "tri patch pin"
+grep -qxF 'model: opencode-go/gemini-4-argon#high' "$PINS_DEST/agents/reviewer-a.md" || fail "tri reviewer-a pin"
+grep -qxF 'model: opencode-go/claude-haiku-5-5#high' "$PINS_DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
+grep -qxF 'model: opencode-go/kimi-k3.1-pro#high' "$PINS_DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
 if grep -q '^model:' "$PINS_DEST/agents/implementer-deep.md"; then
   fail "tri implementer-deep has no native pin"
 fi
-grep -qxF 'note: implementer-deep has no opencode rung; dispatch it through delegate_task only' "$TMPROOT/pins.out" || fail "tri reports the delegate-only seat"
-pass "default tri renders the rebalanced native pins"
+if grep -q '^model:' "$PINS_DEST/agents/reviewer-c.md"; then
+  fail "tri reviewer-c has no native pin"
+fi
+grep -qxF 'note: implementer-deep has no opencode rung; dispatch it through delegate_task only' "$TMPROOT/pins.out" || fail "tri reports the implementer-deep delegate-only seat"
+grep -qxF 'note: reviewer-c has no opencode rung; dispatch it through delegate_task only' "$TMPROOT/pins.out" || fail "tri reports the reviewer-c delegate-only seat"
+pass "default tri renders the Revision 2 native pins"
+
+# 52. quad installs cleanly with the camelCase Claude Code provider id
+QUAD_DEST="$TMPROOT/quad-install"
+[ -f "$ROOT/providers/quad.md" ] || fail "providers/quad.md is missing; quad cannot install (expected red)"
+rc=0
+OPENCODE_CONFIG="$QUAD_DEST" "$INSTALL" --profile quad >"$TMPROOT/quad.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/quad.out" >&2; fail "quad install exits 0 (claudeAgent provider id accepted)"; }
+cmp -s "$ROOT/providers/quad.md" "$QUAD_DEST/PROVIDERS.md" || fail "quad PROVIDERS.md is a byte copy of providers/quad.md"
+if grep -q '^model:' "$QUAD_DEST/agents/reviewer-b.md"; then
+  fail "quad reviewer-b has no native pin"
+fi
+if grep -q '^model:' "$QUAD_DEST/agents/implementer-deep.md"; then
+  fail "quad implementer-deep has no native pin"
+fi
+pass "quad installs cleanly and leaves both Claude-Code-only seats unpinned"
+
+# 53. provider ids accept camelCase but reject underscores and a leading hyphen
+CHARSET_BASE="$TMPROOT/charset.md"
+grep -v '^| driver | fallback |' "$ROOT/providers/tri.md" >"$CHARSET_BASE"
+printf '| driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |\n' >>"$CHARSET_BASE"
+cp "$CHARSET_BASE" "$FIXTURE/providers/charset.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/charset-valid-dest" "$FIXTURE/install.sh" --profile charset >"$TMPROOT/charset-valid.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/charset-valid.out" >&2; fail "camelCase provider id claudeAgent is accepted"; }
+for bad_provider in bad_id -x; do
+  cp "$CHARSET_BASE" "$FIXTURE/providers/charset.md"
+  printf '| compaction | last-resort | %s | valid | - | google | ok |\n' "$bad_provider" >>"$FIXTURE/providers/charset.md"
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/charset-bad-dest" "$FIXTURE/install.sh" --profile charset >"$TMPROOT/charset-bad.out" 2>"$TMPROOT/charset-bad.err" || rc=$?
+  [ "$rc" -eq 1 ] || { cat "$TMPROOT/charset-bad.err" >&2; fail "provider id $bad_provider exits 1"; }
+  grep -qF 'install.sh: profile charset invalid row: compaction last-resort: ' "$TMPROOT/charset-bad.err" || { cat "$TMPROOT/charset-bad.err" >&2; fail "provider id $bad_provider is reported as an invalid row"; }
+  [ ! -e "$TMPROOT/charset-bad-dest" ] || fail "provider id $bad_provider writes nothing"
+done
+pass "provider ids accept camelCase and reject underscore and leading-hyphen ids"
+
+# 54. tri and quad carry no OpenAI model through OpenCode Go
+[ -f "$ROOT/providers/quad.md" ] || fail "providers/quad.md is missing; cannot check opencode-go/gpt rows (expected red)"
+if grep -n 'opencode-go/gpt' "$ROOT/providers/tri.md" "$ROOT/providers/quad.md" >"$TMPROOT/opencode-gpt.out" 2>&1; then
+  cat "$TMPROOT/opencode-gpt.out" >&2
+  fail "tri and quad contain no opencode-go/gpt rows"
+fi
+pass "tri and quad carry no OpenAI model through OpenCode Go"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
