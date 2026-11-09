@@ -1717,10 +1717,13 @@ for profile in codex antigravity claude; do
   done
 done
 
-[ "$(wc -c <"$TMPROOT/prof-home-antigravity/.gemini/config/rules/HARNESS.md")" -lt 24000 ] || fail "antigravity profile rules/HARNESS.md is under 24000 bytes"
-[ "$(wc -c <"$TMPROOT/prof-home-antigravity/.gemini/config/rules/PROVIDERS.md")" -lt 24000 ] || fail "antigravity profile rules/PROVIDERS.md is under 24000 bytes"
-[ "$(wc -c <"$TMPROOT/prof-home-codex/.codex/AGENTS.md")" -lt 32768 ] || fail "codex profile AGENTS.md is under 32768 bytes"
-[ "$(wc -c <"$TMPROOT/prof-home-claude/.claude/CLAUDE.md")" -lt 32768 ] || fail "claude profile CLAUDE.md is under 32768 bytes"
+for profile in tri quad opencode-go codex antigravity claude; do
+  prof_home="$TMPROOT/prof-home-$profile"
+  [ "$(wc -c <"$prof_home/.gemini/config/rules/HARNESS.md")" -lt 24000 ] || fail "$profile profile rules/HARNESS.md is under 24000 bytes"
+  [ "$(wc -c <"$prof_home/.gemini/config/rules/PROVIDERS.md")" -lt 24000 ] || fail "$profile profile rules/PROVIDERS.md is under 24000 bytes"
+  [ "$(wc -c <"$prof_home/.codex/AGENTS.md")" -lt 32768 ] || fail "$profile profile AGENTS.md is under 32768 bytes"
+  [ "$(wc -c <"$prof_home/.claude/CLAUDE.md")" -lt 32768 ] || fail "$profile profile CLAUDE.md is under 32768 bytes"
+done
 
 backup_ladder() {
   awk '/^## Backup ladder/ { found = 1; next } found && /^## / { exit } found' "$1"
@@ -1751,6 +1754,12 @@ for skill_doc in \
   skills/council/SKILL.md \
   skills/codebase-design/DESIGN-IT-TWICE.md; do
   grep -qF '../_harness/HARNESS.md' "$ROOT/$skill_doc" || fail "$skill_doc carries the host-neutral _harness fallback"
+done
+for dispatch_doc in \
+  skills/dispatch/SKILL.md \
+  skills/dispatch/spec-reviewer-prompt.md \
+  skills/dispatch/quality-reviewer-prompt.md; do
+  grep -qF 'degraded task-review: single-family host' "$ROOT/$dispatch_doc" || fail "$dispatch_doc documents the single-family host fallback for task-reviewer"
 done
 pass "standalone profiles, multi-provider backup ladders, multi-host dispatch adapter, and strict 3-way decoupling"
 
