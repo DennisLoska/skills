@@ -1126,4 +1126,21 @@ OPENCODE_CONFIG="$STATE_DEST" "$INSTALL" --force --prune >/dev/null 2>&1 || rc=$
 [ "$(cat "$STATE_DEST/state/quota-ledger.tsv")" = "$ledger_line" ] || fail "quota-ledger.tsv is unchanged by --force --prune"
 pass "state directory is created, unmanaged by manifest, and quota-ledger.tsv survives --force --prune"
 
+# 61. a pool literally named "pool" is validated (not skipped as a header), and
+# GFM alignment separators (:---, ---:) are accepted as the separator row.
+strip_profile_section "$ROOT/providers/opencode-go.md" 'Quota pools' >"$TMPROOT/pool-named-pool.md"
+printf '\n## Quota pools\n\n| pool | provider | models | window | soft-cap | reserve |\n| :---: | :--- | --- | ---: | :---: | --- |\n| pool | codex | * | nonsense | zero | unknown-role |\n' >>"$TMPROOT/pool-named-pool.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/pool-named-pool-dest" "$INSTALL" --profile-file "$TMPROOT/pool-named-pool.md" >"$TMPROOT/pool-named-pool.out" 2>"$TMPROOT/pool-named-pool.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/pool-named-pool.err" >&2; fail "a pool literally named pool with a bad window exits 1 (got $rc)"; }
+[ ! -e "$TMPROOT/pool-named-pool-dest" ] || fail "a pool literally named pool with a bad window writes nothing"
+grep -qF 'invalid pool row: pool: invalid window' "$TMPROOT/pool-named-pool.err" || { cat "$TMPROOT/pool-named-pool.err" >&2; fail "a pool literally named pool reports invalid pool row: pool: invalid window"; }
+awk '{ if ($0 == "| pool | codex | * | nonsense | zero | unknown-role |") print "| pool | codex | * | 5h | - | - |"; else print }' \
+  "$TMPROOT/pool-named-pool.md" >"$TMPROOT/pool-named-pool-fixed.md"
+mv "$TMPROOT/pool-named-pool-fixed.md" "$TMPROOT/pool-named-pool.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/pool-named-pool-ok" "$INSTALL" --profile-file "$TMPROOT/pool-named-pool.md" >"$TMPROOT/pool-named-pool-ok.out" 2>"$TMPROOT/pool-named-pool-ok.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/pool-named-pool-ok.err" >&2; fail "a valid pool literally named pool under GFM alignment separators exits 0 (got $rc)"; }
+pass "a pool literally named pool is validated and GFM alignment separators are accepted"
+
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

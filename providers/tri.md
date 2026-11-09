@@ -27,13 +27,12 @@ OpenCode Go (`opencode.ai/docs/go`): each model gets a monthly dollar limit, and
 
 | Model | est. req/5h | Model | est. req/5h |
 | --- | --- | --- | --- |
-| deepseek-v4.1-flash (off-peak) | ~43,300 | claude-haiku-5-5 | ~3,800 |
-| muse-spark-1.3 (trains) | ~45,300 | mimo-v2.6-pro | ~3,250 |
-| mimo-v2.6-flash | ~30,100 | minimax-m3 | ~3,200 |
-| glm-5.3-flash | ~6,300 | deepseek-v4-pro (off-peak) | ~1,040 |
-| qwen3.8-flash | ~5,400 | gemini-4-argon (50% off to Nov 30) | ~440 |
-| glm-5.3 | ~200 | qwen3.8-max | ~160 |
-| kimi-k3.1-pro | ~147 | - | - |
+| deepseek-v4.1-flash (off-peak) | ~43,300 | minimax-m3 | ~3,200 |
+| mimo-v2.6-flash | ~30,100 | deepseek-v4-pro (off-peak) | ~1,040 |
+| glm-5.3-flash | ~6,300 | gemini-4-argon (50% off to Nov 30) | ~440 |
+| qwen3.8-flash | ~5,400 | glm-5.3 | ~200 |
+| claude-haiku-5-5 | ~3,800 | qwen3.8-max | ~160 |
+| mimo-v2.6-pro | ~3,250 | kimi-k3.1-pro | ~147 |
 
 Provider load split and council budget notes:
 

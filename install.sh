@@ -253,7 +253,7 @@ unknown_profile() {
 }
 if [ "$use_profile_file" -eq 1 ]; then
   case "$profile_file_arg" in
-    *$'\n'*)
+    *[[:cntrl:]]*)
       printf 'install.sh: invalid profile file path: %s\n' "$profile_file_arg" >&2
       exit 2
       ;;
@@ -264,7 +264,7 @@ if [ "$use_profile_file" -eq 1 ]; then
   fi
   PROFILE_FILE="$(cd "$(dirname -- "$profile_file_arg")" && pwd -P)/$(basename -- "$profile_file_arg")"
   case "$PROFILE_FILE" in
-    *$'\n'*)
+    *[[:cntrl:]]*)
       printf 'install.sh: invalid profile file path: %s\n' "$PROFILE_FILE" >&2
       exit 2
       ;;
@@ -314,8 +314,9 @@ PROFILE_ROWS="$(PROFILE_NAME="$PROFILE_LABEL" REQUIRED_ROLES="$REQUIRED_ROLES" a
   /^[[:space:]]*[|]/ {
     for (i = 1; i <= NF; i++) gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
     if (section == "pools") {
-      if ($2 == "pool" || $2 ~ /^---/) next
       if (NF != 8 || $NF != "") invalid_pool("expected 6 cells")
+      if ($2 == "pool" && $3 == "provider" && $4 == "models" && $5 == "window" && $6 == "soft-cap" && $7 == "reserve") next
+      if ($2 ~ /^:?-+:?$/ && $3 ~ /^:?-+:?$/ && $4 ~ /^:?-+:?$/ && $5 ~ /^:?-+:?$/ && $6 ~ /^:?-+:?$/ && $7 ~ /^:?-+:?$/) next
       for (i = 2; i <= 7; i++) if ($i == "") invalid_pool("empty cell")
       if ($2 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_pool("invalid pool")
       if ($2 in seen_pool) invalid_pool("duplicate pool")
@@ -334,8 +335,9 @@ PROFILE_ROWS="$(PROFILE_NAME="$PROFILE_LABEL" REQUIRED_ROLES="$REQUIRED_ROLES" a
       next
     }
     if (section == "backups") {
-      if ($2 == "order" || $2 ~ /^---/) next
       if (NF != 9 || $NF != "") invalid_backup("expected 7 cells")
+      if ($2 == "order" && $3 == "roles" && $4 == "provider" && $5 == "model" && $6 == "effort" && $7 == "family" && $8 == "privacy") next
+      if ($2 ~ /^:?-+:?$/ && $3 ~ /^:?-+:?$/ && $4 ~ /^:?-+:?$/ && $5 ~ /^:?-+:?$/ && $6 ~ /^:?-+:?$/ && $7 ~ /^:?-+:?$/ && $8 ~ /^:?-+:?$/) next
       for (i = 2; i <= 8; i++) if ($i == "") invalid_backup("empty cell")
       if ($2 !~ /^[1-9][0-9]*$/) invalid_backup("invalid order")
       if ($2 in seen_order) invalid_backup("duplicate order")
@@ -349,7 +351,7 @@ PROFILE_ROWS="$(PROFILE_NAME="$PROFILE_LABEL" REQUIRED_ROLES="$REQUIRED_ROLES" a
       }
       if ($4 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid_backup("invalid provider")
       if ($5 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) invalid_backup("invalid model")
-      if ($6 != "-" && $6 !~ /^[A-Za-z0-9_]+=[A-Za-z0-9._-]+$/) invalid_backup("invalid effort")
+      if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid_backup("invalid effort")
       if ($7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_backup("invalid family")
       if ($8 != "ok" && $8 != "trains") invalid_backup("invalid privacy")
       next
