@@ -284,18 +284,76 @@ PROFILE_ROWS="$(PROFILE_NAME="$PROFILE_LABEL" REQUIRED_ROLES="$REQUIRED_ROLES" a
   BEGIN {
     profile = ENVIRON["PROFILE_NAME"]
     n = split(ENVIRON["REQUIRED_ROLES"], ordered, " ")
-    for (i = 1; i <= n; i++) known[ordered[i]] = 1
+    for (i = 1; i <= n; i++) {
+      known[ordered[i]] = 1
+      dispatched[ordered[i]] = 1
+    }
     known["driver"] = known["compaction"] = 1
+    section = "roles"
   }
   function invalid(reason) {
     printf "install.sh: profile %s invalid row: %s %s: %s\n", profile, $2, $3, reason > "/dev/stderr"
     failed = 1
     exit 1
   }
+  function invalid_pool(reason) {
+    printf "install.sh: profile %s invalid pool row: %s: %s\n", profile, $2, reason > "/dev/stderr"
+    failed = 1
+    exit 1
+  }
+  function invalid_backup(reason) {
+    printf "install.sh: profile %s invalid backup row: %s: %s\n", profile, $2, reason > "/dev/stderr"
+    failed = 1
+    exit 1
+  }
   /^[[:space:]]*```/ { fenced = !fenced; next }
   fenced { next }
+  /^##[[:space:]]+Quota pools([[:space:]]|$)/ { section = "pools"; next }
+  /^##[[:space:]]+Backup ladder([[:space:]]|$)/ { section = "backups"; next }
+  /^##[[:space:]]+/ { section = "roles"; next }
   /^[[:space:]]*[|]/ {
     for (i = 1; i <= NF; i++) gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
+    if (section == "pools") {
+      if ($2 == "pool" || $2 ~ /^---/) next
+      if (NF != 8 || $NF != "") invalid_pool("expected 6 cells")
+      for (i = 2; i <= 7; i++) if ($i == "") invalid_pool("empty cell")
+      if ($2 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_pool("invalid pool")
+      if ($2 in seen_pool) invalid_pool("duplicate pool")
+      seen_pool[$2] = 1
+      if ($3 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid_pool("invalid provider")
+      if ($4 !~ /^[A-Za-z0-9*][A-Za-z0-9._\/*-]*$/) invalid_pool("invalid models")
+      if ($5 !~ /^[1-9][0-9]*(h|d|w|mo)$/) invalid_pool("invalid window")
+      if ($6 != "-" && $6 !~ /^[1-9][0-9]*$/) invalid_pool("invalid soft-cap")
+      if ($7 != "-") {
+        m = split($7, rlist, ",")
+        if (m < 1) invalid_pool("invalid reserve")
+        for (j = 1; j <= m; j++) {
+          if (rlist[j] == "" || !(rlist[j] in known)) invalid_pool("invalid reserve")
+        }
+      }
+      next
+    }
+    if (section == "backups") {
+      if ($2 == "order" || $2 ~ /^---/) next
+      if (NF != 9 || $NF != "") invalid_backup("expected 7 cells")
+      for (i = 2; i <= 8; i++) if ($i == "") invalid_backup("empty cell")
+      if ($2 !~ /^[1-9][0-9]*$/) invalid_backup("invalid order")
+      if ($2 in seen_order) invalid_backup("duplicate order")
+      seen_order[$2] = 1
+      if ($3 != "*") {
+        m = split($3, blist, ",")
+        if (m < 1) invalid_backup("invalid roles")
+        for (j = 1; j <= m; j++) {
+          if (blist[j] == "" || !(blist[j] in dispatched)) invalid_backup("invalid roles")
+        }
+      }
+      if ($4 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid_backup("invalid provider")
+      if ($5 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) invalid_backup("invalid model")
+      if ($6 != "-" && $6 !~ /^[A-Za-z0-9_]+=[A-Za-z0-9._-]+$/) invalid_backup("invalid effort")
+      if ($7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_backup("invalid family")
+      if ($8 != "ok" && $8 != "trains") invalid_backup("invalid privacy")
+      next
+    }
     role = $2
     if (!(role in known)) next
     if (NF != 9 || $NF != "") invalid("expected 7 cells")
@@ -468,6 +526,12 @@ for i in "${!rels[@]}"; do
   done
 done
 
+if [ -L "$DEST/state" ]; then
+  parent_links+=("$DEST/state")
+elif [ -e "$DEST/state" ] && [ ! -d "$DEST/state" ]; then
+  parent_blocks+=("$DEST/state")
+fi
+
 if [ "${#parent_blocks[@]}" -gt 0 ]; then
   for pb in "${parent_blocks[@]}"; do
     printf 'install.sh: parent path is not a directory: %s\n' "$pb" >&2
@@ -559,6 +623,7 @@ if [ "${#parent_links[@]}" -gt 0 ]; then
     fi
   done <<<"$sorted_parents"
 fi
+mkdir -p "$DEST/state"
 for i in "${!rels[@]}"; do
   target="$DEST/${rels[$i]}"
   mkdir -p "$(dirname "$target")"

@@ -19,7 +19,7 @@ Autonomous end-to-end SDLC: task -> spec -> plan -> implementation -> verificati
 
 **Context hygiene:** Main orchestrates. Main never writes implementation code inline. Per-task and per-round work is dispatched to fresh subagents through the AGENTS.md Dispatch Adapter (the adapter picks the native or `delegate_task` path per rung). Never delegate a whole phase or the whole pipeline to one subagent.
 
-**Model routing:** Skills never hardcode models. Role rows and fallback ladders live in the active provider profile (`PROVIDERS.md`); the AGENTS.md Routing Rules and Dispatch Adapter govern how a role becomes a running subagent. On a usage-limit or 429-style provider error, or an unreachable rung, re-dispatch the same role on the next rung of its ladder and announce it. Routing-file note: the installed copy of this file is `HARNESS.md`; `<dest>/AGENTS.md` is the user's own file and is never overwritten.
+**Model routing:** Skills never hardcode models. Role rows, optional `## Quota pools`, and optional `## Backup ladder` live in the active provider profile (`PROVIDERS.md`); the AGENTS.md Routing Rules (quota pools & ledger `<dest>/state/quota-ledger.tsv`, failure classes, soft cap & reserve, backup ladder walk, and budget stop & resume) and Dispatch Adapter govern how a role becomes a running subagent. On a usage-limit or 429-style provider error (`exhausted`, written to the quota ledger), an `unreachable` rung, a failed `transient` retry, or a soft-cap reserved pool, re-dispatch the same role on the next eligible rung of its ladder (followed by sibling implementation hand-off and `## Backup ladder`), announce it (`backup: <role> -> <provider>/<model>` on backup rungs), or stop with `budget stop: <role>` when no eligible rung remains. Routing-file note: the installed copy of this file is `HARNESS.md`; `<dest>/AGENTS.md` is the user's own file and is never overwritten.
 
 ## Pipeline Overview
 
@@ -109,7 +109,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 **Skill:** `land`
 
 1. Invoke `land` via the `skill` tool.
-2. Push the feature branch, create the PR: body leads with the problem, not the change inventory (`## Summary`, `## Changes`, `## Test plan`). Reference local spec/plan paths when they are gitignored.
+2. Push the feature branch, create the PR: body leads with the problem, not the change inventory (`## Summary`, `## Changes`, `## Test plan`, `## Budget`). The `## Budget` block reports pools hit, demotions, backup rungs used, and any degraded seats (updated again in Phase 7 if CI or council rounds trigger further budget events). Reference local spec/plan paths when they are gitignored.
 3. Save the PR URL.
 
 ---
@@ -149,7 +149,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 **Skill:** `land` (Gate 3)
 
 1. Verify tests pass on final state (or satisfy the `no-tests` gate rule in `AGENTS.md` Review contracts).
-2. Landed options: merge PR and clean up, keep PR open, keep branch, discard. Present options (skip under bypass: default keep PR open).
+2. Refresh the PR body's `## Budget` block and include a **Budget** summary block in the final report (pools hit, demotions, backup rungs used, and any degraded seats; `AGENTS.md` Routing Rules, budget stop & resume). Landed options: merge PR and clean up, keep PR open, keep branch, discard. Present options (skip under bypass: default keep PR open).
 3. `land` executes the user choice. It reuses the standard flow: create-PR-if-none, merge open PR, checkout default, pull (the "next feature" handoff).
 4. Record it with the memory tool: mode "add", content "oneshot completed: [task] on [branch]". Remove the state artifact at the end of the run.
 
@@ -157,7 +157,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 
 ## State Artifact
 
-At every phase transition, update `$(git rev-parse --git-dir)/info/oneshot-state.md` (run `mkdir -p "$(git rev-parse --git-dir)/info"` first so both standard checkouts where `.git` is a directory and linked git worktrees where `.git` is a file work cleanly; append or rewrite in place): phase, branch, PR URL, tests status, council round count, standing red findings (one line each). On interrupt, resume from the state artifact plus the spec and plan; the state file is the truth for round counters and standing findings - never re-open a closed round or re-spend a burnt budget. `$(git rev-parse --git-dir)/info/oneshot-state.md` is the only state location: it is machine-local and worktree-local, never committed, never `git add -f`'d, and removed at the end of Phase 7.
+At every phase transition (and on any budget event), update `$(git rev-parse --git-dir)/info/oneshot-state.md` (run `mkdir -p "$(git rev-parse --git-dir)/info"` first so both standard checkouts where `.git` is a directory and linked git worktrees where `.git` is a file work cleanly; append or rewrite in place): phase, branch, PR URL, tests status, council round count, standing red findings (one line each), `soft_cap_counts` (per-pool dispatch counts in this pipeline run for soft-cap enforcement), and `earliest_resume` (earliest reset timestamp across exhausted pools when stopped on `budget stop: <role>`). On interrupt or after a budget stop, resume from the state artifact plus `<dest>/state/quota-ledger.tsv`, the spec, and the plan; the state file is the truth for round counters, `soft_cap_counts`, `earliest_resume`, and standing findings - never re-open a closed round or re-spend a burnt budget. `$(git rev-parse --git-dir)/info/oneshot-state.md` is the only per-run state location: it is machine-local and worktree-local, never committed, never `git add -f`'d, and removed at the end of Phase 7.
 
 ## Error Handling
 
@@ -169,7 +169,7 @@ At every phase transition, update `$(git rev-parse --git-dir)/info/oneshot-state
 | Council FAIL (round 3+ or escalation fails) | User | Stop, present findings + test output |
 | Spec incomplete | Phase 1 | Fix gaps, re-approve |
 | Plan has gaps | Phase 2 | Add missing tasks |
-| Reviewer model exhausted | Active provider profile ladder (AGENTS.md Routing Rules) | Demote role, announce, continue |
+| Model / pool exhausted or soft-capped | Active provider profile ladder + `## Backup ladder` (`AGENTS.md` Routing Rules) | Record pool in `quota-ledger.tsv` on exhaustion, demote or walk backup ladder (`backup: <role> -> <provider>/<model>`), announce, continue; if no rung left, report `budget stop: <role>` with `earliest_resume` |
 | User interrupts | Resume | Restart from state artifact + spec + plan |
 
 ## Red Flags - Never

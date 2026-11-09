@@ -9,7 +9,7 @@ Consensus review by 3 independent reviewers, followed by disciplined application
 
 **Why:** One reviewer = one blind spot. Three independent model families = three different failure patterns. Agreement matters more than any single opinion.
 
-**Model routing:** Reviewer roles A/B/C + escalation come from the active provider profile (`PROVIDERS.md`), routed by the AGENTS.md Routing Rules and Dispatch Adapter. Never hardcode IDs. On usage-limit/429 or an unreachable rung: demote along that seat's ladder, announce the demotion. Minimum 2 healthy independent families or stop and surface yellow.
+**Model routing:** Reviewer roles A/B/C + escalation come from the active provider profile (`PROVIDERS.md`), routed by the AGENTS.md Routing Rules (quota pools & ledger, failure classes, soft cap & reserve, backup ladder walk, and budget stop & resume) and Dispatch Adapter. Never hardcode IDs. On usage-limit/429 (`exhausted`), an `unreachable` rung, a failed `transient` retry, or a soft-cap skip: demote along that seat's ladder (and then `## Backup ladder` when all 3 rungs are gone), announce the demotion. Minimum 2 healthy independent families or stop and surface yellow.
 
 ## Request phase
 
@@ -30,22 +30,22 @@ Output:
 No praise. No "looks good". No scope creep.
 ```
 
-4. If a seat's rung is exhausted or unreachable mid-round: re-dispatch the SAME seat role on its next ladder rung from the active provider profile (mechanics below). Rerun only that seat. Never fill a seat with a rung whose family is active on another council seat anywhere in this PR (AGENTS.md Routing Rules).
+4. If a seat's rung is exhausted, unreachable, soft-cap reserved, or fails a transient retry mid-round: re-dispatch the SAME seat role on its next eligible ladder rung (or matching `## Backup ladder` row) from the active provider profile per AGENTS.md Routing Rules (mechanics below). Rerun only that seat. Never fill a seat with a rung whose family is active on another council seat anywhere in this PR (AGENTS.md Routing Rules).
 5. Confidentiality gate: if the review brief or referenced diff carries a confidential flag, the AGENTS.md Routing Rules privacy gate applies to every seat (`privacy: trains` rungs in the active provider profile auto-skip); demote to the next privacy-safe rung and announce.
 
 6. Author-family rule: PASS also needs the author-family vote from the AGENTS.md Council Contract (at least one PASS from a council seat whose family is not an author family). Read the author families from the state artifact. If every seat's family is an author family, dispatch `reviewer-esc` for the non-author vote on a rung whose family is neither a council-seat nor an author family (AGENTS.md Council Contract; one extra dispatch counted against the 14-dispatch guard); if that is impossible, stop with `yellow: degraded council`.
 
 ## Fallback mechanics
 
-Every seat has a contract file (`agents/<seat>.md`) and a primary rung in the active provider profile. When its rung returns a usage-limit or 429-style provider error, or is unreachable:
+Every seat has a contract file (`agents/<seat>.md`) and a primary rung in the active provider profile. Before walking a seat's ladder, check `<dest>/state/quota-ledger.tsv` and per-run soft-cap counters (`AGENTS.md` Routing Rules). When its rung returns a usage-limit or 429-style provider error (`exhausted`, recorded in the quota ledger), is `unreachable`, or fails a `transient` retry:
 
 ```
-re-dispatch: AGENTS.md Dispatch Adapter, role <seat>, rung <next ladder rung>
-announce: "seat <seat> demoted to <provider>/<model>"
+re-dispatch: AGENTS.md Dispatch Adapter, role <seat>, rung <next ladder or backup rung>
+announce: "seat <seat> demoted to <provider>/<model>" (or "backup: <seat> -> <provider>/<model>")
 ```
 
-- A demotion never breaks family independence: a seat may demote within its own family, but skip any ladder rung whose family is active on another council seat anywhere in this PR.
-- A seat with zero healthy ladder rungs = seat lost. Continue if at least 2 independent families remain; otherwise stop with `yellow: degraded council`.
+- A demotion (including onto `## Backup ladder`) never breaks family independence: a seat may demote within its own family, but skip any rung whose family is active on another council seat anywhere in this PR or equals the `reviewer-esc` family (`AGENTS.md` Routing Rules, backup ladder walk).
+- A seat with zero healthy ladder and backup rungs = seat lost. Continue if at least 2 independent families remain; otherwise stop with `yellow: degraded council` (and report exhausted pools + `earliest resume` per `AGENTS.md` Routing Rules, budget stop & resume when quota exhaustion caused the stop).
 - The escalation seat is a separate agent (`reviewer-esc`), routed by its rung in the active provider profile. It never substitutes a lost seat mid-round; it enters only after the round budget is spent, or to supply the author-family vote above.
 
 ## Verdict phase

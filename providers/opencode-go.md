@@ -45,6 +45,21 @@ Only `opencode-go/*` models are permitted in this profile.
 | compaction | fallback | opencode | opencode-go/gpt-6-luna | variant=low | openai | ok |
 | driver | primary | - | host-default | - | - | ok |
 
+## Quota pools
+
+Each OpenCode Go model has its own per-model monthly dollar limit and 5-hour cap (`<provider>/<model>` by default when no pool row matches), while scarce `kimi-k3.1-pro` quota is soft-capped and reserved for escalation:
+
+| pool | provider | models | window | soft-cap | reserve |
+| --- | --- | --- | --- | --- | --- |
+| opencode-kimi | opencode | opencode-go/kimi-k3.1-pro | 5h | 6 | reviewer-esc |
+
+## Backup ladder
+
+| order | roles | provider | model | effort | family | privacy |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | implementer,implementer-deep,tester,patch | opencode | opencode-go/minimax-m3 | - | minimax | ok |
+| 2 | reviewer-a,reviewer-b,reviewer-c,task-reviewer | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
+
 ## Quotas and provider notes
 
 Estimated allowance per model (req/5h):

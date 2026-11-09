@@ -1021,4 +1021,109 @@ OPENCODE_CONFIG="$TMPROOT/nl-dest" "$INSTALL" --profile-file "$NL_DIR/custom.md"
 grep -q 'install.sh: invalid profile file path:' "$TMPROOT/nl.err" || { cat "$TMPROOT/nl.err" >&2; fail "--profile-file with a newline reports invalid profile file path"; }
 pass "--profile-file rejects newline in path without writing"
 
+# 57. quota pools and backup ladder are optional; shipped profiles carry both
+cat >"$TMPROOT/no-pools-or-backups.md" <<'MINIMAL'
+# Minimal profile without quota pools or a backup ladder
+
+| role | rung | provider | model | effort | family | privacy |
+| --- | --- | --- | --- | --- | --- | --- |
+| scout | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
+| implementer | primary | opencode | opencode-go/gemini-4-argon | variant=high | google | ok |
+| implementer-deep | primary | opencode | opencode-go/gemini-4-argon | variant=high | google | ok |
+| patch | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
+| tester | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
+| reviewer-a | primary | opencode | opencode-go/muse-spark-1.3-contributor | variant=xhigh | meta | trains |
+| reviewer-b | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=max | deepseek | ok |
+| reviewer-c | primary | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
+| reviewer-esc | primary | opencode | opencode-go/kimi-k3.1-pro | variant=high | moonshot | ok |
+| task-reviewer | primary | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
+MINIMAL
+rc=0
+OPENCODE_CONFIG="$TMPROOT/no-pools-dest" "$INSTALL" --profile-file "$TMPROOT/no-pools-or-backups.md" >"$TMPROOT/no-pools.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/no-pools.out" >&2; fail "a profile without quota pools or backup ladder installs cleanly"; }
+[ -f "$TMPROOT/no-pools-dest/PROVIDERS.md" ] || fail "a profile without quota pools or backup ladder renders PROVIDERS.md"
+for shipped in tri quad opencode-go; do
+  grep -qxF '## Quota pools' "$ROOT/providers/$shipped.md" || fail "providers/$shipped.md carries a ## Quota pools section"
+  grep -qxF '## Backup ladder' "$ROOT/providers/$shipped.md" || fail "providers/$shipped.md carries a ## Backup ladder section"
+done
+grep -qxF '## Quota pools' "$DEST/PROVIDERS.md" || fail "default tri PROVIDERS.md renders ## Quota pools"
+grep -qxF '## Backup ladder' "$DEST/PROVIDERS.md" || fail "default tri PROVIDERS.md renders ## Backup ladder"
+pass "quota pools and backup ladder sections are optional for custom profiles and present in shipped profiles"
+
+# strip_profile_section <file> <heading text>: drop one optional section so a
+# test controls the exact rows that follow it.
+strip_profile_section() {
+  awk -v section="$2" '
+    $0 == "## " section { skip = 1; next }
+    skip && /^## / { skip = 0 }
+    !skip { print }
+  ' "$1"
+}
+
+# 58. ## Quota pools validation rejects malformed rows before any write
+strip_profile_section "$ROOT/providers/opencode-go.md" 'Quota pools' >"$TMPROOT/pools-base.md"
+while IFS=';' read -r label row diagnostic; do
+  cp "$TMPROOT/pools-base.md" "$TMPROOT/bad-pool.md"
+  printf '\n## Quota pools\n\n| pool | provider | models | window | soft-cap | reserve |\n| --- | --- | --- | --- | --- | --- |\n%s\n' "$row" >>"$TMPROOT/bad-pool.md"
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/bad-pool-dest" "$INSTALL" --profile-file "$TMPROOT/bad-pool.md" >"$TMPROOT/bad-pool.out" 2>"$TMPROOT/bad-pool.err" || rc=$?
+  [ "$rc" -eq 1 ] || { cat "$TMPROOT/bad-pool.err" >&2; fail "quota pool $label exits 1"; }
+  [ ! -e "$TMPROOT/bad-pool-dest" ] || fail "quota pool $label writes nothing"
+  grep -qF "$diagnostic" "$TMPROOT/bad-pool.err" || { cat "$TMPROOT/bad-pool.err" >&2; fail "quota pool $label diagnostic"; }
+done <<'POOLROWS'
+bad window;| p1 | opencode | * | 5hours | - | - |;invalid pool row: p1: invalid window
+bad soft-cap;| p1 | opencode | * | 5h | zero | - |;invalid pool row: p1: invalid soft-cap
+unknown reserve role;| p1 | opencode | * | 5h | 6 | unknown-role |;invalid pool row: p1: invalid reserve
+POOLROWS
+cp "$TMPROOT/pools-base.md" "$TMPROOT/bad-pool.md"
+printf '\n## Quota pools\n\n| pool | provider | models | window | soft-cap | reserve |\n| --- | --- | --- | --- | --- | --- |\n| p1 | opencode | * | 5h | - | - |\n| p1 | opencode | * | 5h | - | - |\n' >>"$TMPROOT/bad-pool.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/bad-pool-dest" "$INSTALL" --profile-file "$TMPROOT/bad-pool.md" >"$TMPROOT/bad-pool.out" 2>"$TMPROOT/bad-pool.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/bad-pool.err" >&2; fail "duplicate pool name exits 1"; }
+[ ! -e "$TMPROOT/bad-pool-dest" ] || fail "duplicate pool name writes nothing"
+grep -qF 'invalid pool row: p1: duplicate pool' "$TMPROOT/bad-pool.err" || { cat "$TMPROOT/bad-pool.err" >&2; fail "duplicate pool name diagnostic"; }
+pass "quota pools validation rejects bad window, soft-cap, reserve role, and duplicate pool"
+
+# 59. ## Backup ladder validation rejects malformed rows before any write
+strip_profile_section "$ROOT/providers/opencode-go.md" 'Backup ladder' >"$TMPROOT/backup-base.md"
+while IFS=';' read -r label row diagnostic; do
+  cp "$TMPROOT/backup-base.md" "$TMPROOT/bad-backup.md"
+  printf '\n## Backup ladder\n\n| order | roles | provider | model | effort | family | privacy |\n| --- | --- | --- | --- | --- | --- | --- |\n%s\n' "$row" >>"$TMPROOT/bad-backup.md"
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/bad-backup-dest" "$INSTALL" --profile-file "$TMPROOT/bad-backup.md" >"$TMPROOT/bad-backup.out" 2>"$TMPROOT/bad-backup.err" || rc=$?
+  [ "$rc" -eq 1 ] || { cat "$TMPROOT/bad-backup.err" >&2; fail "backup row $label exits 1"; }
+  [ ! -e "$TMPROOT/bad-backup-dest" ] || fail "backup row $label writes nothing"
+  grep -qF "$diagnostic" "$TMPROOT/bad-backup.err" || { cat "$TMPROOT/bad-backup.err" >&2; fail "backup row $label diagnostic"; }
+done <<'BACKUPROWS'
+unknown role;| 1 | implementer,bogus-role | opencode | opencode-go/minimax-m3 | - | minimax | ok |;invalid backup row: 1: invalid roles
+non-integer order;| zero | * | opencode | opencode-go/minimax-m3 | - | minimax | ok |;invalid backup row: zero: invalid order
+invalid privacy;| 1 | * | opencode | opencode-go/minimax-m3 | - | minimax | maybe |;invalid backup row: 1: invalid privacy
+BACKUPROWS
+cp "$TMPROOT/backup-base.md" "$TMPROOT/bad-backup.md"
+printf '\n## Backup ladder\n\n| order | roles | provider | model | effort | family | privacy |\n| --- | --- | --- | --- | --- | --- | --- |\n| 1 | * | opencode | opencode-go/minimax-m3 | - | minimax | ok |\n| 1 | * | opencode | opencode-go/minimax-m3 | - | minimax | ok |\n' >>"$TMPROOT/bad-backup.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/bad-backup-dest" "$INSTALL" --profile-file "$TMPROOT/bad-backup.md" >"$TMPROOT/bad-backup.out" 2>"$TMPROOT/bad-backup.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/bad-backup.err" >&2; fail "duplicate backup order exits 1"; }
+[ ! -e "$TMPROOT/bad-backup-dest" ] || fail "duplicate backup order writes nothing"
+grep -qF 'invalid backup row: 1: duplicate order' "$TMPROOT/bad-backup.err" || { cat "$TMPROOT/bad-backup.err" >&2; fail "duplicate backup order diagnostic"; }
+pass "backup ladder validation rejects bad order, unknown role, duplicate order, and invalid privacy"
+
+# 60. state/ is created, unmanaged by the manifest, and the ledger survives prune
+STATE_DEST="$TMPROOT/state-dest"
+rc=0
+OPENCODE_CONFIG="$STATE_DEST" "$INSTALL" >"$TMPROOT/state.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/state.out" >&2; fail "state fixture install exits 0"; }
+[ -d "$STATE_DEST/state" ] || fail "install creates <dest>/state/"
+if grep -q '^state' "$STATE_DEST/.harness-manifest"; then
+  fail "the manifest does not record state/"
+fi
+ledger_line="$(printf 'antigravity-claude\tantigravity\t2026-11-09T14:00:00Z\t2026-11-09T19:00:00Z\treviewer-b\t429')"
+printf '%s\n' "$ledger_line" >"$STATE_DEST/state/quota-ledger.tsv"
+rc=0
+OPENCODE_CONFIG="$STATE_DEST" "$INSTALL" --force --prune >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "--force --prune over an existing state directory exits 0"
+[ -f "$STATE_DEST/state/quota-ledger.tsv" ] || fail "quota-ledger.tsv survives --force --prune"
+[ "$(cat "$STATE_DEST/state/quota-ledger.tsv")" = "$ledger_line" ] || fail "quota-ledger.tsv is unchanged by --force --prune"
+pass "state directory is created, unmanaged by manifest, and quota-ledger.tsv survives --force --prune"
+
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

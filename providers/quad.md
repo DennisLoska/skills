@@ -66,6 +66,23 @@ No OpenAI model is routed through OpenCode Go in `quad`: all `gpt-*` models come
 | compaction | primary | opencode | opencode-go/claude-haiku-5-5 | variant=low | anthropic | ok |
 | compaction | fallback | codex | gpt-6-luna | reasoningEffort=low | openai | ok |
 
+## Quota pools
+
+| pool | provider | models | window | soft-cap | reserve |
+| --- | --- | --- | --- | --- | --- |
+| claude-code | claudeAgent | * | 5h | - | - |
+| antigravity-claude | antigravity | claude-* | 5h | 6 | reviewer-b |
+| antigravity-gemini | antigravity | gemini-* | 5h | - | - |
+| codex | codex | * | 5h | - | - |
+
+## Backup ladder
+
+| order | roles | provider | model | effort | family | privacy |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | implementer,implementer-deep,tester,patch | opencode | opencode-go/deepseek-v4-pro | - | deepseek | ok |
+| 2 | reviewer-a,reviewer-b,reviewer-c,task-reviewer | opencode | opencode-go/mimo-v2.6-pro | - | xiaomi | ok |
+| 3 | * | opencode | opencode-go/minimax-m3 | - | minimax | ok |
+
 ## Supported driver setups
 
 The `driver` row stays advisory; the installer validates it when present, never requires it, and never renders it. Two setups are supported:
