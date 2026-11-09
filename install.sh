@@ -29,7 +29,7 @@ ${OPENCODE_CONFIG:-$HOME/.config/opencode}, and records every installed
 path in <dest>/.harness-manifest.
 
 options:
-  --profile NAME  bind providers/NAME.md (also --profile=NAME; default: tri)
+  --profile NAME  bind providers/NAME.md (also --profile=NAME; default: previous binding, else tri)
   --force      overwrite files that already exist in the destination
   --prune      remove files recorded in a previous .harness-manifest that
                this run no longer produces; files the installer never wrote
@@ -45,16 +45,22 @@ EOF
 force=0
 prune=0
 profile=tri
+profile_given=0
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --force) force=1 ;;
     --prune) prune=1 ;;
     --profile)
-      if [ "$#" -lt 2 ]; then usage >&2; exit 2; fi
+      if [ "$#" -lt 2 ] || [ -z "$2" ]; then usage >&2; exit 2; fi
+      profile_given=1
       profile="$2"
       shift
       ;;
-    --profile=*) profile="${1#--profile=}" ;;
+    --profile=*)
+      profile="${1#--profile=}"
+      [ -n "$profile" ] || { usage >&2; exit 2; }
+      profile_given=1
+      ;;
     -h|--help)
       usage
       exit 0
@@ -66,60 +72,6 @@ while [ "$#" -gt 0 ]; do
   esac
   shift
 done
-
-# Validate the binding before creating anything, including temporary files.
-unknown_profile() {
-  printf 'install.sh: unknown profile: %s (available: %s)\n' "$profile" "$(available_profiles)" >&2
-  exit 2
-}
-case "$profile" in
-  ''|[!a-z0-9]*|*[!a-z0-9-]*) unknown_profile ;;
-esac
-PROFILE_FILE="$SRC/providers/$profile.md"
-[ -f "$PROFILE_FILE" ] || unknown_profile
-REQUIRED_ROLES='scout implementer implementer-b implementer-deep patch reviewer-a reviewer-b reviewer-c reviewer-esc task-reviewer'
-# Only recognized seat/ad-hoc routing rows participate. Advisory roles and
-# unrelated prose/tables are deliberately ignored. Keep all parsing POSIX awk.
-PROFILE_ROWS="$(awk -F '|' -v roles="$REQUIRED_ROLES" -v profile="$profile" '
-  BEGIN {
-    n = split(roles, ordered, " ")
-    for (i = 1; i <= n; i++) known[ordered[i]] = 1
-  }
-  /^[[:space:]]*[|]/ {
-    for (i = 2; i <= 8; i++) {
-      gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
-    }
-    role = $2
-    if (!(role in known)) next
-    if ($3 != "primary" && $3 != "fallback" && $3 != "last-resort") bad[role] = 1
-    if ($3 == "primary") primary[role] = 1
-    print $2 "|" $3 "|" $4 "|" $5 "|" $6 "|" $7 "|" $8
-  }
-  END {
-    for (i = 1; i <= n; i++) {
-      role = ordered[i]
-      if (!(role in primary) || bad[role]) {
-        printf "install.sh: profile %s incomplete: %s\n", profile, role > "/dev/stderr"
-        exit 1
-      }
-    }
-  }
-' "$PROFILE_FILE")" || exit 1
-
-# Select by ladder order, even if the table rows were written out of order.
-native_pin() {
-  awk -F '|' -v seat="$1" '
-    BEGIN { rank["primary"] = 1; rank["fallback"] = 2; rank["last-resort"] = 3 }
-    $1 == seat && $3 == "opencode" {
-      if (!best || rank[$2] < best) {
-        best = rank[$2]
-        pin = $4
-        if ($5 ~ /^variant=/) pin = pin "#" substr($5, 9)
-      }
-    }
-    END { if (best) print pin }
-  ' <<<"$PROFILE_ROWS"
-}
 
 # Destination validation. Runs before any path is created or removed, and
 # before the trailing slash is stripped, so a hostile or degenerate
@@ -239,9 +191,99 @@ if [ -L "$MANIFEST" ] || { [ -e "$MANIFEST" ] && [ ! -f "$MANIFEST" ]; }; then
   printf 'install.sh: manifest path is not a regular file: %s\n' "$MANIFEST" >&2
   exit 1
 fi
+prev_profile=""
+prev_profile_present=0
+if [ -f "$MANIFEST" ]; then
+  while IFS= read -r mline || [ -n "$mline" ]; do
+    case "$mline" in
+      '# profile '*) prev_profile="${mline#'# profile '}"; prev_profile_present=1; break ;;
+    esac
+  done <"$MANIFEST"
+fi
+if [ "$profile_given" -eq 0 ] && [ "$prev_profile_present" -eq 1 ]; then
+  profile="$prev_profile"
+fi
+
+# Validate the binding before creating anything, including temporary files.
+unknown_profile() {
+  printf 'install.sh: unknown profile: %s (available: %s)\n' "$profile" "$(available_profiles)" >&2
+  exit 2
+}
+case "$profile" in
+  ''|[!a-z0-9]*|*[!a-z0-9-]*) unknown_profile ;;
+esac
+PROFILE_FILE="$SRC/providers/$profile.md"
+[ -f "$PROFILE_FILE" ] || unknown_profile
+REQUIRED_ROLES='scout implementer implementer-b implementer-deep patch reviewer-a reviewer-b reviewer-c reviewer-esc task-reviewer'
+# Recognized required and advisory rows are validated; fenced examples are prose.
+PROFILE_ROWS="$(PROFILE_NAME="$profile" REQUIRED_ROLES="$REQUIRED_ROLES" awk -F '|' '
+  BEGIN {
+    profile = ENVIRON["PROFILE_NAME"]
+    n = split(ENVIRON["REQUIRED_ROLES"], ordered, " ")
+    for (i = 1; i <= n; i++) known[ordered[i]] = 1
+    known["driver"] = known["compaction"] = 1
+  }
+  function invalid(reason) {
+    printf "install.sh: profile %s invalid row: %s %s: %s\n", profile, $2, $3, reason > "/dev/stderr"
+    failed = 1
+    exit 1
+  }
+  /^[[:space:]]*```/ { fenced = !fenced; next }
+  fenced { next }
+  /^[[:space:]]*[|]/ {
+    for (i = 1; i <= NF; i++) gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
+    role = $2
+    if (!(role in known)) next
+    if (NF != 9 || $NF != "") invalid("expected 7 cells")
+    for (i = 2; i <= 8; i++) if ($i == "") invalid("empty cell")
+    if ($3 != "primary" && $3 != "fallback" && $3 != "last-resort") invalid("invalid rung")
+    if ($8 != "ok" && $8 != "trains") invalid("invalid privacy")
+    if ($4 !~ /^([a-z0-9][a-z0-9-]*|-)$/) invalid("invalid provider")
+    if ($5 !~ /^[A-Za-z0-9._\/:-]+$/) invalid("invalid model")
+    if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9._-]+)$/) invalid("invalid effort")
+    if ($7 !~ /^([a-z0-9][a-z0-9-]*|-)$/) invalid("invalid family")
+    key = role SUBSEP $3
+    if (key in seen) invalid("duplicate rung")
+    seen[key] = 1
+    if ($3 == "primary") primary[role] = 1
+    print $2 "|" $3 "|" $4 "|" $5 "|" $6 "|" $7 "|" $8
+  }
+  END {
+    if (failed) exit 1
+    for (i = 1; i <= n; i++) {
+      role = ordered[i]
+      if (!(role in primary)) {
+        printf "install.sh: profile %s incomplete: %s\n", profile, role > "/dev/stderr"
+        exit 1
+      }
+    }
+  }
+' "$PROFILE_FILE")" || exit 1
+
+# Select by ladder order, even if the table rows were written out of order.
+native_pin() {
+  awk -F '|' -v seat="$1" '
+    BEGIN { rank["primary"] = 1; rank["fallback"] = 2; rank["last-resort"] = 3 }
+    $1 == seat && $3 == "opencode" {
+      if (!best || rank[$2] < best) {
+        best = rank[$2]
+        pin = $4
+        if ($5 ~ /^variant=/) pin = pin "#" substr($5, 9)
+      }
+    }
+    END { if (best) print pin }
+  ' <<<"$PROFILE_ROWS"
+}
+
 TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
-TMP_AGENT=""
-trap 'rm -f -- "$TMP_MANIFEST"; if [ -n "$TMP_AGENT" ]; then rm -f -- "$TMP_AGENT"; fi' EXIT
+rendered_agents=()
+cleanup() {
+  rm -f -- "$TMP_MANIFEST"
+  if [ "${#rendered_agents[@]}" -gt 0 ]; then
+    rm -f -- "${rendered_agents[@]}"
+  fi
+}
+trap cleanup EXIT
 
 if [ ! -d "$SRC/agents" ] || [ ! -d "$SRC/skills" ] || [ ! -f "$SRC/AGENTS.md" ] ||
    [ ! -f "$SRC/NOTICE" ] || [ ! -f "$SRC/LICENSE" ]; then
@@ -263,6 +305,38 @@ srcs+=("$SRC/LICENSE")
 rels+=("LICENSE")
 srcs+=("$PROFILE_FILE")
 rels+=("PROVIDERS.md")
+
+# Render every agent before any destination mutation, including --force repairs.
+for i in "${!rels[@]}"; do
+  case "${rels[$i]}" in
+    agents/*.md)
+      seat="${rels[$i]#agents/}"
+      seat="${seat%.md}"
+      pin="$(native_pin "$seat")"
+      if [ -z "$pin" ]; then
+        printf 'note: %s has no opencode rung; dispatch it through delegate_task only\n' "$seat"
+      fi
+      rendered="$(mktemp "${TMPDIR:-/tmp}/harness-agent.XXXXXXXX")"
+      rendered_agents+=("$rendered")
+      cp -p "${srcs[$i]}" "$rendered"
+      if ! NATIVE_PIN="$pin" awk '
+        BEGIN { pin = ENVIRON["NATIVE_PIN"] }
+        NR == 1 { frontmatter = ($0 == "---") }
+        NR > 1 && frontmatter && $0 == "---" { frontmatter = 0 }
+        { print }
+        frontmatter && !inserted && /^mode: subagent$/ && pin != "" {
+          print "model: " pin
+          inserted = 1
+        }
+        END { if (pin != "" && !inserted) exit 1 }
+      ' "${srcs[$i]}" >"$rendered"; then
+        printf 'install.sh: cannot insert native pin: %s\n' "$seat" >&2
+        exit 1
+      fi
+      srcs[$i]="$rendered"
+      ;;
+  esac
+done
 
 # Preflight: collect every target that already exists, before any mkdir or copy.
 collisions=()
@@ -423,25 +497,7 @@ for i in "${!rels[@]}"; do
   if [ -e "$target" ] || [ -L "$target" ]; then
     rm -f -- "$target"
   fi
-  case "${rels[$i]}" in
-    agents/*.md)
-      seat="${rels[$i]#agents/}"
-      seat="${seat%.md}"
-      pin="$(native_pin "$seat")"
-      if [ -z "$pin" ]; then
-        printf 'note: %s has no opencode rung; dispatch it through delegate_task only\n' "$seat"
-      fi
-      TMP_AGENT="$(mktemp "$DEST/.harness-agent.XXXXXXXX")"
-      cp -p "${srcs[$i]}" "$TMP_AGENT"
-      awk -v pin="$pin" '
-        { print }
-        /^mode: subagent$/ && pin != "" { print "model: " pin }
-      ' "${srcs[$i]}" >"$TMP_AGENT"
-      mv -f -- "$TMP_AGENT" "$target"
-      TMP_AGENT=""
-      ;;
-    *) cp -p "${srcs[$i]}" "$target" ;;
-  esac
+  cp -p "${srcs[$i]}" "$target"
   installed=$((installed + 1))
 done
 
@@ -526,6 +582,10 @@ mv -f -- "$TMP_MANIFEST" "$MANIFEST"
 
 if [ "$prev_manifest_present" -eq 1 ] && [ "$prev_sha" != "$harness_sha" ]; then
   printf 'harness updated: %s -> %s\n' "$prev_sha" "$harness_sha"
+fi
+
+if [ "$profile_given" -eq 1 ] && [ -n "$prev_profile" ] && [ "$prev_profile" != "$profile" ]; then
+  printf 'profile changed: %s -> %s\n' "$prev_profile" "$profile"
 fi
 
 printf 'installed %d files into %s (harness instructions at %s)\n' "$installed" "$DEST" "$DEST/HARNESS.md"

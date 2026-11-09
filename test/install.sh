@@ -24,25 +24,14 @@ HOME_DIR="$TMPROOT/home"
 DEST="$HOME_DIR/.config/opencode"
 MANIFEST="$DEST/.harness-manifest"
 
-# Independent legacy pin fixture: no git history is needed to run this suite.
+# Frozen historical pins and positions, independent of current source layout.
 mkdir -p "$TMPROOT/legacy-agents"
-while read -r seat pin; do
-  awk -v pin="$pin" '
-    /^model: / { next }
+while IFS="$(printf '\t')" read -r seat line model; do
+  MODEL_LINE="$model" awk -v line="$line" '
+    NR == line { print ENVIRON["MODEL_LINE"] }
     { print }
-    /^mode: subagent$/ { print "model: " pin }
   ' "$ROOT/agents/$seat.md" >"$TMPROOT/legacy-agents/$seat.md"
-done <<'PINS'
-scout opencode-go/mimo-v2.6-flash
-implementer opencode-go/deepseek-v4.1-flash#high
-implementer-b opencode-go/muse-spark-1.3-contributor#medium
-implementer-deep opencode-go/gemini-4-argon#high
-patch opencode-go/deepseek-v4.1-flash#high
-reviewer-a opencode-go/muse-spark-1.3-contributor#xhigh
-reviewer-b opencode-go/deepseek-v4.1-flash#max
-reviewer-c opencode-go/glm-5.3-flash#high
-reviewer-esc opencode-go/kimi-k3.1-pro#high
-PINS
+done <"$ROOT/test/fixtures/legacy-pins.txt"
 
 # Default render expectations are independent of the routing-table parser.
 mkdir -p "$TMPROOT/tri-agents"
@@ -628,15 +617,19 @@ grep -qxF 'note: implementer-deep has no opencode rung; dispatch it through dele
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$DEST/agents/implementer.md" || fail "tri implementer uses native last-resort"
 pass "default tri profile, manifest metadata, native pin and delegate-only note"
 
-# 39. legacy profile reproduces all nine historical seat pins and bytes
+# 39. legacy profile preserves historical pin values and line positions
 LEGACY_DEST="$TMPROOT/legacy-install"
 OPENCODE_CONFIG="$LEGACY_DEST" "$INSTALL" --profile opencode-go >"$TMPROOT/legacy.out"
-for expected in "$TMPROOT/legacy-agents/"*.md; do
-  cmp -s "$expected" "$LEGACY_DEST/agents/${expected##*/}" || fail "legacy byte identity: ${expected##*/}"
-done
+while IFS="$(printf '\t')" read -r seat line model; do
+  installed="$LEGACY_DEST/agents/$seat.md"
+  [ "$(sed -n "${line}p" "$installed")" = "$model" ] || fail "historical pin position: $seat"
+  [ "$(grep -c '^model: ' "$installed")" -eq 1 ] || fail "one model line: $seat"
+  awk -v line="$line" 'NR != line' "$installed" >"$TMPROOT/without-pin"
+  cmp -s "$ROOT/agents/$seat.md" "$TMPROOT/without-pin" || fail "current source body: $seat"
+done <"$ROOT/test/fixtures/legacy-pins.txt"
 cmp -s "$ROOT/providers/opencode-go.md" "$LEGACY_DEST/PROVIDERS.md" || fail "legacy profile is byte copied"
 [ "$(sed -n '2p' "$LEGACY_DEST/.harness-manifest")" = '# profile opencode-go' ] || fail "legacy metadata"
-pass "opencode-go reproduces all nine legacy agents byte for byte"
+pass "opencode-go preserves all nine historical pins and current source bodies"
 
 # 40. both flag forms bind the same profile
 OPENCODE_CONFIG="$LEGACY_DEST" "$INSTALL" --force --profile=opencode-go >"$TMPROOT/equals.out"
@@ -644,7 +637,7 @@ cmp -s "$ROOT/providers/opencode-go.md" "$LEGACY_DEST/PROVIDERS.md" || fail "equ
 pass "--profile=NAME is accepted"
 
 # 41. unknown and malformed names fail before any write, even with force/prune
-for profile in missing ../tri Tri '' 'tri/name' '-tri' 'tri.bad'; do
+for profile in missing ../tri Tri 'tri/name' '-tri' 'tri.bad'; do
   rc=0
   OPENCODE_CONFIG="$TMPROOT/unknown-dest" "$INSTALL" --force --prune --profile="$profile" >"$TMPROOT/unknown.out" 2>"$TMPROOT/unknown.err" || rc=$?
   [ "$rc" -eq 2 ] || fail "unknown profile exits 2: $profile"
@@ -666,7 +659,7 @@ for defect in missing-primary invalid-rung; do
   rc=0
   OPENCODE_CONFIG="$TMPROOT/incomplete-dest" "$FIXTURE/install.sh" --force --prune --profile broken >"$TMPROOT/incomplete.out" 2>"$TMPROOT/incomplete.err" || rc=$?
   [ "$rc" -eq 1 ] || fail "incomplete profile exits 1: $defect"
-  grep -qxF 'install.sh: profile broken incomplete: implementer-deep' "$TMPROOT/incomplete.err" || fail "incomplete diagnostic: $defect"
+  grep -qE 'install.sh: profile broken (incomplete: implementer-deep|invalid row: implementer-deep bogus: invalid rung)' "$TMPROOT/incomplete.err" || fail "incomplete diagnostic: $defect"
   [ ! -e "$TMPROOT/incomplete-dest" ] || fail "incomplete profile writes nothing"
 done
 pass "missing primary and invalid rung exit 1 before any write"
@@ -702,7 +695,7 @@ for role in scout implementer implementer-b implementer-deep patch reviewer-a re
 done
 pass "all ten required roles must have a primary rung"
 
-# 45. table order cannot override ladder order; unrelated/advisory rows are ignored
+# 45. table order cannot override ladder order; unrelated rows are ignored
 cp -R "$ROOT/agents" "$FIXTURE/agents"
 mkdir -p "$FIXTURE/skills"
 cp "$ROOT/NOTICE" "$ROOT/LICENSE" "$FIXTURE/"
@@ -712,11 +705,83 @@ awk '
   { print }
   END { for (i = n; i >= 1; i--) print rows[i] }
 ' "$ROOT/providers/opencode-go.md" >"$FIXTURE/providers/reordered.md"
-printf '| unknown-role | bogus | ignored |\n| driver | bogus | ignored |\n| compaction | bogus | ignored |\n' >>"$FIXTURE/providers/reordered.md"
+printf '| unknown-role | bogus | ignored |\n' >>"$FIXTURE/providers/reordered.md"
 OPENCODE_CONFIG="$TMPROOT/reordered-dest" "$FIXTURE/install.sh" --profile reordered >"$TMPROOT/reordered.out"
 for expected in "$TMPROOT/legacy-agents/"*.md; do
   cmp -s "$expected" "$TMPROOT/reordered-dest/agents/${expected##*/}" || fail "reordered ladder: ${expected##*/}"
 done
-pass "native pins follow ladder order and parser ignores unknown and advisory roles"
+pass "native pins follow ladder order and parser ignores unknown roles"
+
+# Hostile rows are added to a temporary source tree, never the checkout.
+snapshot() { find "$1" -type f -exec cksum {} + | LC_ALL=C sort; }
+REJECT_DEST="$TMPROOT/reject-dest"
+mkdir -p "$REJECT_DEST"
+printf 'sentinel\n' >"$REJECT_DEST/keep"
+reject_unchanged() {
+  local expected_rc="$1" diagnostic="$2" rc=0
+  shift 2
+  snapshot "$REJECT_DEST" >"$TMPROOT/reject.before"
+  find "$REJECT_DEST" -print | LC_ALL=C sort >"$TMPROOT/reject.paths.before"
+  OPENCODE_CONFIG="$REJECT_DEST" "$FIXTURE/install.sh" --force --prune "$@" >"$TMPROOT/reject.out" 2>"$TMPROOT/reject.err" || rc=$?
+  [ "$rc" -eq "$expected_rc" ] || { cat "$TMPROOT/reject.err" >&2; fail "rejection status: $diagnostic"; }
+  grep -qF "$diagnostic" "$TMPROOT/reject.err" || { cat "$TMPROOT/reject.err" >&2; fail "rejection diagnostic: $diagnostic"; }
+  snapshot "$REJECT_DEST" >"$TMPROOT/reject.after"
+  find "$REJECT_DEST" -print | LC_ALL=C sort >"$TMPROOT/reject.paths.after"
+  cmp -s "$TMPROOT/reject.before" "$TMPROOT/reject.after" || fail "rejection changed files"
+  cmp -s "$TMPROOT/reject.paths.before" "$TMPROOT/reject.paths.after" || fail "rejection changed paths"
+}
+while IFS=';' read -r label row reason; do
+  cp "$ROOT/providers/opencode-go.md" "$FIXTURE/providers/evil.md"
+  printf '%s\n' "$row" >>"$FIXTURE/providers/evil.md"
+  reject_unchanged 1 "install.sh: profile evil invalid row: scout fallback: $reason" --profile evil
+  pass "hostile profile rejected without writes: $label"
+done <"$ROOT/test/fixtures/hostile-profile-rows.txt"
+cp "$ROOT/providers/opencode-go.md" "$FIXTURE/providers/evil.md"
+printf '| scout | primary | opencode | valid | - | google | ok |\n' >>"$FIXTURE/providers/evil.md"
+reject_unchanged 1 'install.sh: profile evil invalid row: scout primary: duplicate rung' --profile evil
+pass "duplicate primary is rejected without writes"
+cp "$ROOT/providers/opencode-go.md" "$FIXTURE/providers/evil.md"
+printf '| driver | fallback | - | host-default | - | - | typo |\n' >>"$FIXTURE/providers/evil.md"
+reject_unchanged 1 'install.sh: profile evil invalid row: driver fallback: invalid privacy' --profile evil
+pass "advisory rows are validated without writes"
+# Fenced examples must not participate, including duplicates and malformed rows.
+cp "$ROOT/providers/opencode-go.md" "$FIXTURE/providers/fenced.md"
+cat >>"$FIXTURE/providers/fenced.md" <<'FENCE'
+```markdown
+| scout | primary | opencode | x\n--- | - | google | ok |
+| driver | bogus | ignored |
+```
+FENCE
+OPENCODE_CONFIG="$TMPROOT/fenced-dest" "$FIXTURE/install.sh" --profile fenced >"$TMPROOT/fenced.out"
+pass "fenced routing examples are ignored"
+
+cp "$ROOT/providers/opencode-go.md" "$FIXTURE/providers/evil.md"
+# Body text cannot supply a missing frontmatter insertion point.
+sed '/^mode: subagent$/d' "$ROOT/agents/scout.md" >"$FIXTURE/agents/scout.md"
+printf '\nmode: subagent\n' >>"$FIXTURE/agents/scout.md"
+reject_unchanged 1 'install.sh: cannot insert native pin: scout' --profile evil
+cp "$ROOT/agents/scout.md" "$FIXTURE/agents/scout.md"
+pass "missing frontmatter mode refuses before writes despite a body match"
+# Only the first frontmatter mode gets a pin; later blocks/body remain intact.
+printf '\n---\nmode: subagent\n---\nmode: subagent\n' >>"$FIXTURE/agents/scout.md"
+OPENCODE_CONFIG="$TMPROOT/frontmatter-dest" "$FIXTURE/install.sh" --profile evil >"$TMPROOT/frontmatter.out"
+[ "$(grep -c '^model: ' "$TMPROOT/frontmatter-dest/agents/scout.md")" -eq 1 ] || fail "frontmatter pin inserted only once"
+cp "$ROOT/agents/scout.md" "$FIXTURE/agents/scout.md"
+pass "pin insertion is confined to first frontmatter block"
+
+reject_unchanged 2 'usage: install.sh' --profile
+reject_unchanged 2 'usage: install.sh' --profile ''
+reject_unchanged 2 'usage: install.sh' --profile=
+pass "missing and empty profile arguments show usage without writes"
+
+OPENCODE_CONFIG="$LEGACY_DEST" "$INSTALL" --force >"$TMPROOT/reuse.out"
+cmp -s "$ROOT/providers/opencode-go.md" "$LEGACY_DEST/PROVIDERS.md" || fail "implicit reuse retains opencode-go"
+pass "implicit profile reuses previous manifest binding"
+OPENCODE_CONFIG="$LEGACY_DEST" "$INSTALL" --force --profile tri >"$TMPROOT/change.out"
+grep -qxF 'profile changed: opencode-go -> tri' "$TMPROOT/change.out" || fail "explicit profile change announced"
+pass "explicit profile change is announced"
+printf '# profile removed\n' >"$REJECT_DEST/.harness-manifest"
+reject_unchanged 2 'install.sh: unknown profile: removed'
+pass "removed implicit profile refuses without writes"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
