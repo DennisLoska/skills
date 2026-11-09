@@ -1182,7 +1182,9 @@ grep -qxF 'trigger: always_on' "$AGY_PLUGIN/rules/PROVIDERS.md" || fail "antigra
 grep -qxF 'subagent: true' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer is a subagent"
 grep -qxF 'mainAgent: false' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer is not a main agent"
 grep -q '^tools:' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer carries a tools frontmatter line"
-pass "--target antigravity installs oneshot-harness plugin with always_on rules (<24KB) and Antigravity subagent frontmatter"
+grep -qxF 'permissions:' "$AGY_PLUGIN/agents/implementer.md" || fail "antigravity implementer preserves the permissions policy block"
+grep -qxF 'permissions:' "$AGY_PLUGIN/agents/reviewer-a.md" || fail "antigravity reviewer-a preserves the permissions policy block"
+pass "--target antigravity installs oneshot-harness plugin with always_on rules (<24KB), Antigravity subagent frontmatter, and the permissions policy"
 
 # 64. --target claude installs into ${CLAUDE_CONFIG_DIR:-$HOME/.claude}
 rc=0
@@ -1197,7 +1199,9 @@ CLAUDE_CONFIG_DIR="$TMPROOT/claude-dest" "$INSTALL" --target claude >"$TMPROOT/c
 [ -f "$TMPROOT/claude-dest/.harness-manifest" ] || fail "claude target writes .harness-manifest"
 grep -qxF 'name: implementer' "$TMPROOT/claude-dest/agents/implementer.md" || fail "claude implementer carries a name frontmatter line"
 grep -q '^tools:' "$TMPROOT/claude-dest/agents/implementer.md" || fail "claude implementer carries a tools frontmatter line"
-pass "--target claude installs skills, Claude subagent frontmatter, and combined CLAUDE.md"
+grep -qxF 'permissions:' "$TMPROOT/claude-dest/agents/implementer.md" || fail "claude implementer preserves the permissions policy block"
+grep -qxF 'permissions:' "$TMPROOT/claude-dest/agents/reviewer-a.md" || fail "claude reviewer-a preserves the permissions policy block"
+pass "--target claude installs skills, Claude subagent frontmatter, the permissions policy, and combined CLAUDE.md"
 
 # 65. --target all installs all four targets and --force --prune works across targets
 rc=0
@@ -1220,5 +1224,46 @@ OPENCODE_CONFIG="$TMPROOT/bad-target-dest" "$INSTALL" --target bogus >"$TMPROOT/
 [ ! -e "$TMPROOT/bad-target-dest" ] || fail "unknown --target writes nothing"
 grep -qF 'install.sh: unknown target: bogus' "$TMPROOT/bad-target.err" || { cat "$TMPROOT/bad-target.err" >&2; fail "unknown --target diagnostic"; }
 pass "unknown --target exits 2 without writing"
+
+# 67. Multi-target install works through a relative `bash install.sh` invocation,
+# and every selected target is preflighted before any target is written.
+rc=0
+( cd "$ROOT" && OPENCODE_CONFIG="$TMPROOT/rel-oc" CODEX_HOME="$TMPROOT/rel-codex" ANTIGRAVITY_CONFIG="$TMPROOT/rel-agy" CLAUDE_CONFIG_DIR="$TMPROOT/rel-claude" bash install.sh --target all ) >"$TMPROOT/rel-all.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/rel-all.out" >&2; fail "relative bash install.sh --target all exits 0 (got $rc)"; }
+for manifest in "$TMPROOT/rel-oc/.harness-manifest" "$TMPROOT/rel-codex/.harness-manifest" "$TMPROOT/rel-agy/plugins/oneshot-harness/.harness-manifest" "$TMPROOT/rel-claude/.harness-manifest"; do
+  [ -f "$manifest" ] || fail "relative bash install.sh --target all writes $manifest"
+done
+# A collision in the second target must abort before the first target is written.
+mkdir -p "$TMPROOT/atomic-codex"
+printf 'existing\n' >"$TMPROOT/atomic-codex/AGENTS.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/atomic-oc" CODEX_HOME="$TMPROOT/atomic-codex" "$INSTALL" --target opencode,codex >"$TMPROOT/atomic.out" 2>"$TMPROOT/atomic.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/atomic.err" >&2; fail "multi-target preflight collision exits 1 (got $rc)"; }
+[ ! -e "$TMPROOT/atomic-oc" ] || fail "multi-target preflight writes nothing to an earlier target when a later target collides"
+pass "multi-target install works via bash install.sh and preflights all targets atomically before writing"
+
+# 68. Every target shares one machine-wide state/quota-ledger.tsv, symlinked to
+# $OPENCODE_CONFIG/state, and --force --prune never trims it.
+rc=0
+OPENCODE_CONFIG="$TMPROOT/shared-oc" CODEX_HOME="$TMPROOT/shared-codex" ANTIGRAVITY_CONFIG="$TMPROOT/shared-agy" CLAUDE_CONFIG_DIR="$TMPROOT/shared-claude" "$INSTALL" --target all >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "--target all install for the shared ledger exits 0 (got $rc)"
+SHARED_LEDGER_OC="$TMPROOT/shared-oc/state/quota-ledger.tsv"
+SHARED_LEDGER_CODEX="$TMPROOT/shared-codex/state/quota-ledger.tsv"
+SHARED_LEDGER_AGY="$TMPROOT/shared-agy/plugins/oneshot-harness/state/quota-ledger.tsv"
+SHARED_LEDGER_CLAUDE="$TMPROOT/shared-claude/state/quota-ledger.tsv"
+printf 'shared-pool\topencode\t2026-11-09T14:00:00Z\t2026-11-09T19:00:00Z\treviewer-a\tshared\n' >"$SHARED_LEDGER_CODEX"
+[ -f "$SHARED_LEDGER_OC" ] || fail "opencode state/quota-ledger.tsv receives the ledger written through codex state/"
+cmp -s "$SHARED_LEDGER_OC" "$SHARED_LEDGER_CODEX" || fail "opencode and codex share the same quota-ledger.tsv"
+cmp -s "$SHARED_LEDGER_OC" "$SHARED_LEDGER_AGY" || fail "opencode and antigravity share the same quota-ledger.tsv"
+cmp -s "$SHARED_LEDGER_OC" "$SHARED_LEDGER_CLAUDE" || fail "opencode and claude share the same quota-ledger.tsv"
+ledger_before="$(cat "$SHARED_LEDGER_OC")"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/shared-oc" CODEX_HOME="$TMPROOT/shared-codex" ANTIGRAVITY_CONFIG="$TMPROOT/shared-agy" CLAUDE_CONFIG_DIR="$TMPROOT/shared-claude" "$INSTALL" --force --prune --target all >/dev/null 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "--force --prune --target all with a shared ledger exits 0 (got $rc)"
+for ledger in "$SHARED_LEDGER_OC" "$SHARED_LEDGER_CODEX" "$SHARED_LEDGER_AGY" "$SHARED_LEDGER_CLAUDE"; do
+  [ -f "$ledger" ] || fail "shared quota-ledger.tsv survives --force --prune: $ledger"
+  [ "$(cat "$ledger")" = "$ledger_before" ] || fail "shared quota-ledger.tsv is unchanged by --force --prune: $ledger"
+done
+pass "all targets share a single machine-wide state/quota-ledger.tsv that survives --force --prune"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

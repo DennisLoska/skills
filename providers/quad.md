@@ -17,7 +17,7 @@ Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code
 - **Implementation (`implementer`, `implementer-deep`, `patch`):** `implementer` runs on Antigravity `gemini-4-argon` (`high`), falling back to `claudeAgent` `claude-sonnet-5-5` (`effort=medium`) and Codex `gpt-6.1-sol` (`medium`); `implementer-deep` runs on `claudeAgent` `claude-opus-5-5` (`effort=high`), falling back to Codex `gpt-6-astra` (`reasoningEffort=high`) and Antigravity `claude-opus-5-5` (`thinking_level=high`); `patch` shares the cheap `tester` ladder for 1-2 file no-test edits.
 - **Per-task review (`task-reviewer`):** Codex `gpt-6.1-terra` (`high`), falling back to OpenCode Go `glm-5.3-flash` (`high`) and Antigravity `gemini-3.8-flash` (`high`), skipping any rung whose family authored the task.
 - **Council (`reviewer-a`, `reviewer-b`, `reviewer-c`)** keeps Argon off council review so Argon never reviews its own code: OpenAI frontier lead / tie-breaker on Seat A (`gpt-6-astra` via Codex at `high`, falling back to `gpt-6.1-sol` and `gpt-6-sol`), Anthropic frontier on Seat B (`claude-opus-5-5` via `claudeAgent`, falling back to Antigravity `claude-opus-5-5` and `claudeAgent` `claude-sonnet-5-5`), and high-budget Open-weight Pro on Seat C (`opencode-go/deepseek-v4-pro`, falling back to `opencode-go/mimo-v2.6-pro` and `opencode-go/minimax-m3`).
-- **Escalation (`reviewer-esc`)** sits on high-budget open-weight Pro families (`opencode-go/mimo-v2.6-pro`, falling back to `opencode-go/minimax-m3` and `opencode-go/kimi-k3.1-pro` at `high`), keeping escalation independent of the primary council families (`openai`, `anthropic`, `deepseek`).
+- **Escalation (`reviewer-esc`)** starts on `opencode-go/mimo-v2.6-pro` (~3,250 req/5h, `xiaomi`), falling back to `opencode-go/kimi-k3.1-pro` (`variant=high`, `moonshot`) and `opencode-go/qwen3.8-max` (`-`, `alibaba`). `mimo-v2.6-pro` is disjoint from all three council primaries (`openai`, `anthropic`, `deepseek`), and if `reviewer-c` demotes onto `xiaomi`, `reviewer-esc` skips to `kimi-k3.1-pro` (`moonshot`) or `qwen3.8-max` (`alibaba`).
 
 ## Budget facts and provider load split
 
@@ -26,8 +26,8 @@ No Google or OpenAI (`gpt-*`) model is routed through OpenCode Go in `quad`: all
 - **Claude Code (`claudeAgent`):** carries `implementer-deep` primary (`claude-opus-5-5`), `implementer` fallback (`claude-sonnet-5-5`), `reviewer-b` primary (`claude-opus-5-5`) and last-resort (`claude-sonnet-5-5`), and `driver` fallback (`claude-sonnet-5-5`), relieving Antigravity's lower Claude quota.
 - **Antigravity:** focuses on Google models (`implementer` primary `gemini-4-argon` at `high` and `gemini-3.8-flash` last-resorts), plus `claude-opus-5-5` fallback for `implementer-deep` and `reviewer-b`.
 - **Codex:** carries `driver` (`gpt-6.1-sol`), per-task review `task-reviewer` (`gpt-6.1-terra`), council Seat A `reviewer-a` (`gpt-6-astra` -> `gpt-6.1-sol` -> `gpt-6-sol`), `implementer` last-resort (`gpt-6.1-sol`), `implementer-deep` fallback (`gpt-6-astra`), and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
-- **OpenCode Go:** carries the high-volume cheap roles (`scout`, `tester`, `patch`, `compaction`), council Seat C `reviewer-c` (`deepseek-v4-pro` -> `mimo-v2.6-pro` -> `minimax-m3`), and `reviewer-esc` (`mimo-v2.6-pro` -> `minimax-m3` -> `kimi-k3.1-pro`).
-- **Council budget:** the council runs at most 3 rounds × 3 seats + 1 escalation per PR. Seat C (`deepseek-v4-pro` ~1,040 req/5h) and `reviewer-esc` (`mimo-v2.6-pro` ~3,250 req/5h -> `minimax-m3` ~3,200 req/5h -> `kimi-k3.1-pro`) have ample OpenCode Go allowance.
+- **OpenCode Go:** carries the high-volume cheap roles (`scout`, `tester`, `patch`, `compaction`), council Seat C `reviewer-c` (`deepseek-v4-pro` -> `mimo-v2.6-pro` -> `minimax-m3`), and `reviewer-esc` (`mimo-v2.6-pro` -> `kimi-k3.1-pro` -> `qwen3.8-max`).
+- **Council budget:** the council runs at most 3 rounds × 3 seats + 1 escalation per PR. Seat C (`deepseek-v4-pro` ~1,040 req/5h) and `reviewer-esc` (`mimo-v2.6-pro` ~3,250 req/5h -> `kimi-k3.1-pro` `variant=high` -> `qwen3.8-max` `alibaba`) have ample OpenCode Go allowance.
 
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -61,8 +61,8 @@ No Google or OpenAI (`gpt-*`) model is routed through OpenCode Go in `quad`: all
 | reviewer-c | fallback | opencode | opencode-go/mimo-v2.6-pro | - | xiaomi | ok |
 | reviewer-c | last-resort | opencode | opencode-go/minimax-m3 | - | minimax | ok |
 | reviewer-esc | primary | opencode | opencode-go/mimo-v2.6-pro | - | xiaomi | ok |
-| reviewer-esc | fallback | opencode | opencode-go/minimax-m3 | - | minimax | ok |
-| reviewer-esc | last-resort | opencode | opencode-go/kimi-k3.1-pro | variant=high | moonshot | ok |
+| reviewer-esc | fallback | opencode | opencode-go/kimi-k3.1-pro | variant=high | moonshot | ok |
+| reviewer-esc | last-resort | opencode | opencode-go/qwen3.8-max | - | alibaba | ok |
 | compaction | primary | opencode | opencode-go/claude-haiku-5-5 | variant=low | anthropic | ok |
 | compaction | fallback | codex | gpt-6-luna | reasoningEffort=low | openai | ok |
 

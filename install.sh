@@ -52,6 +52,7 @@ unknown_target() {
 
 force=0
 prune=0
+preflight_only=0
 profile=tri
 profile_given=0
 profile_file_arg=""
@@ -62,6 +63,7 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --force) force=1 ;;
     --prune) prune=1 ;;
+    --preflight-only) preflight_only=1 ;;
     --profile)
       if [ "$#" -lt 2 ] || [ -z "$2" ]; then usage >&2; exit 2; fi
       profile_given=1
@@ -86,13 +88,27 @@ while [ "$#" -gt 0 ]; do
       ;;
     --target)
       if [ "$#" -lt 2 ] || [ -z "$2" ]; then unknown_target ""; fi
+      case "$2" in
+        ''|,*|*,|*,,*) unknown_target "$2" ;;
+      esac
+      if [ "$target_given" -eq 1 ]; then
+        target_arg="$target_arg,$2"
+      else
+        target_arg="$2"
+      fi
       target_given=1
-      target_arg="$2"
       shift
       ;;
     --target=*)
-      target_arg="${1#--target=}"
-      [ -n "$target_arg" ] || unknown_target ""
+      t_val="${1#--target=}"
+      case "$t_val" in
+        ''|,*|*,|*,,*) unknown_target "$t_val" ;;
+      esac
+      if [ "$target_given" -eq 1 ]; then
+        target_arg="$target_arg,$t_val"
+      else
+        target_arg="$t_val"
+      fi
       target_given=1
       ;;
     -h|--help)
@@ -155,6 +171,8 @@ fi
 
 # When multiple targets are selected, run each target in its own clean invocation
 # so per-target destination validation, manifest tracking, and temp cleanup stay isolated.
+# An atomic preflight pass (--preflight-only) runs across all targets first so any
+# invalid destination or collision aborts before any target is mutated.
 if [ "${#selected_targets[@]}" -gt 1 ]; then
   sub_args=()
   [ "$force" -eq 1 ] && sub_args+=("--force")
@@ -166,9 +184,17 @@ if [ "${#selected_targets[@]}" -gt 1 ]; then
   fi
   for t in "${selected_targets[@]}"; do
     if [ "${#sub_args[@]}" -gt 0 ]; then
-      "${BASH_SOURCE[0]}" "${sub_args[@]}" --target "$t"
+      "$SRC/install.sh" "${sub_args[@]}" --preflight-only --target "$t"
     else
-      "${BASH_SOURCE[0]}" --target "$t"
+      "$SRC/install.sh" --preflight-only --target "$t"
+    fi
+  done
+  [ "$preflight_only" -eq 1 ] && exit 0
+  for t in "${selected_targets[@]}"; do
+    if [ "${#sub_args[@]}" -gt 0 ]; then
+      "$SRC/install.sh" "${sub_args[@]}" --target "$t"
+    else
+      "$SRC/install.sh" --target "$t"
     fi
   done
   exit 0
@@ -530,18 +556,27 @@ rels+=("PROVIDERS.md")
 
 if [ "$TARGET_HOST" = "codex" ]; then
   combined_doc="$(mktemp "${TMPDIR:-/tmp}/harness-codex-agents.XXXXXXXX")"
+  chmod 0644 "$combined_doc"
   rendered_files+=("$combined_doc")
   { cat "$SRC/AGENTS.md"; printf '\n\n'; cat "$PROFILE_FILE"; } >"$combined_doc"
+  if [ "$(wc -c <"$combined_doc")" -ge 32768 ]; then
+    { cat "$SRC/AGENTS.md"; printf '\n\n'; awk '/^[[:space:]]*```/ { f=!f; next } !f && (/^#/ || /^[[:space:]]*\|/)' "$PROFILE_FILE"; } >"$combined_doc"
+  fi
   srcs+=("$combined_doc")
   rels+=("AGENTS.md")
 elif [ "$TARGET_HOST" = "claude" ]; then
   combined_doc="$(mktemp "${TMPDIR:-/tmp}/harness-claude-md.XXXXXXXX")"
+  chmod 0644 "$combined_doc"
   rendered_files+=("$combined_doc")
   { cat "$SRC/AGENTS.md"; printf '\n\n'; cat "$PROFILE_FILE"; } >"$combined_doc"
+  if [ "$(wc -c <"$combined_doc")" -ge 32768 ]; then
+    { cat "$SRC/AGENTS.md"; printf '\n\n'; awk '/^[[:space:]]*```/ { f=!f; next } !f && (/^#/ || /^[[:space:]]*\|/)' "$PROFILE_FILE"; } >"$combined_doc"
+  fi
   srcs+=("$combined_doc")
   rels+=("CLAUDE.md")
 elif [ "$TARGET_HOST" = "antigravity" ]; then
   plugin_json="$(mktemp "${TMPDIR:-/tmp}/harness-agy-plugin.XXXXXXXX")"
+  chmod 0644 "$plugin_json"
   rendered_files+=("$plugin_json")
   cat <<'EOF' >"$plugin_json"
 {
@@ -555,14 +590,20 @@ EOF
   rels+=("plugin.json")
 
   rule_harness="$(mktemp "${TMPDIR:-/tmp}/harness-agy-rule-h.XXXXXXXX")"
+  chmod 0644 "$rule_harness"
   rendered_files+=("$rule_harness")
   { printf -- '---\ntrigger: always_on\n---\n\n'; cat "$SRC/AGENTS.md"; } >"$rule_harness"
   srcs+=("$rule_harness")
   rels+=("rules/HARNESS.md")
 
   rule_providers="$(mktemp "${TMPDIR:-/tmp}/harness-agy-rule-p.XXXXXXXX")"
+  chmod 0644 "$rule_providers"
   rendered_files+=("$rule_providers")
   { printf -- '---\ntrigger: always_on\n---\n\n'; cat "$PROFILE_FILE"; } >"$rule_providers"
+  if [ "$(wc -c <"$rule_harness")" -ge 24000 ] || [ "$(wc -c <"$rule_providers")" -ge 24000 ]; then
+    printf 'install.sh: antigravity rule file exceeds 24000 bytes\n' >&2
+    exit 2
+  fi
   srcs+=("$rule_providers")
   rels+=("rules/PROVIDERS.md")
 fi
@@ -575,7 +616,7 @@ for i in "${!rels[@]}"; do
       seat="${seat%.md}"
       if [ "$TARGET_HOST" = "opencode" ]; then
         pin="$(native_pin "$seat")"
-        if [ -z "$pin" ]; then
+        if [ -z "$pin" ] && [ "$preflight_only" -eq 0 ]; then
           printf 'note: %s has no opencode rung; dispatch it through delegate_task only\n' "$seat"
         fi
         rendered="$(mktemp "${TMPDIR:-/tmp}/harness-agent.XXXXXXXX")"
@@ -615,14 +656,21 @@ for i in "${!rels[@]}"; do
         rendered_files+=("$rendered")
         cp -p "${srcs[$i]}" "$rendered"
         SEAT_NAME="$seat" AGY_TOOLS="$agy_tools" awk '
-          NR == 1 && $0 == "---" { in_fm = 1; next }
+          NR == 1 && $0 == "---" { in_fm = 1; in_perm = 0; perm_block = ""; next }
           in_fm && /^description:[[:space:]]*/ {
             desc = $0
             sub(/^description:[[:space:]]*/, "", desc)
+            in_perm = 0
+            next
+          }
+          in_fm && /^permissions:[[:space:]]*$/ {
+            in_perm = 1
+            perm_block = $0 "\n"
             next
           }
           in_fm && $0 == "---" {
             in_fm = 0
+            in_perm = 0
             print "---"
             print "name: " ENVIRON["SEAT_NAME"]
             print "description: " desc
@@ -630,9 +678,20 @@ for i in "${!rels[@]}"; do
             print "mainAgent: false"
             print "tools: " ENVIRON["AGY_TOOLS"]
             print "---"
+            if (perm_block != "") {
+              print ""
+              print "## Permissions policy (self-enforced)"
+              print ""
+              print "```yaml"
+              printf "%s", perm_block
+              print "```"
+            }
             next
           }
-          in_fm { next }
+          in_fm {
+            if (in_perm) perm_block = perm_block $0 "\n"
+            next
+          }
           { print }
         ' "${srcs[$i]}" >"$rendered"
         srcs[$i]="$rendered"
@@ -655,22 +714,40 @@ for i in "${!rels[@]}"; do
         rendered_files+=("$rendered")
         cp -p "${srcs[$i]}" "$rendered"
         SEAT_NAME="$seat" CC_TOOLS="$cc_tools" awk '
-          NR == 1 && $0 == "---" { in_fm = 1; next }
+          NR == 1 && $0 == "---" { in_fm = 1; in_perm = 0; perm_block = ""; next }
           in_fm && /^description:[[:space:]]*/ {
             desc = $0
             sub(/^description:[[:space:]]*/, "", desc)
+            in_perm = 0
+            next
+          }
+          in_fm && /^permissions:[[:space:]]*$/ {
+            in_perm = 1
+            perm_block = $0 "\n"
             next
           }
           in_fm && $0 == "---" {
             in_fm = 0
+            in_perm = 0
             print "---"
             print "name: " ENVIRON["SEAT_NAME"]
             print "description: " desc
             print "tools: " ENVIRON["CC_TOOLS"]
             print "---"
+            if (perm_block != "") {
+              print ""
+              print "## Permissions policy (self-enforced)"
+              print ""
+              print "```yaml"
+              printf "%s", perm_block
+              print "```"
+            }
             next
           }
-          in_fm { next }
+          in_fm {
+            if (in_perm) perm_block = perm_block $0 "\n"
+            next
+          }
           { print }
         ' "${srcs[$i]}" >"$rendered"
         srcs[$i]="$rendered"
@@ -740,10 +817,16 @@ for i in "${!rels[@]}"; do
   done
 done
 
-if [ -L "$DEST/state" ]; then
-  parent_links+=("$DEST/state")
-elif [ -e "$DEST/state" ] && [ ! -d "$DEST/state" ]; then
-  parent_blocks+=("$DEST/state")
+if [ "$TARGET_HOST" = "opencode" ]; then
+  if [ -L "$DEST/state" ]; then
+    parent_links+=("$DEST/state")
+  elif [ -e "$DEST/state" ] && [ ! -d "$DEST/state" ]; then
+    parent_blocks+=("$DEST/state")
+  fi
+else
+  if [ -e "$DEST/state" ] && [ ! -d "$DEST/state" ] && [ ! -L "$DEST/state" ]; then
+    parent_blocks+=("$DEST/state")
+  fi
 fi
 
 if [ "${#parent_blocks[@]}" -gt 0 ]; then
@@ -783,6 +866,10 @@ if [ "${#dir_targets[@]}" -gt 0 ] && [ "$force" -eq 1 ]; then
     printf 'install.sh: directory at target cannot be replaced: %s\n' "$dt" >&2
   done
   exit 1
+fi
+
+if [ "$preflight_only" -eq 1 ]; then
+  exit 0
 fi
 
 # normalize_rel <entry>: canonical relative form used for both the ownership
@@ -837,7 +924,17 @@ if [ "${#parent_links[@]}" -gt 0 ]; then
     fi
   done <<<"$sorted_parents"
 fi
-mkdir -p "$DEST/state"
+mkdir -p "$DEST"
+if [ "$TARGET_HOST" = "opencode" ]; then
+  mkdir -p "$DEST/state"
+else
+  SHARED_STATE="${OPENCODE_CONFIG:-$HOME/.config/opencode}/state"
+  mkdir -p "$SHARED_STATE"
+  if [ -d "$DEST/state" ] && [ ! -L "$DEST/state" ]; then
+    rmdir "$DEST/state" 2>/dev/null || rm -rf -- "$DEST/state"
+  fi
+  ln -snf "$SHARED_STATE" "$DEST/state"
+fi
 for i in "${!rels[@]}"; do
   target="$DEST/${rels[$i]}"
   mkdir -p "$(dirname "$target")"

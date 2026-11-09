@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/Skills-12%20Pipeline%20Units-1AD1A5?style=flat-square" alt="12 Pipeline Skills" />
   <img src="https://img.shields.io/badge/Council-3%20Independent%20Families-FF6B35?style=flat-square" alt="3-Family Council" />
   <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
-  <img src="https://img.shields.io/badge/Tests-99%2F99%20Passing-2ECC71?style=flat-square" alt="99/99 Tests Passing" />
+  <img src="https://img.shields.io/badge/Tests-101%2F101%20Passing-2ECC71?style=flat-square" alt="101/101 Tests Passing" />
 </p>
 
 <p align="center">
@@ -411,8 +411,8 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 
 - **Antigravity:** carries `implementer` primary (`gemini-4-argon` at `high`) and fallback (`claude-sonnet-5-5` at `medium`), `implementer-deep` primary (`claude-opus-5-5` at `high`), and `reviewer-b` primary/fallback (`claude-opus-5-5` / `claude-sonnet-5-5`). Keeping `driver`, `scout`, `tester`, `reviewer-a`, and `reviewer-c` off Antigravity primaries leaves room for Argon and the Anthropic review seat (`antigravity-claude` is soft-capped at 6 dispatches and reserved for `reviewer-b`). Antigravity's Claude limits are low; if you also have a Claude Code subscription, use [`providers/quad.md`](./providers/quad.md) (`--profile quad`).
 - **Codex:** carries `driver` (`gpt-6.1-sol` medium), per-task review `task-reviewer` (`gpt-6.1-terra` high), council Seat A `reviewer-a` (`gpt-6-astra` -> `gpt-6.1-sol` -> `gpt-6-sol` high), `implementer` last-resort (`gpt-6.1-sol` medium), `implementer-deep` fallback/last-resort (`gpt-6-astra` / `gpt-6.1-sol` high), and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
-- **OpenCode Go:** carries the high-volume cheap roles (`scout` on `mimo-v2.6-flash` ~30.1k req/5h and `deepseek-v4.1-flash` ~43.3k req/5h; `tester` and `patch` on `deepseek-v4.1-flash` high; `compaction` on `claude-haiku-5-5` low), council Seat C `reviewer-c` (`deepseek-v4-pro` ~1,040 req/5h -> `mimo-v2.6-pro` ~3,250 req/5h -> `minimax-m3` ~3,200 req/5h), and `reviewer-esc` (`mimo-v2.6-pro` ~3,250 req/5h -> `minimax-m3` ~3,200 req/5h -> `kimi-k3.1-pro` high ~147 req/5h).
-- **Council & escalation rationale:** Argon (`gemini-4-argon`) never reviews its own code. Seat A runs OpenAI frontier (`gpt-6-astra` -> `gpt-6.1-sol` -> `gpt-6-sol`), Seat B runs Anthropic frontier (`claude-opus-5-5` -> `claude-sonnet-5-5` -> `opencode-go/claude-haiku-5-5`), and Seat C runs high-budget Open-weight Pro (`opencode-go/deepseek-v4-pro` -> `opencode-go/mimo-v2.6-pro` -> `opencode-go/minimax-m3`). While Argon authors the code under `tri`, all three council seats are non-author families, and `reviewer-esc` (`mimo-v2.6-pro` -> `minimax-m3` -> `kimi-k3.1-pro`) starts on high-allowance Pro models independent of the three primary council families.
+- **OpenCode Go:** carries the high-volume cheap roles (`scout` on `mimo-v2.6-flash` ~30.1k req/5h and `deepseek-v4.1-flash` ~43.3k req/5h; `tester` and `patch` on `deepseek-v4.1-flash` high; `compaction` on `claude-haiku-5-5` low), council Seat C `reviewer-c` (`deepseek-v4-pro` ~1,040 req/5h -> `mimo-v2.6-pro` ~3,250 req/5h -> `minimax-m3` ~3,200 req/5h), and `reviewer-esc` (`mimo-v2.6-pro` ~3,250 req/5h -> `kimi-k3.1-pro` high ~147 req/5h -> `qwen3.8-max` ~160 req/5h).
+- **Council & escalation rationale:** Argon (`gemini-4-argon`) never reviews its own code. Seat A runs OpenAI frontier (`gpt-6-astra` -> `gpt-6.1-sol` -> `gpt-6-sol`), Seat B runs Anthropic frontier (`claude-opus-5-5` -> `claude-sonnet-5-5` -> `opencode-go/claude-haiku-5-5`), and Seat C runs high-budget Open-weight Pro (`opencode-go/deepseek-v4-pro` -> `opencode-go/mimo-v2.6-pro` -> `opencode-go/minimax-m3`). While Argon authors the code under `tri`, all three council seats are non-author families, and `reviewer-esc` (`mimo-v2.6-pro` -> `kimi-k3.1-pro` -> `qwen3.8-max`) starts on `mimo-v2.6-pro` (~3,250 req/5h, disjoint from all three council primaries) and skips to `kimi-k3.1-pro` (`moonshot`) or `qwen3.8-max` (`alibaba`) if `reviewer-c` demotes onto `xiaomi`.
 
 | role | primary | fallback | last-resort |
 | --- | --- | --- | --- |
@@ -426,7 +426,7 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 | reviewer-a (OpenAI) | codex `gpt-6-astra` high | codex `gpt-6.1-sol` high | codex `gpt-6-sol` high |
 | reviewer-b (Anthropic) | antigravity `claude-opus-5-5` high | antigravity `claude-sonnet-5-5` high | opencode `claude-haiku-5-5` high |
 | reviewer-c (Open-weight Pro) | opencode `deepseek-v4-pro` - | opencode `mimo-v2.6-pro` - | opencode `minimax-m3` - |
-| reviewer-esc | opencode `mimo-v2.6-pro` - | opencode `minimax-m3` - | opencode `kimi-k3.1-pro` high |
+| reviewer-esc | opencode `mimo-v2.6-pro` - | opencode `kimi-k3.1-pro` high | opencode `qwen3.8-max` - |
 | compaction (advisory) | opencode `claude-haiku-5-5` low | codex `gpt-6-luna` low | - |
 
 `muse-spark-*` (trains on request data) is excluded from `tri`. See [`providers/tri.md`](./providers/tri.md) for the full 7-column machine-readable routing table, `## Quota pools`, `## Backup ladder`, and budget tables.
@@ -497,7 +497,7 @@ skills/           12 pipeline skills:          oneshot, shape, plan, dispatch,
 providers/        swappable provider profiles: tri (default), quad (tri + Claude Code),
                                                opencode-go (legacy)
 docs/             design specs and plans:      docs/specs/, docs/plans/
-test/install.sh   99-assertion contract suite  (runs in throwaway HOME on Bash >=3.2)
+test/install.sh   101-assertion contract suite (runs in throwaway HOME on Bash >=3.2)
 AGENTS.md         harness routing instructions (installed as <dest>/HARNESS.md)
 install.sh        multi-host installer         (opencode, codex, antigravity, claude, all)
 NOTICE            upstream MIT attribution     (mattpocock/skills)
@@ -593,7 +593,7 @@ grep -q 'HARNESS.md' ~/.config/opencode/opencode.json &&
 
 ## 🧪 Testing
 
-Run the 99-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
+Run the 101-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
 
 ```sh
 bash -n install.sh && bash -n test/install.sh
