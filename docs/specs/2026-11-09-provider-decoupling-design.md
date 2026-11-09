@@ -46,7 +46,7 @@ Columns:
 
 - `role`: role name from the vocabulary above.
 - `rung`: `primary`, `fallback`, or `last-resort` (ladder order is this order).
-- `provider`: the provider instance that serves the model. Values are T3 Code provider instance ids (`antigravity`, `codex`, `opencode`, ...). `opencode` is the only value an OpenCode host can dispatch natively.
+- `provider`: the T3 Code provider instance id that serves the model, matching `^[A-Za-z0-9][A-Za-z0-9-]*$` (camelCase such as `claudeAgent` allowed, e.g. `antigravity`, `codex`, `claudeAgent`, `opencode`; `family` stays lowercase). `opencode` is the only value an OpenCode host can dispatch natively.
 - `model`: the model id exactly as that provider's catalog names it (`opencode` models keep their `opencode-go/` prefix). It starts alphanumeric and uses only `[A-Za-z0-9._/-]`.
 - `effort`: `<option-id>=<value>` in the provider's native option vocabulary (`thinking_level=high`, `reasoningEffort=medium`, `variant=max`), or `-` for the provider default. `-` is allowed only in `effort` for dispatched roles; on advisory rows it is also allowed in `provider`, `model`, and `family`, never in `rung` or `privacy`.
 - `family`: model family for the independence rule (`google`, `anthropic`, `openai`, `deepseek`, `meta`, `zhipu`, `moonshot`, `xiaomi`, `minimax`, `alibaba`, ...). Same family on two providers is the same family.

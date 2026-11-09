@@ -7,8 +7,8 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 - **Testing & script running (`tester`)** writes red-step failing tests and runs verification/CI scripts with compressed reports: high-volume OpenCode Go `deepseek-v4.1-flash` (`high`), falling back to Codex `gpt-6-luna` (`medium`) and Antigravity `gemini-3.8-flash` (`medium`).
 - **Implementation (`implementer`, `implementer-deep`, `patch`)** produces the bulk of all output tokens: `implementer` runs on Antigravity `gemini-4-argon` (`medium`), falling back to OpenCode Go `gemini-4-argon` (`high`) and Codex `gpt-6.1-sol` (`medium`); `implementer-deep` is reserved for complex multi-file architecture and hard root-cause bugs on Antigravity `claude-opus-5-5` (`high`), falling back to Codex `gpt-6-astra` (`high`) and `gpt-6.1-sol` (`high`); `patch` shares the cheap `tester` ladder for 1-2 file no-test edits.
 - **Per-task review (`task-reviewer`)** runs once per task, often, checking spec compliance and quality on a single task diff: Codex `gpt-6.1-terra` (`high`), falling back to OpenCode Go `glm-5.3-flash` (`high`) and Antigravity `gemini-3.8-flash` (`high`), skipping any rung whose family authored the task.
-- **Council (`reviewer-a`, `reviewer-b`, `reviewer-c`)** outputs are short and decide the merge: three independent families (open-weight on Seat A, Anthropic on Seat B, OpenAI on Seat C) at `high` effort (or provider default `-` where the Go catalog exposes a single tier). Every seat's last resort sits on a different provider than its primary, except `reviewer-a` (see outage exception below).
-- **Escalation (`reviewer-esc`)** is a fourth family none of the council seats (`reviewer-a`, `reviewer-b`, `reviewer-c`) used this PR (`deepseek-v4-pro`, `qwen3.8-max`, `gemini-4-argon`), so its verdict stays independent; implementation rungs do not block it. `reviewer-esc` also supplies the non-author council vote when every council seat's family is an author family.
+- **Council (`reviewer-a`, `reviewer-b`, `reviewer-c`)** gets the strongest model of each frontier family at `high` effort: Google (`gemini-4-argon` on Seat A, falling back to OpenCode Go `opencode-go/gemini-4-argon` and `opencode-go/qwen3.8-max`), Anthropic (`claude-opus-5-5` on Seat B, falling back to `claude-sonnet-5-5` and OpenCode Go `opencode-go/claude-haiku-5-5`), and OpenAI (`gpt-6-astra` on Seat C, Codex's frontier-intelligence model, falling back to `gpt-6.1-sol` and `gpt-6-sol`). Review is short output with the highest stakes, so frontier tokens pay off most here. Under the author-family PASS rule, while Argon (Google) authors the code, the required non-author PASS vote comes from Opus (Anthropic) or Astra (OpenAI).
+- **Escalation (`reviewer-esc`)** sits on the best open-weight families unused by the council seats (`opencode-go/kimi-k3.1-pro` at `high`, then `opencode-go/deepseek-v4-pro` and `opencode-go/mimo-v2.6-pro`), so its verdict stays independent of all three frontier council families; `reviewer-esc` also supplies the non-author council vote when every council seat's family is an author family.
 
 ## Budget facts and provider load split
 
@@ -21,33 +21,26 @@ From the local Codex catalog (`~/.codex/models_cache.json`):
 | `gpt-6.1-terra` | balanced, for straightforward work (5.6-terra wording) |
 | `gpt-6-luna` | fast and affordable, for easier tasks |
 
-Antigravity and Codex limits depend on the plan, with rolling 5-hour windows (check with `/status` in the provider), so the profile ranks those models relatively rather than by fixed request count.
+No OpenAI model is routed through OpenCode Go in `tri`: all `gpt-*` models come from the Codex subscription. Antigravity and Codex limits depend on the plan, with rolling 5-hour windows (check with `/status` in the provider), so the profile ranks those models relatively rather than by fixed request count.
 
 OpenCode Go (`opencode.ai/docs/go`): each model gets a monthly dollar limit, and the 5-hour cap is 20% of it. Estimated requests per 5 hours below are computed from the documented per-request token mix and prices for the $10 Go plan (Go Plus is about 4x):
 
 | Model | est. req/5h | Model | est. req/5h |
 | --- | --- | --- | --- |
-| deepseek-v4.1-flash (off-peak) | ~43,300 | gpt-6-luna | ~4,200 |
-| muse-spark-1.3 (trains) | ~45,300 | claude-haiku-5-5 | ~3,800 |
-| mimo-v2.6-flash | ~30,100 | mimo-v2.6-pro | ~3,250 |
-| glm-5.3-flash | ~6,300 | minimax-m3 | ~3,200 |
-| qwen3.8-flash | ~5,400 | deepseek-v4-pro (off-peak) | ~1,040 |
-| gemini-4-argon (50% off to Nov 30) | ~440 | glm-5.3 | ~200 |
-| qwen3.8-max | ~160 | kimi-k3.1-pro | ~147 |
+| deepseek-v4.1-flash (off-peak) | ~43,300 | claude-haiku-5-5 | ~3,800 |
+| muse-spark-1.3 (trains) | ~45,300 | mimo-v2.6-pro | ~3,250 |
+| mimo-v2.6-flash | ~30,100 | minimax-m3 | ~3,200 |
+| glm-5.3-flash | ~6,300 | deepseek-v4-pro (off-peak) | ~1,040 |
+| qwen3.8-flash | ~5,400 | gemini-4-argon (50% off to Nov 30) | ~440 |
+| glm-5.3 | ~200 | qwen3.8-max | ~160 |
+| kimi-k3.1-pro | ~147 | - | - |
 
-Provider load split:
+Provider load split and council budget notes:
 
-- **Antigravity:** Argon-heavy (`implementer` primary), plus `implementer-deep` primary (`claude-opus-5-5`) and `reviewer-b` (`claude-sonnet-5-5` / `claude-opus-5-5`). Keeping `driver`, `scout`, and `tester` off Antigravity primaries leaves room for Argon, which writes most of the code.
-- **Codex:** carries `driver` (`gpt-6.1-sol`), per-task review `task-reviewer` (`gpt-6.1-terra`), and council Seat C `reviewer-c` (`gpt-6.1-sol` / `gpt-6-sol`), plus `gpt-6-astra` as `implementer-deep`'s fallback.
-- **OpenCode Go:** carries the high-volume cheap roles (`scout`, `tester`, `patch`, `compaction`), the open-weight council seat (`reviewer-a`), and `reviewer-esc` primary/fallback.
-
-### Seat A rationale, Kimi allowance, and `reviewer-a` outage exception
-
-Under `tri`, `gemini-4-argon` (Google) is the primary implementer, so a Google council seat would review its own family. Seat A (`reviewer-a`) therefore moves to an open-weight family (`moonshot` -> `xiaomi` -> `minimax`) that never authors code under `tri`, guaranteeing it can always supply the required non-author council vote.
-
-`kimi-k3.1-pro` is the strongest open-weight reviewer, with an allowance of ~147 req/5h (roughly 2-4 review sessions, enough for at most 3 council rounds per PR). When Kimi's 5-hour window runs out, `reviewer-a` demotes to the ~3.2k req/5h Pro models (`mimo-v2.6-pro`, then `minimax-m3`).
-
-Exception to "last resort on a different provider": `reviewer-a` stays entirely on OpenCode Go across all three rungs so it remains an open-weight non-author family. Losing `reviewer-a` during a full OpenCode Go outage still leaves 2 independent reviewer families (`reviewer-b` Anthropic on Antigravity and `reviewer-c` OpenAI on Codex), which the degraded-council rule allows.
+- **Antigravity:** carries `implementer` primary (`gemini-4-argon`), `implementer-deep` primary (`claude-opus-5-5`), `reviewer-a` primary (`gemini-4-argon`), and `reviewer-b` primary/fallback (`claude-opus-5-5` / `claude-sonnet-5-5`). Keeping `driver`, `scout`, and `tester` off Antigravity primaries leaves room for Argon and the frontier review seats. Antigravity's Claude limits are low; if you also have a Claude Code (Anthropic) subscription, use [`providers/quad.md`](./quad.md) (`--profile quad`) so Anthropic roles run primarily on `claudeAgent`.
+- **Codex:** carries `driver` (`gpt-6.1-sol`), per-task review `task-reviewer` (`gpt-6.1-terra`), council Seat C `reviewer-c` (`gpt-6-astra` -> `gpt-6.1-sol` -> `gpt-6-sol`), `implementer-deep` fallback/last-resort (`gpt-6-astra` / `gpt-6.1-sol`), and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
+- **OpenCode Go:** carries the high-volume cheap roles (`scout`, `tester`, `patch`, `compaction`), `reviewer-esc` (`kimi-k3.1-pro` -> `deepseek-v4-pro` -> `mimo-v2.6-pro`), and cross-provider fallbacks (`opencode-go/gemini-4-argon` is a separate ~440 req/5h pool from Antigravity's Argon quota).
+- **Council budget:** the council runs at most 3 rounds × 3 seats + 1 escalation per PR. Because review outputs are short and capped at 3 rounds, frontier primaries (`gemini-4-argon`, `claude-opus-5-5`, `gpt-6-astra`) are affordable on the council seats, and `kimi-k3.1-pro`'s ~147 req/5h allowance is plenty for single-dispatch escalation (`reviewer-esc`).
 
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -71,18 +64,18 @@ Exception to "last resort on a different provider": `reviewer-a` stays entirely 
 | task-reviewer | primary | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
 | task-reviewer | fallback | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
 | task-reviewer | last-resort | antigravity | gemini-3.8-flash | thinking_level=high | google | ok |
-| reviewer-a | primary | opencode | opencode-go/kimi-k3.1-pro | variant=high | moonshot | ok |
-| reviewer-a | fallback | opencode | opencode-go/mimo-v2.6-pro | - | xiaomi | ok |
-| reviewer-a | last-resort | opencode | opencode-go/minimax-m3 | - | minimax | ok |
-| reviewer-b | primary | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic | ok |
-| reviewer-b | fallback | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
+| reviewer-a | primary | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| reviewer-a | fallback | opencode | opencode-go/gemini-4-argon | variant=high | google | ok |
+| reviewer-a | last-resort | opencode | opencode-go/qwen3.8-max | - | alibaba | ok |
+| reviewer-b | primary | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
+| reviewer-b | fallback | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic | ok |
 | reviewer-b | last-resort | opencode | opencode-go/claude-haiku-5-5 | variant=high | anthropic | ok |
-| reviewer-c | primary | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
-| reviewer-c | fallback | codex | gpt-6-sol | reasoningEffort=high | openai | ok |
-| reviewer-c | last-resort | opencode | opencode-go/gpt-6-luna | variant=high | openai | ok |
-| reviewer-esc | primary | opencode | opencode-go/deepseek-v4-pro | - | deepseek | ok |
-| reviewer-esc | fallback | opencode | opencode-go/qwen3.8-max | - | alibaba | ok |
-| reviewer-esc | last-resort | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| reviewer-c | primary | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
+| reviewer-c | fallback | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| reviewer-c | last-resort | codex | gpt-6-sol | reasoningEffort=high | openai | ok |
+| reviewer-esc | primary | opencode | opencode-go/kimi-k3.1-pro | variant=high | moonshot | ok |
+| reviewer-esc | fallback | opencode | opencode-go/deepseek-v4-pro | - | deepseek | ok |
+| reviewer-esc | last-resort | opencode | opencode-go/mimo-v2.6-pro | - | xiaomi | ok |
 | compaction | primary | opencode | opencode-go/claude-haiku-5-5 | variant=low | anthropic | ok |
 | compaction | fallback | codex | gpt-6-luna | reasoningEffort=low | openai | ok |
 
