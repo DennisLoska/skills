@@ -32,7 +32,9 @@ options:
   --profile NAME       bind providers/NAME.md (also --profile=NAME; default: previous binding, else tri)
   --profile-file PATH  bind an external profile file (also --profile-file=PATH; mutually exclusive with --profile)
   --target TARGETS     comma-separated host targets: opencode, codex, antigravity, claude, or all
-                       (also --target=TARGETS; default: opencode)
+                       (also --target=TARGETS; default: opencode; antigravity installs standalone
+                       ${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config} plus any T3 Code instances under
+                       ${T3_USERDATA_DIR:-$HOME/.t3/userdata}/providers/antigravity/*/config)
   --force              overwrite files that already exist in the destination
   --prune              remove files recorded in a previous .harness-manifest that
                        this run no longer produces; files the installer never wrote
@@ -53,6 +55,7 @@ unknown_target() {
 force=0
 prune=0
 pf_token_file=""
+sr_token_file=""
 preflight_only=0
 if [ -n "${HARNESS_PREFLIGHT_TOKEN_FILE:-}" ] && [ -n "${HARNESS_PREFLIGHT_TOKEN:-}" ] &&
    [ -f "$HARNESS_PREFLIGHT_TOKEN_FILE" ] && [ ! -L "$HARNESS_PREFLIGHT_TOKEN_FILE" ] &&
@@ -60,6 +63,13 @@ if [ -n "${HARNESS_PREFLIGHT_TOKEN_FILE:-}" ] && [ -n "${HARNESS_PREFLIGHT_TOKEN
   preflight_only=1
 fi
 unset HARNESS_PREFLIGHT_TOKEN_FILE HARNESS_PREFLIGHT_TOKEN HARNESS_INTERNAL_PREFLIGHT
+agy_single_root=0
+if [ -n "${HARNESS_AGY_SINGLE_ROOT_FILE:-}" ] && [ -n "${HARNESS_AGY_SINGLE_ROOT:-}" ] &&
+   [ -f "$HARNESS_AGY_SINGLE_ROOT_FILE" ] && [ ! -L "$HARNESS_AGY_SINGLE_ROOT_FILE" ] &&
+   [ "$(cat "$HARNESS_AGY_SINGLE_ROOT_FILE" 2>/dev/null || true)" = "$HARNESS_AGY_SINGLE_ROOT" ]; then
+  agy_single_root=1
+fi
+unset HARNESS_AGY_SINGLE_ROOT_FILE HARNESS_AGY_SINGLE_ROOT
 profile=tri
 profile_given=0
 profile_file_arg=""
@@ -175,11 +185,201 @@ if [ "${#selected_targets[@]}" -eq 0 ]; then
   unknown_target "$target_arg"
 fi
 
-# When multiple targets are selected, run each target in its own clean invocation
-# so per-target destination validation, manifest tracking, and temp cleanup stay isolated.
-# A nonce-guarded atomic preflight pass runs across all targets first so any
-# invalid destination or collision aborts before any target is mutated.
-if [ "${#selected_targets[@]}" -gt 1 ]; then
+SRC_PHYS="$(cd "$SRC" && pwd -P)"
+HOME_PHYS="${HOME:-}"
+if [ -n "$HOME_PHYS" ] && [ -d "$HOME_PHYS" ]; then
+  HOME_PHYS="$(cd "$HOME_PHYS" && pwd -P)"
+fi
+
+# canonical_dest <path>: physical form of the path. An existing directory is
+# resolved with pwd -P so every symlink is followed; a path that does not exist
+# yet is resolved through its deepest existing ancestor with the remaining
+# components appended, so "$PWD/agents" and a relative "../skills" compare
+# against $SRC_PHYS before they exist. Interior "." segments are stripped while
+# walking up; a ".." component is returned as-is and handled by the literal
+# checks above.
+canonical_dest() {
+  local p="$1"
+  local suffix=""
+  local base
+  local out
+  while [ ! -d "$p" ]; do
+    base="$(basename -- "$p")"
+    case "$base" in
+      .) p="$(dirname -- "$p")"; continue ;;
+      ''|..|/) printf '%s%s' "$p" "$suffix"; return 0 ;;
+    esac
+    suffix="/$base$suffix"
+    p="$(dirname -- "$p")"
+  done
+  out="$(cd "$p" && pwd -P)$suffix"
+  case "$out" in
+    //*) out="/${out#//}" ;;
+  esac
+  printf '%s' "$out"
+}
+
+refuse_t3_userdata() {
+  if [ "$#" -ge 2 ] && [ -n "$2" ]; then
+    printf 'install.sh: refusing unsafe T3 userdata directory: %s (%s)\n' "$1" "$2" >&2
+  else
+    printf 'install.sh: refusing unsafe T3 userdata directory: %s\n' "$1" >&2
+  fi
+  exit 1
+}
+
+validate_t3_userdata_dir() {
+  local t3_raw="$1"
+  local t3_compact t3_stripped
+  t3_compact="${t3_raw//[[:space:]]/}"
+  t3_compact="${t3_compact//\//}"
+  if [ -z "$t3_compact" ]; then
+    refuse_t3_userdata "$t3_raw"
+  fi
+  t3_stripped="$t3_raw"
+  while [ "${t3_stripped%/}" != "$t3_stripped" ]; do
+    t3_stripped="${t3_stripped%/}"
+  done
+  [ -n "$t3_stripped" ] || t3_stripped="/"
+  case "$t3_stripped" in
+    .|..|../*|*/..|*/../*) refuse_t3_userdata "$t3_raw" "a relative self or parent reference" ;;
+  esac
+  if [ -L "$t3_stripped" ] && [ ! -e "$t3_stripped" ]; then
+    refuse_t3_userdata "$t3_raw" "dangling symlink"
+  fi
+  if [ -e "$t3_stripped" ] && [ ! -d "$t3_stripped" ]; then
+    refuse_t3_userdata "$t3_raw" "not a directory"
+  fi
+  T3_CANON="$(canonical_dest "$t3_stripped")"
+  if [ -z "$T3_CANON" ]; then
+    refuse_t3_userdata "$t3_raw" "an unresolvable path"
+  fi
+  if [ "$T3_CANON" = "/" ]; then
+    refuse_t3_userdata "$t3_raw" "the filesystem root"
+  fi
+  if [ "$T3_CANON" = "$SRC_PHYS" ] || [ "$T3_CANON" = "$SRC" ] ||
+     [ "$t3_stripped" = "$SRC" ] || [ "$t3_stripped" = "$SRC_PHYS" ]; then
+    refuse_t3_userdata "$t3_raw" "the source checkout"
+  fi
+  case "$T3_CANON" in
+    "$SRC_PHYS"/*|"$SRC"/*) refuse_t3_userdata "$t3_raw" "inside the source checkout" ;;
+  esac
+  if { [ -n "$HOME_PHYS" ] && [ "$T3_CANON" = "$HOME_PHYS" ]; } ||
+     { [ -n "${HOME:-}" ] && { [ "$t3_raw" = "$HOME" ] || [ "$t3_stripped" = "$HOME" ]; }; }; then
+    refuse_t3_userdata "$t3_raw" "the HOME directory"
+  fi
+}
+
+agy_seen_canons=()
+agy_canon_seen() {
+  local want="$1" c
+  if [ "${#agy_seen_canons[@]}" -gt 0 ]; then
+    for c in "${agy_seen_canons[@]}"; do
+      [ "$c" = "$want" ] && return 0
+    done
+  fi
+  return 1
+}
+
+job_targets=()
+job_override_agy=()
+job_agy_configs=()
+for tok in "${selected_targets[@]}"; do
+  if [ "$tok" != "antigravity" ] || [ "$agy_single_root" -eq 1 ]; then
+    job_targets+=("$tok")
+    job_override_agy+=(0)
+    job_agy_configs+=("")
+    continue
+  fi
+
+  job_targets+=("antigravity")
+  job_override_agy+=(0)
+  job_agy_configs+=("")
+
+  agy_seen_canons=()
+  agy_primary_raw="${ANTIGRAVITY_CONFIG-${HOME:-}/.gemini/config}"
+  agy_primary_compact="${agy_primary_raw//[[:space:]]/}"
+  agy_primary_compact="${agy_primary_compact//\//}"
+  if [ -n "$agy_primary_compact" ]; then
+    agy_primary_stripped="$agy_primary_raw"
+    while [ "${agy_primary_stripped%/}" != "$agy_primary_stripped" ]; do
+      agy_primary_stripped="${agy_primary_stripped%/}"
+    done
+    case "$agy_primary_stripped" in
+      ''|.|..|../*|*/..|*/../*) ;;
+      *)
+        if { [ ! -L "$agy_primary_stripped" ] || [ -e "$agy_primary_stripped" ]; } &&
+           { [ ! -e "$agy_primary_stripped" ] || [ -d "$agy_primary_stripped" ]; }; then
+          agy_primary_canon="$(canonical_dest "$agy_primary_stripped")"
+          if [ -n "$agy_primary_canon" ]; then
+            agy_seen_canons+=("$agy_primary_canon")
+          fi
+        fi
+        ;;
+    esac
+  fi
+
+  if [ -z "${ANTIGRAVITY_CONFIG+x}" ] || [ -n "${T3_USERDATA_DIR+x}" ]; then
+    T3_CANON=""
+    if [ -n "${T3_USERDATA_DIR+x}" ]; then
+      validate_t3_userdata_dir "$T3_USERDATA_DIR"
+    else
+      T3_RAW="${HOME:-}/.t3/userdata"
+      if [ -n "${HOME:-}" ] && { [ -L "$T3_RAW" ] || [ -e "$T3_RAW" ]; }; then
+        validate_t3_userdata_dir "$T3_RAW"
+      fi
+    fi
+    if [ -n "$T3_CANON" ]; then
+      for p in "$T3_CANON/providers" "$T3_CANON/providers/antigravity"; do
+        if [ -L "$p" ] || { [ -e "$p" ] && [ ! -d "$p" ]; }; then
+          printf 'install.sh: refusing unsafe T3 provider path: %s\n' "$p" >&2
+          exit 1
+        fi
+      done
+      if [ -d "$T3_CANON/providers/antigravity" ]; then
+        had_lc_all=0
+        saved_lc_all=""
+        if [ -n "${LC_ALL+x}" ]; then
+          had_lc_all=1
+          saved_lc_all="$LC_ALL"
+        fi
+        LC_ALL=C
+        shopt -s nullglob
+        t3_entries=("$T3_CANON/providers/antigravity"/[!.]*)
+        shopt -u nullglob
+        if [ "$had_lc_all" -eq 1 ]; then
+          LC_ALL="$saved_lc_all"
+        else
+          unset LC_ALL
+        fi
+        if [ "${#t3_entries[@]}" -gt 0 ]; then
+          for inst in "${t3_entries[@]}"; do
+            if [ -L "$inst" ]; then
+              printf 'install.sh: refusing symlinked T3 provider instance: %s\n' "$inst" >&2
+              exit 1
+            fi
+            [ -d "$inst" ] || continue
+            inst_cfg="$inst/config"
+            inst_canon="$(canonical_dest "$inst_cfg")"
+            if ! agy_canon_seen "$inst_canon"; then
+              agy_seen_canons+=("$inst_canon")
+              job_targets+=("antigravity")
+              job_override_agy+=(1)
+              job_agy_configs+=("$inst_cfg")
+            fi
+          done
+        fi
+      fi
+    fi
+  fi
+done
+
+# When multiple jobs are scheduled (multiple targets or standalone + T3 instances),
+# run each job in its own clean invocation so per-root destination validation,
+# manifest tracking, and temp cleanup stay isolated. A nonce-guarded atomic
+# preflight pass runs across all jobs first so any invalid destination or
+# collision aborts before any root is mutated.
+if [ "${#job_targets[@]}" -gt 1 ]; then
   sub_args=()
   [ "$force" -eq 1 ] && sub_args+=("--force")
   [ "$prune" -eq 1 ] && sub_args+=("--prune")
@@ -188,32 +388,79 @@ if [ "${#selected_targets[@]}" -gt 1 ]; then
   elif [ "$profile_file_given" -eq 1 ]; then
     sub_args+=("--profile-file" "$profile_file_arg")
   fi
-  trap 'rm -f -- ${pf_token_file:+"$pf_token_file"}' EXIT
+  trap 'rm -f -- ${pf_token_file:+"$pf_token_file"} ${sr_token_file:+"$sr_token_file"}' EXIT
   pf_token_file="$(mktemp "${TMPDIR:-/tmp}/harness-pf.XXXXXXXX")"
   chmod 0600 "$pf_token_file"
   pf_token="$$-$(date +%s)-${RANDOM:-0}"
   printf '%s' "$pf_token" >"$pf_token_file"
-  for t in "${selected_targets[@]}"; do
-    if [ "${#sub_args[@]}" -gt 0 ]; then
-      HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" "$SRC/install.sh" "${sub_args[@]}" --target "$t"
+  sr_token_file="$(mktemp "${TMPDIR:-/tmp}/harness-sr.XXXXXXXX")"
+  chmod 0600 "$sr_token_file"
+  sr_token="$$-$(date +%s)-${RANDOM:-0}-sr"
+  printf '%s' "$sr_token" >"$sr_token_file"
+  for idx in "${!job_targets[@]}"; do
+    jt="${job_targets[$idx]}"
+    if [ "${job_override_agy[$idx]}" -eq 1 ]; then
+      if [ "${#sub_args[@]}" -gt 0 ]; then
+        ANTIGRAVITY_CONFIG="${job_agy_configs[$idx]}" \
+          HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" \
+          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+          "$SRC/install.sh" "${sub_args[@]}" --target "$jt"
+      else
+        ANTIGRAVITY_CONFIG="${job_agy_configs[$idx]}" \
+          HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" \
+          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+          "$SRC/install.sh" --target "$jt"
+      fi
     else
-      HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" "$SRC/install.sh" --target "$t"
+      if [ "${#sub_args[@]}" -gt 0 ]; then
+        HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" \
+          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+          "$SRC/install.sh" "${sub_args[@]}" --target "$jt"
+      else
+        HARNESS_PREFLIGHT_TOKEN_FILE="$pf_token_file" HARNESS_PREFLIGHT_TOKEN="$pf_token" \
+          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+          "$SRC/install.sh" --target "$jt"
+      fi
     fi
   done
   rm -f -- "$pf_token_file"
   pf_token_file=""
-  [ "$preflight_only" -eq 1 ] && exit 0
-  for t in "${selected_targets[@]}"; do
-    if [ "${#sub_args[@]}" -gt 0 ]; then
-      "$SRC/install.sh" "${sub_args[@]}" --target "$t"
+  if [ "$preflight_only" -eq 1 ]; then
+    rm -f -- "$sr_token_file"
+    sr_token_file=""
+    exit 0
+  fi
+  for idx in "${!job_targets[@]}"; do
+    jt="${job_targets[$idx]}"
+    if [ "${job_override_agy[$idx]}" -eq 1 ]; then
+      if [ "${#sub_args[@]}" -gt 0 ]; then
+        ANTIGRAVITY_CONFIG="${job_agy_configs[$idx]}" \
+          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+          "$SRC/install.sh" "${sub_args[@]}" --target "$jt"
+      else
+        ANTIGRAVITY_CONFIG="${job_agy_configs[$idx]}" \
+          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+          "$SRC/install.sh" --target "$jt"
+      fi
     else
-      "$SRC/install.sh" --target "$t"
+      if [ "${#sub_args[@]}" -gt 0 ]; then
+        HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+          "$SRC/install.sh" "${sub_args[@]}" --target "$jt"
+      else
+        HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+          "$SRC/install.sh" --target "$jt"
+      fi
     fi
   done
+  rm -f -- "$sr_token_file"
+  sr_token_file=""
   exit 0
 fi
 
-TARGET_HOST="${selected_targets[0]}"
+TARGET_HOST="${job_targets[0]}"
+if [ "${job_override_agy[0]}" -eq 1 ]; then
+  ANTIGRAVITY_CONFIG="${job_agy_configs[0]}"
+fi
 
 # Destination validation. Runs before any path is created or removed, and
 # before the trailing slash is stripped, so a hostile or degenerate
@@ -259,12 +506,6 @@ case "$DEST_STRIPPED" in
   .|..|../*|*/..|*/../*) refuse_dest "a relative self or parent reference" ;;
 esac
 
-SRC_PHYS="$(cd "$SRC" && pwd -P)"
-HOME_PHYS="${HOME:-}"
-if [ -n "$HOME_PHYS" ] && [ -d "$HOME_PHYS" ]; then
-  HOME_PHYS="$(cd "$HOME_PHYS" && pwd -P)"
-fi
-
 # A dangling destination symlink cannot hold anything: mkdir -p follows it and
 # creates the link target, so refuse before any directory is made.
 if [ -L "$DEST_STRIPPED" ] && [ ! -e "$DEST_STRIPPED" ]; then
@@ -276,34 +517,6 @@ if [ -e "$DEST_STRIPPED" ] && [ ! -d "$DEST_STRIPPED" ]; then
   printf 'install.sh: destination is not a directory: %s\n' "$DEST_RAW" >&2
   exit 1
 fi
-
-# canonical_dest <path>: physical form of the path. An existing directory is
-# resolved with pwd -P so every symlink is followed; a path that does not exist
-# yet is resolved through its deepest existing ancestor with the remaining
-# components appended, so "$PWD/agents" and a relative "../skills" compare
-# against $SRC_PHYS before they exist. Interior "." segments are stripped while
-# walking up; a ".." component is returned as-is and handled by the literal
-# checks above.
-canonical_dest() {
-  local p="$1"
-  local suffix=""
-  local base
-  local out
-  while [ ! -d "$p" ]; do
-    base="$(basename -- "$p")"
-    case "$base" in
-      .) p="$(dirname -- "$p")"; continue ;;
-      ''|..|/) printf '%s%s' "$p" "$suffix"; return 0 ;;
-    esac
-    suffix="/$base$suffix"
-    p="$(dirname -- "$p")"
-  done
-  out="$(cd "$p" && pwd -P)$suffix"
-  case "$out" in
-    //*) out="/${out#//}" ;;
-  esac
-  printf '%s' "$out"
-}
 
 DEST_CANON="$(canonical_dest "$DEST_STRIPPED")"
 if [ -z "$DEST_CANON" ]; then
@@ -604,7 +817,7 @@ rendered_files=()
 owned_locks=()
 cleanup() {
   local lk
-  rm -f -- "$TMP_MANIFEST" ${pf_token_file:+"$pf_token_file"} ${staged_profile:+"$staged_profile"} ${ledger_tmp:+"$ledger_tmp"}
+  rm -f -- "$TMP_MANIFEST" ${pf_token_file:+"$pf_token_file"} ${sr_token_file:+"$sr_token_file"} ${staged_profile:+"$staged_profile"} ${ledger_tmp:+"$ledger_tmp"}
   if [ "${#rendered_files[@]}" -gt 0 ]; then
     rm -f -- "${rendered_files[@]}"
   fi

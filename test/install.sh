@@ -1523,4 +1523,165 @@ grep -qF 'refusing to prune through symlink' "$TMPROOT/lsym-72.out" || fail "sym
 [ ! -e "$AGY_LSYM/.harness-manifest" ] || fail "symlinked legacy plugin refusal writes no root manifest"
 pass "legacy real state/ ledger merges cleanly, empty plugins/ is removed, and symlinked legacy plugin refuses under --prune"
 
+# 73. T3 Code Antigravity instances: without a .t3 tree the standalone root
+# installs and no .t3 is created; each hash-<id> instance under the T3 userdata
+# tree gets a real flat layout sharing one state root; an explicit
+# ANTIGRAVITY_CONFIG wins unless T3_USERDATA_DIR opts the instances back in; a
+# collision in any discovered root aborts every root before anything is written;
+# and unsafe T3 userdata roots, provider paths, and instance symlinks refuse.
+state_phys() { ( cd "$1/state" 2>/dev/null && pwd -P ); }
+
+T3_NO_HOME="$TMPROOT/no-t3-home"
+rc=0
+HOME="$T3_NO_HOME" "$INSTALL" --target antigravity >"$TMPROOT/t3-not3-agy-73.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/t3-not3-agy-73.out" >&2; fail "antigravity install without T3 Code exits 0 (got $rc)"; }
+[ -f "$T3_NO_HOME/.gemini/config/skills/_harness/HARNESS.md" ] || fail "standalone antigravity root carries skills/_harness/HARNESS.md"
+[ ! -e "$T3_NO_HOME/.t3" ] || fail "an install with no T3 Code never creates a .t3 tree"
+rc=0
+HOME="$T3_NO_HOME" "$INSTALL" --force --target all >"$TMPROOT/t3-not3-all-73.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/t3-not3-all-73.out" >&2; fail "--target all without T3 Code exits 0 (got $rc)"; }
+[ -f "$T3_NO_HOME/.gemini/config/skills/_harness/HARNESS.md" ] || fail "--target all without T3 Code keeps the standalone antigravity root"
+[ ! -e "$T3_NO_HOME/.t3" ] || fail "--target all without T3 Code never creates a .t3 tree"
+pass "antigravity installs without T3 Code and never creates a .t3 tree"
+
+T3_HOME="$TMPROOT/with-t3-home"
+T3_PROV="$T3_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$T3_PROV/hash-one" "$T3_PROV/hash-two"
+printf '{}\n' >"$T3_PROV/metadata.json"
+rc=0
+HOME="$T3_HOME" "$INSTALL" --target antigravity >"$TMPROOT/t3-multi-73.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/t3-multi-73.out" >&2; fail "T3 multi-instance antigravity install exits 0 (got $rc)"; }
+for t3_root in "$T3_HOME/.gemini/config" "$T3_PROV/hash-one/config" "$T3_PROV/hash-two/config"; do
+  [ -f "$t3_root/skills/oneshot/SKILL.md" ] && [ ! -L "$t3_root/skills/oneshot/SKILL.md" ] || fail "T3 discovery writes a real skills/oneshot/SKILL.md under $t3_root"
+  [ -f "$t3_root/skills/_harness/agents/implementer.md" ] || fail "T3 discovery writes skills/_harness/agents/implementer.md under $t3_root"
+  [ -f "$t3_root/.harness-manifest" ] || fail "T3 discovery writes .harness-manifest under $t3_root"
+  [ -L "$t3_root/state" ] || fail "T3 discovery links state under $t3_root"
+  [ "$(state_phys "$t3_root")" = "$(state_phys "$T3_HOME/.config/opencode")" ] || fail "T3 discovery state under $t3_root resolves to the shared opencode state"
+done
+[ ! -e "$T3_PROV/metadata.json/config" ] || fail "a stray T3 provider file is never treated as an instance"
+mkdir -p "$T3_PROV/hash-three"
+rc=0
+HOME="$T3_HOME" "$INSTALL" --force --target all >"$TMPROOT/t3-multi-all-73.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/t3-multi-all-73.out" >&2; fail "T3 multi-instance --target all exits 0 (got $rc)"; }
+[ -f "$T3_PROV/hash-three/config/.harness-manifest" ] || fail "a newly minted T3 instance is discovered on the next install"
+[ -f "$T3_PROV/hash-three/config/skills/oneshot/SKILL.md" ] && [ ! -L "$T3_PROV/hash-three/config/skills/oneshot/SKILL.md" ] || fail "a newly minted T3 instance gets real skill files"
+pass "T3 Code Antigravity instances are discovered, installed, and share one state root"
+
+ISO_HOME="$TMPROOT/iso-home"
+ISO_AGY="$TMPROOT/iso-custom"
+ISO_OC="$TMPROOT/iso-oc"
+ISO_INST="$ISO_HOME/.t3/userdata/providers/antigravity/hash-untouched"
+mkdir -p "$ISO_INST"
+rc=0
+HOME="$ISO_HOME" ANTIGRAVITY_CONFIG="$ISO_AGY" OPENCODE_CONFIG="$ISO_OC" "$INSTALL" --target antigravity >"$TMPROOT/iso-73a.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/iso-73a.out" >&2; fail "explicit ANTIGRAVITY_CONFIG install exits 0 (got $rc)"; }
+[ -f "$ISO_AGY/.harness-manifest" ] || fail "explicit ANTIGRAVITY_CONFIG installs the standalone root"
+[ -L "$ISO_AGY/state" ] || fail "explicit ANTIGRAVITY_CONFIG root links shared state"
+[ "$(state_phys "$ISO_AGY")" = "$(state_phys "$ISO_OC")" ] || fail "explicit ANTIGRAVITY_CONFIG root state resolves to OPENCODE_CONFIG/state"
+[ ! -e "$ISO_INST/config" ] || fail "an explicit ANTIGRAVITY_CONFIG does not force T3 instance discovery"
+rc=0
+HOME="$ISO_HOME" ANTIGRAVITY_CONFIG="$ISO_AGY" T3_USERDATA_DIR="$ISO_HOME/.t3/userdata" OPENCODE_CONFIG="$ISO_OC" "$INSTALL" --force --target antigravity >"$TMPROOT/iso-73b.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/iso-73b.out" >&2; fail "ANTIGRAVITY_CONFIG with T3_USERDATA_DIR exits 0 (got $rc)"; }
+[ -f "$ISO_AGY/.harness-manifest" ] || fail "ANTIGRAVITY_CONFIG with T3_USERDATA_DIR keeps the standalone root"
+[ -f "$ISO_INST/config/.harness-manifest" ] || fail "an explicit T3_USERDATA_DIR opts T3 instances back in"
+[ -f "$ISO_INST/config/skills/_harness/agents/implementer.md" ] || fail "an opted-in T3 instance gets skills/_harness/agents/implementer.md"
+pass "ANTIGRAVITY_CONFIG isolates the standalone root and T3_USERDATA_DIR opts T3 instances back in"
+
+ATOMIC_HOME="$TMPROOT/atomic-t3-home"
+ATOMIC_PROV="$ATOMIC_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$ATOMIC_PROV/hash-a" "$ATOMIC_PROV/hash-b/config"
+printf 'PRE-EXISTING\n' >"$ATOMIC_PROV/hash-b/config/HARNESS.md"
+rc=0
+HOME="$ATOMIC_HOME" "$INSTALL" --target all >"$TMPROOT/atomic-73a.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/atomic-73a.out" >&2; fail "a collision in a T3 instance aborts --target all (got $rc)"; }
+grep -q 'collision:' "$TMPROOT/atomic-73a.out" || fail "a collision in a T3 instance reports a collision line under --target all"
+for atomic_root in "$ATOMIC_HOME/.config/opencode" "$ATOMIC_HOME/.gemini/config" "$ATOMIC_PROV/hash-a/config"; do
+  [ ! -e "$atomic_root/.harness-manifest" ] || fail "atomic preflight writes no manifest under $atomic_root"
+  [ ! -e "$atomic_root/HARNESS.md" ] || fail "atomic preflight writes no HARNESS.md under $atomic_root"
+done
+[ "$(cat "$ATOMIC_PROV/hash-b/config/HARNESS.md")" = "PRE-EXISTING" ] || fail "atomic preflight preserves the colliding instance file"
+rc=0
+HOME="$ATOMIC_HOME" "$INSTALL" --target antigravity >"$TMPROOT/atomic-73b.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/atomic-73b.out" >&2; fail "a collision in a T3 instance aborts --target antigravity (got $rc)"; }
+grep -q 'collision:' "$TMPROOT/atomic-73b.out" || fail "a collision in a T3 instance reports a collision line under --target antigravity"
+[ ! -e "$ATOMIC_HOME/.gemini/config/.harness-manifest" ] || fail "antigravity-only atomic preflight writes no standalone manifest"
+[ ! -e "$ATOMIC_HOME/.gemini/config/HARNESS.md" ] || fail "antigravity-only atomic preflight writes no standalone HARNESS.md"
+[ ! -e "$ATOMIC_PROV/hash-a/config/.harness-manifest" ] || fail "antigravity-only atomic preflight writes no clean-instance manifest"
+pass "a collision in any discovered root aborts every root before anything is written"
+
+UNSAFE_HOME="$TMPROOT/unsafe-home"
+UNSAFE_AGY="$TMPROOT/unsafe-agy"
+mkdir -p "$UNSAFE_HOME"
+unsafe_idx=0
+for unsafe_t3 in "" "/" "$UNSAFE_HOME" "$ROOT"; do
+  unsafe_idx=$((unsafe_idx + 1))
+  rc=0
+  HOME="$UNSAFE_HOME" T3_USERDATA_DIR="$unsafe_t3" ANTIGRAVITY_CONFIG="$UNSAFE_AGY" "$INSTALL" --target antigravity >"$TMPROOT/unsafe-73-$unsafe_idx.out" 2>"$TMPROOT/unsafe-73-$unsafe_idx.err" || rc=$?
+  [ "$rc" -eq 1 ] || { cat "$TMPROOT/unsafe-73-$unsafe_idx.err" >&2; fail "unsafe T3_USERDATA_DIR '$unsafe_t3' exits 1 (got $rc)"; }
+  grep -qF 'install.sh: refusing unsafe T3 userdata directory:' "$TMPROOT/unsafe-73-$unsafe_idx.err" || { cat "$TMPROOT/unsafe-73-$unsafe_idx.err" >&2; fail "unsafe T3_USERDATA_DIR '$unsafe_t3' refuses with the userdata diagnostic"; }
+  [ ! -e "$UNSAFE_AGY/.harness-manifest" ] || fail "unsafe T3_USERDATA_DIR '$unsafe_t3' writes nothing"
+done
+
+SYM_T3_HOME="$TMPROOT/sym-t3-home"
+SYM_T3_OUT="$TMPROOT/sym-t3-outside"
+mkdir -p "$SYM_T3_HOME/.t3/userdata" "$SYM_T3_OUT"
+ln -s "$SYM_T3_OUT" "$SYM_T3_HOME/.t3/userdata/providers"
+rc=0
+HOME="$SYM_T3_HOME" "$INSTALL" --target antigravity >"$TMPROOT/sym-t3-a.out" 2>"$TMPROOT/sym-t3-a.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/sym-t3-a.err" >&2; fail "a symlinked T3 providers directory refuses (got $rc)"; }
+grep -qF 'install.sh: refusing unsafe T3 provider path:' "$TMPROOT/sym-t3-a.err" || { cat "$TMPROOT/sym-t3-a.err" >&2; fail "a symlinked T3 providers directory refuses with the provider path diagnostic"; }
+[ ! -e "$SYM_T3_HOME/.gemini/config/.harness-manifest" ] || fail "a symlinked T3 providers directory writes nothing"
+[ -z "$(ls -A "$SYM_T3_OUT")" ] || fail "a symlinked T3 providers directory never writes into the outside tree"
+
+SYM_T3_HOME2="$TMPROOT/sym-t3-home-2"
+SYM_T3_OUT2="$TMPROOT/sym-t3-outside-2"
+mkdir -p "$SYM_T3_HOME2/.t3/userdata/providers" "$SYM_T3_OUT2"
+ln -s "$SYM_T3_OUT2" "$SYM_T3_HOME2/.t3/userdata/providers/antigravity"
+rc=0
+HOME="$SYM_T3_HOME2" "$INSTALL" --target antigravity >"$TMPROOT/sym-t3-b.out" 2>"$TMPROOT/sym-t3-b.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/sym-t3-b.err" >&2; fail "a symlinked T3 antigravity provider directory refuses (got $rc)"; }
+grep -qF 'install.sh: refusing unsafe T3 provider path:' "$TMPROOT/sym-t3-b.err" || { cat "$TMPROOT/sym-t3-b.err" >&2; fail "a symlinked T3 antigravity provider directory refuses with the provider path diagnostic"; }
+[ ! -e "$SYM_T3_HOME2/.gemini/config/.harness-manifest" ] || fail "a symlinked T3 antigravity provider directory writes nothing"
+[ -z "$(ls -A "$SYM_T3_OUT2")" ] || fail "a symlinked T3 antigravity provider directory never writes into the outside tree"
+
+LINK_T3_HOME="$TMPROOT/sym-t3-home-link"
+LINK_T3_OUT="$TMPROOT/outside-t3"
+mkdir -p "$LINK_T3_HOME/.t3/userdata/providers/antigravity" "$LINK_T3_OUT"
+ln -s "$LINK_T3_OUT" "$LINK_T3_HOME/.t3/userdata/providers/antigravity/hash-link"
+rc=0
+HOME="$LINK_T3_HOME" "$INSTALL" --target antigravity >"$TMPROOT/sym-t3-c.out" 2>"$TMPROOT/sym-t3-c.err" || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/sym-t3-c.err" >&2; fail "a symlinked T3 provider instance refuses (got $rc)"; }
+grep -qF 'install.sh: refusing symlinked T3 provider instance:' "$TMPROOT/sym-t3-c.err" || { cat "$TMPROOT/sym-t3-c.err" >&2; fail "a symlinked T3 provider instance refuses with the instance diagnostic"; }
+[ ! -e "$LINK_T3_HOME/.gemini/config/.harness-manifest" ] || fail "a symlinked T3 provider instance writes nothing"
+[ -z "$(ls -A "$LINK_T3_OUT")" ] || fail "a symlinked T3 provider instance never writes into the outside tree"
+pass "unsafe T3 userdata roots and symlinked provider paths and instances refuse before writing anything"
+
+SPOOF_HOME="$TMPROOT/spoof-t3-home"
+SPOOF_PROV="$SPOOF_HOME/.t3/userdata/providers/antigravity"
+mkdir -p "$SPOOF_PROV/hash-spoof" "$SPOOF_PROV/.hidden-dir"
+printf '' >"$SPOOF_PROV/.DS_Store"
+rc=0
+HOME="$SPOOF_HOME" HARNESS_AGY_SINGLE_ROOT=1 ANTIGRAVITY_CONFIG="$SPOOF_PROV/hash-spoof/config" T3_USERDATA_DIR="$SPOOF_HOME/.t3/userdata" \
+  "$INSTALL" --target antigravity >"$TMPROOT/spoof-73.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/spoof-73.out" >&2; fail "ambient HARNESS_AGY_SINGLE_ROOT=1 and deduplicated ANTIGRAVITY_CONFIG install exits 0 (got $rc)"; }
+[ -f "$SPOOF_PROV/hash-spoof/config/.harness-manifest" ] || fail "deduplicated T3 instance config installs cleanly without --force"
+[ ! -e "$SPOOF_PROV/.hidden-dir/config" ] || fail "dotfiles under providers/antigravity are ignored"
+mkdir -p "$SPOOF_PROV/hash-spoof-2"
+rc=0
+HOME="$SPOOF_HOME" HARNESS_AGY_SINGLE_ROOT=1 "$INSTALL" --force --target antigravity >"$TMPROOT/spoof-73b.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/spoof-73b.out" >&2; fail "ambient HARNESS_AGY_SINGLE_ROOT=1 does not suppress T3 discovery (got $rc)"; }
+[ -f "$SPOOF_PROV/hash-spoof-2/config/.harness-manifest" ] || fail "ambient HARNESS_AGY_SINGLE_ROOT=1 still discovers hash-spoof-2"
+
+T3_FILE_BAD="$TMPROOT/t3-is-file"
+printf 'file\n' >"$T3_FILE_BAD"
+ln -s "$TMPROOT/t3-missing-target" "$TMPROOT/t3-dangling"
+for extra_unsafe_t3 in "$T3_FILE_BAD" "$TMPROOT/t3-dangling" "$TMPROOT/a/../b" "$ROOT/skills"; do
+  rc=0
+  HOME="$UNSAFE_HOME" T3_USERDATA_DIR="$extra_unsafe_t3" ANTIGRAVITY_CONFIG="$UNSAFE_AGY" "$INSTALL" --target antigravity >"$TMPROOT/unsafe-extra.out" 2>"$TMPROOT/unsafe-extra.err" || rc=$?
+  [ "$rc" -eq 1 ] || { cat "$TMPROOT/unsafe-extra.err" >&2; fail "unsafe T3_USERDATA_DIR '$extra_unsafe_t3' exits 1 (got $rc)"; }
+  grep -qF 'install.sh: refusing unsafe T3 userdata directory:' "$TMPROOT/unsafe-extra.err" || { cat "$TMPROOT/unsafe-extra.err" >&2; fail "unsafe T3_USERDATA_DIR '$extra_unsafe_t3' diagnostic"; }
+  [ ! -e "$UNSAFE_AGY/.harness-manifest" ] || fail "unsafe T3_USERDATA_DIR '$extra_unsafe_t3' writes nothing"
+done
+pass "ambient single-root env spoofing is ignored, duplicate roots deduplicate cleanly, and file/dangling/dotdot/source-nested T3 roots refuse"
+
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
