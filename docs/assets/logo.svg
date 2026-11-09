@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-label="Cybernetic SDLC Harness logo">
+  <defs>
+    <linearGradient id="ring" x1="24" y1="24" x2="232" y2="232" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2DD4BF"/>
+      <stop offset="0.55" stop-color="#38BDF8"/>
+      <stop offset="1" stop-color="#6366F1"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="128" cy="128" r="104" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#2DD4BF" stop-opacity="0.18"/>
+      <stop offset="0.6" stop-color="#6366F1" stop-opacity="0.10"/>
+      <stop offset="1" stop-color="#0B1220" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="256" height="256" rx="56" fill="#0B1220"/>
+  <rect x="0.75" y="0.75" width="254.5" height="254.5" rx="55.25" fill="none" stroke="#1E293B" stroke-width="1.5"/>
+  <circle cx="128" cy="128" r="104" fill="url(#glow)"/>
+
+  <!-- soft bloom under the ring -->
+  <circle cx="128" cy="128" r="82" fill="none" stroke="url(#ring)" stroke-width="12"
+          stroke-linecap="round" stroke-dasharray="110 18.8" transform="rotate(-15 128 128)"
+          opacity="0.35" filter="url(#soft)"/>
+
+  <!-- the four-arc closed feedback loop -->
+  <circle cx="128" cy="128" r="82" fill="none" stroke="url(#ring)" stroke-width="9"
+          stroke-linecap="round" stroke-dasharray="110 18.8" transform="rotate(-15 128 128)"/>
+
+  <!-- inner orbit hint -->
+  <circle cx="128" cy="128" r="54" fill="none" stroke="#6366F1" stroke-width="1.5" opacity="0.35"/>
+  <circle cx="128" cy="128" r="54" fill="none" stroke="#2DD4BF" stroke-width="1.5" opacity="0.18"
+          stroke-dasharray="2 9" stroke-linecap="round" transform="rotate(12 128 128)"/>
+
+  <!-- three sensing nodes -->
+  <g>
+    <circle cx="128" cy="46" r="13" fill="#0B1220"/>
+    <circle cx="128" cy="46" r="13" fill="#2DD4BF" opacity="0.25" filter="url(#soft)"/>
+    <circle cx="128" cy="46" r="8.5" fill="#2DD4BF"/>
+
+    <circle cx="57" cy="169" r="13" fill="#0B1220"/>
+    <circle cx="57" cy="169" r="13" fill="#38BDF8" opacity="0.25" filter="url(#soft)"/>
+    <circle cx="57" cy="169" r="8.5" fill="#38BDF8"/>
+
+    <circle cx="199" cy="169" r="13" fill="#0B1220"/>
+    <circle cx="199" cy="169" r="13" fill="#6366F1" opacity="0.3" filter="url(#soft)"/>
+    <circle cx="199" cy="169" r="8.5" fill="#818CF8"/>
+  </g>
+
+  <!-- core -->
+  <circle cx="128" cy="128" r="17" fill="#0B1220" stroke="#334155" stroke-width="1.5"/>
+  <circle cx="128" cy="128" r="7" fill="#E2E8F0"/>
+</svg>
