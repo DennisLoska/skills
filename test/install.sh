@@ -1998,6 +1998,25 @@ for dispatch_doc in \
   skills/dispatch/quality-reviewer-prompt.md; do
   grep -qF 'degraded task-review: single-family host' "$ROOT/$dispatch_doc" || fail "$dispatch_doc documents the single-family host fallback for task-reviewer"
 done
+
+# 75. Multi-provider T3 Code dispatch priority, lazy MCP discovery, omittedModels, and Step 0 bootstrap gates
+p1_line=$(grep -n '^1\. \*\*T3 Code orchestration' "$ROOT/AGENTS.md" | cut -d: -f1 || true)
+p2_line=$(grep -n '^2\. \*\*Standalone OpenCode native pin' "$ROOT/AGENTS.md" | cut -d: -f1 || true)
+p3_line=$(grep -n '^3\. \*\*Standalone same-provider native dispatch' "$ROOT/AGENTS.md" | cut -d: -f1 || true)
+[ -n "$p1_line" ] && [ -n "$p2_line" ] && [ -n "$p3_line" ] || fail "AGENTS.md defines Path 1 T3 Code, Path 2 standalone OpenCode pin, and Path 3 standalone native dispatch"
+[ "$p1_line" -lt "$p2_line" ] && [ "$p2_line" -lt "$p3_line" ] || fail "AGENTS.md orders T3 Code orchestration (Path 1) before standalone OpenCode pin (Path 2) and standalone native dispatch (Path 3)"
+for ag_needle in '<mcp_servers>' 'call_mcp_tool' 'omittedModels'; do
+  grep -qF "$ag_needle" "$ROOT/AGENTS.md" || fail "AGENTS.md documents $ag_needle in Dispatch Adapter"
+done
+for gate_skill in \
+  skills/oneshot/SKILL.md \
+  skills/dispatch/SKILL.md \
+  skills/council/SKILL.md; do
+  grep -qF '## Step 0: Routing Bootstrap' "$ROOT/$gate_skill" || fail "$gate_skill defines ## Step 0: Routing Bootstrap"
+  grep -qF '<HARD-GATE>' "$ROOT/$gate_skill" || fail "$gate_skill enforces <HARD-GATE> around Step 0"
+done
+grep -qF 'spec-reviewer-prompt.md' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot Phase 3 requires Stage 1 spec-reviewer-prompt.md via task-reviewer"
+grep -qF 'quality-reviewer-prompt.md' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot Phase 3 requires Stage 2 quality-reviewer-prompt.md via task-reviewer"
 pass "standalone profiles, multi-provider backup ladders, multi-host dispatch adapter, and strict 3-way decoupling"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

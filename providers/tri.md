@@ -102,7 +102,7 @@ Provider load split and council budget notes:
 
 The `driver` row is advisory. Two setups are supported:
 
-1. **Standalone host (without T3 Code):** OpenCode, Codex, or Antigravity (Gemini session) runs same-provider rungs natively via Dispatch Adapter Path 1/Path 3, falling back to the matching `*` row in `## Backup ladder` when primary rungs sit on other providers (standalone Claude Code uses `--profile claude` or `quad`; standalone Claude Antigravity sessions use `--profile antigravity`). Under `tri` on OpenCode, `implementer`, `implementer-deep`, and `reviewer-a` have no `opencode` ladder rung and install unpinned.
+1. **Standalone host (without T3 Code):** OpenCode, Codex, or Antigravity (Gemini session) runs same-provider rungs natively via Dispatch Adapter Path 2/Path 3, falling back to the matching `*` row in `## Backup ladder` when primary rungs sit on other providers (standalone Claude Code uses `--profile claude` or `quad`; standalone Claude Antigravity sessions use `--profile antigravity`). Under `tri` on OpenCode, `implementer`, `implementer-deep`, and `reviewer-a` have no `opencode` ladder rung and install unpinned (never using Path 2).
 2. **Any T3 Code provider session:** `./install.sh --target all` populates standalone roots and any T3 Antigravity instances (`skills/_harness/`), dispatching across all connected providers via `delegate_task` with child-enforced permissions.
 
 ## Privacy

@@ -15,6 +15,15 @@ Execute a plan by dispatching a fresh subagent per task, with two-stage review a
 
 **Oneshot is the hub:** this skill is Phase 3 of the oneshot pipeline. Never delegate a whole plan or the whole pipeline to one subagent. Executing a plan always happens here; the main session orchestrates, subagents execute.
 
+## Step 0: Routing Bootstrap
+
+<HARD-GATE>
+Before dispatching ANY subagent (`tester`, `implementer`, `implementer-deep`, `patch`, or `task-reviewer`), verify all three bootstrap checks:
+1. **Load `HARNESS.md` and `PROVIDERS.md` into context:** Check whether `# Cybernetic SDLC Harness` (`HARNESS.md`) AND the active provider profile routing table (`PROVIDERS.md`) are BOTH already loaded verbatim in this session. If either is missing, read `../_harness/HARNESS.md` and `../_harness/PROVIDERS.md` (or `../../HARNESS.md` and `../../PROVIDERS.md`) relative to this skill's directory NOW before taking any other action.
+2. **Select the `HARNESS.md` Dispatch Adapter path (including lazy MCP servers):** Inspect both eager tools and any lazy-loaded MCP server schemas in your environment before choosing a subagent tool. Run the one-time session capability check required by `HARNESS.md` `## Dispatch Adapter` Path 1 when cross-provider orchestration tools are present (reading their lazy MCP schema files first when needed), and NEVER fall back to native same-session subagent tools while Path 1 orchestration tools are available.
+3. **Forbid same-model inheritance:** Every dispatch MUST resolve its exact `<provider>/<model> (<effort>)` rung from `PROVIDERS.md` (checking `../../state/quota-ledger.tsv`) and start with the `Role contract:` / `Rung:` header from `HARNESS.md`. Spawning native `inherit`/same-model subagents when `PROVIDERS.md` routes roles across distinct providers or model families is forbidden.
+</HARD-GATE>
+
 ## When to Use
 
 ```dot
