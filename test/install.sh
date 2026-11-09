@@ -1476,14 +1476,30 @@ pass "a non-ledger file in a legacy state/ refuses during preflight and writes n
 AGY_LSTATE="$TMPROOT/agy-lstate-72"
 LSTATE_OC="$TMPROOT/lstate-oc-72"
 mkdir -p "$AGY_LSTATE/plugins/oneshot-harness/state" "$LSTATE_OC/state"
-printf '# harness deadbee\n# profile tri\nplugin.json\n' >"$AGY_LSTATE/plugins/oneshot-harness/.harness-manifest"
+printf '# harness deadbee\n# profile tri\nplugin.json\nstate/quota-ledger.tsv\n' >"$AGY_LSTATE/plugins/oneshot-harness/.harness-manifest"
 printf '{"name":"oneshot-harness"}\n' >"$AGY_LSTATE/plugins/oneshot-harness/plugin.json"
 printf 'agy-pool\tantigravity\t2026-11-09T12:00:00Z\t2026-11-09T17:00:00Z\timplementer\t429\n' >"$AGY_LSTATE/plugins/oneshot-harness/state/quota-ledger.tsv"
 rc=0
 ANTIGRAVITY_CONFIG="$AGY_LSTATE" OPENCODE_CONFIG="$LSTATE_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/lstate-72.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/lstate-72.out" >&2; fail "legacy real state/ ledger migration exits 0 (got $rc)"; }
 grep -q "$(printf '^agy-pool\t')" "$LSTATE_OC/state/quota-ledger.tsv" || fail "legacy real state/ ledger merges into shared state"
+grep -qF 'pruned 1 stale file(s)' "$TMPROOT/lstate-72.out" || { cat "$TMPROOT/lstate-72.out" >&2; fail "legacy state/quota-ledger.tsv is migrated rather than pruned"; }
 [ ! -e "$AGY_LSTATE/plugins" ] || fail "empty legacy plugins/ directory is removed when no sibling plugins exist"
+
+printf 'state\n./state/quota-ledger.tsv\n' >>"$AGY_LSTATE/.harness-manifest"
+rc=0
+ANTIGRAVITY_CONFIG="$AGY_LSTATE" OPENCODE_CONFIG="$LSTATE_OC" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/lstate-root-agy-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/lstate-root-agy-72.out" >&2; fail "root manifest with state entries exits 0 on antigravity (got $rc)"; }
+[ -L "$AGY_LSTATE/state" ] || fail "root manifest prune never unlinks state symlink"
+grep -qF 'pruned 0 stale file(s)' "$TMPROOT/lstate-root-agy-72.out" || { cat "$TMPROOT/lstate-root-agy-72.out" >&2; fail "root manifest skips state and state/* entries on antigravity"; }
+OPENCODE_CONFIG="$LSTATE_OC" "$INSTALL" --force --target opencode >/dev/null
+printf 'state\nstate/quota-ledger.tsv\n' >>"$LSTATE_OC/.harness-manifest"
+rc=0
+OPENCODE_CONFIG="$LSTATE_OC" "$INSTALL" --force --prune --target opencode >"$TMPROOT/lstate-root-oc-72.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/lstate-root-oc-72.out" >&2; fail "root manifest with state entries exits 0 on opencode (got $rc)"; }
+grep -q "$(printf '^agy-pool\t')" "$LSTATE_OC/state/quota-ledger.tsv" || fail "root manifest prune never unlinks state/quota-ledger.tsv"
+grep -qF 'pruned 0 stale file(s)' "$TMPROOT/lstate-root-oc-72.out" || { cat "$TMPROOT/lstate-root-oc-72.out" >&2; fail "root manifest skips state and state/* entries on opencode"; }
+pass "prune_manifest_entries excludes state and state/* on root and legacy manifests"
 
 AGY_LSYM="$TMPROOT/agy-lsym-72"
 mkdir -p "$AGY_LSYM/plugins" "$TMPROOT/outside-plugin-72"

@@ -1302,6 +1302,9 @@ prune_manifest_entries() {
         continue
         ;;
     esac
+    case "$rel" in
+      state|state/*) continue ;;
+    esac
     if [ "$check_owned" -eq 1 ] && owned "$rel"; then
       continue
     fi
@@ -1458,7 +1461,6 @@ if [ "$prune" -eq 1 ]; then
     if [ "$TARGET_HOST" = "antigravity" ] &&
        [ ! -L "$DEST/plugins" ] && [ ! -L "$LEGACY_AGY_DIR" ] &&
        [ ! -L "$LEGACY_AGY_MANIFEST" ] && [ -f "$LEGACY_AGY_MANIFEST" ]; then
-      prune_manifest_entries "$LEGACY_AGY_MANIFEST" "$LEGACY_AGY_DIR" 0
       if [ -L "$LEGACY_AGY_DIR/state" ]; then
         rm -f -- "$LEGACY_AGY_DIR/state"
       elif [ -d "$LEGACY_AGY_DIR/state" ] && [ "$LEGACY_AGY_DIR/state" != "$SHARED_STATE" ]; then
@@ -1487,6 +1489,7 @@ if [ "$prune" -eq 1 ]; then
         release_ledger_lock "$SHARED_STATE/quota-ledger.lock"
         rmdir "$LEGACY_AGY_DIR/state" 2>/dev/null || true
       fi
+      prune_manifest_entries "$LEGACY_AGY_MANIFEST" "$LEGACY_AGY_DIR" 0
       rm -f -- "$LEGACY_AGY_MANIFEST"
       find -P "$LEGACY_AGY_DIR" -depth -type d -exec rmdir {} \; 2>/dev/null || true
       rmdir "$DEST/plugins" 2>/dev/null || true
