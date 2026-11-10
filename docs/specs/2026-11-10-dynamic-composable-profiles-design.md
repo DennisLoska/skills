@@ -1,6 +1,7 @@
 # Dynamic Composable Provider Profiles & Cross-Provider Routing Architecture - Design
 
-Status: proposed (2026-11-10).
+Status: approved (2026-11-10).
+Auto-approved: auto-approve: true "Yes, proceed with dynamic composable profiles via `./install.sh --providers`, cross-provider fallbacks, and the reviewer rules."
 Goal: Make provider profiles dynamic and composable based on user provider selections, eliminate same-provider fallback traps that share quota pools, purge expensive OpenCode Go Pro models, enforce official providers for Claude/ChatGPT/Gemini, and configure Muse Spark 1.3 on reviewer Seat C.
 
 ---
