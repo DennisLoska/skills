@@ -4,24 +4,24 @@ Single-subscription Antigravity profile (`provider: antigravity`, `google` + `an
 
 ## Role distribution
 
-- **Driver:** `gemini-4-argon` (`thinking_level=high`, `google`), falling back to `claude-sonnet-5-5` (`thinking_level=medium`, `anthropic`).
+- **Driver:** `gemini-4-carbon` (`thinking_level=high`, `google`), falling back to `claude-sonnet-5-5` (`thinking_level=medium`, `anthropic`).
 - **Discovery (`scout`):** `gemini-3.8-flash` (`thinking_level=low`) -> `gemini-4-argon` (`low`) -> `claude-sonnet-5-5` (`low`).
 - **Testing & surgical edits (`tester`, `patch`):** `gemini-3.8-flash` (`thinking_level=medium`) -> `gemini-4-argon` (`medium`) -> `claude-sonnet-5-5` (`low`).
-- **Implementation (`implementer`, `implementer-deep`):** `implementer` runs on `gemini-4-argon` (`high`) -> `claude-sonnet-5-5` (`medium`) -> `gemini-3.8-flash` (`high`); `implementer-deep` runs on `claude-opus-5-5` (`high`) -> `gemini-4-argon` (`high`) -> `claude-sonnet-5-5` (`high`).
-- **Per-task & council review (`task-reviewer`, `reviewer-a`, `reviewer-b`, `reviewer-c`, `reviewer-esc`):** `task-reviewer` starts on `claude-sonnet-5-5` (`anthropic`) so tasks authored on `gemini-4-argon` (`google`) get cross-family per-task review when `anthropic` rungs are reachable, with `gemini-3.8-flash` and `gemini-4-argon` (`google`) as fallbacks; `antigravity-claude` is soft-capped at 6 dispatches and reserved for `reviewer-a,reviewer-b`.
+- **Implementation (`implementer`, `implementer-deep`):** `implementer` runs on `gemini-4-carbon` (`high`) -> `claude-sonnet-5-5` (`medium`) -> `gemini-3.8-flash` (`high`); `implementer-deep` runs on `gemini-4-carbon` (`high`) -> `claude-opus-5-5` (`high`) -> `claude-sonnet-5-5` (`high`).
+- **Per-task & council review (`task-reviewer`, `reviewer-a`, `reviewer-b`, `reviewer-c`, `reviewer-esc`):** `task-reviewer` starts on `claude-sonnet-5-5` (`anthropic`) so tasks authored on `gemini-4-carbon` (`google`) get cross-family per-task review when `anthropic` rungs are reachable, with `gemini-3.8-flash` and `gemini-4-carbon` (`google`) as fallbacks; `antigravity-claude` is soft-capped at 6 dispatches and reserved for `reviewer-a,reviewer-b`.
 
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
-| driver | primary | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| driver | primary | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | driver | fallback | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |
 | scout | primary | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |
 | scout | fallback | antigravity | gemini-4-argon | thinking_level=low | google | ok |
 | scout | last-resort | antigravity | claude-sonnet-5-5 | thinking_level=low | anthropic | ok |
-| implementer | primary | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| implementer | primary | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | implementer | fallback | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |
 | implementer | last-resort | antigravity | gemini-3.8-flash | thinking_level=high | google | ok |
-| implementer-deep | primary | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
-| implementer-deep | fallback | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| implementer-deep | primary | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| implementer-deep | fallback | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
 | implementer-deep | last-resort | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic | ok |
 | tester | primary | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |
 | tester | fallback | antigravity | gemini-4-argon | thinking_level=medium | google | ok |
@@ -31,18 +31,18 @@ Single-subscription Antigravity profile (`provider: antigravity`, `google` + `an
 | patch | last-resort | antigravity | claude-sonnet-5-5 | thinking_level=low | anthropic | ok |
 | task-reviewer | primary | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic | ok |
 | task-reviewer | fallback | antigravity | gemini-3.8-flash | thinking_level=high | google | ok |
-| task-reviewer | last-resort | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| task-reviewer | last-resort | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | reviewer-a | primary | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
 | reviewer-a | fallback | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic | ok |
-| reviewer-a | last-resort | antigravity | gemini-4-argon | thinking_level=high | google | ok |
-| reviewer-b | primary | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| reviewer-a | last-resort | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| reviewer-b | primary | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | reviewer-b | fallback | antigravity | gemini-3.8-flash | thinking_level=high | google | ok |
 | reviewer-b | last-resort | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic | ok |
 | reviewer-c | primary | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic | ok |
 | reviewer-c | fallback | antigravity | gemini-3.8-flash | thinking_level=high | google | ok |
 | reviewer-c | last-resort | antigravity | claude-opus-5-5 | thinking_level=medium | anthropic | ok |
 | reviewer-esc | primary | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
-| reviewer-esc | fallback | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| reviewer-esc | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | reviewer-esc | last-resort | antigravity | gemini-3.8-flash | thinking_level=high | google | ok |
 | compaction | primary | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |
 

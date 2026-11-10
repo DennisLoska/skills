@@ -2517,7 +2517,8 @@ for non_oc_combo in antigravity,codex antigravity,claude claude,codex; do
   esac
   if [ "$non_oc_combo" = "antigravity,claude" ]; then
     [ "$(prov_role_rung_pool "$prov_md" implementer fallback)" = "antigravity-claude" ] || fail "--providers antigravity,claude orders antigravity Claude before claudeAgent in implementer"
-    [ "$(prov_role_rung_pool "$prov_md" implementer-deep primary)" = "antigravity-claude" ] || fail "--providers antigravity,claude orders antigravity Claude before claudeAgent in implementer-deep"
+    [ "$(prov_role_rung_pool "$prov_md" implementer-deep primary)" = "antigravity-gemini" ] || fail "--providers antigravity,claude implementer-deep primary is antigravity-gemini"
+    [ "$(prov_role_rung_pool "$prov_md" implementer-deep fallback)" = "antigravity-claude" ] || fail "--providers antigravity,claude orders antigravity Claude before claudeAgent in implementer-deep"
   fi
   case "$non_oc_combo" in
     *claude*)
@@ -2633,6 +2634,12 @@ seat_b_fam="$(awk -F '|' '$2 ~ /reviewer-b/ && $3 ~ /primary/ { fam=$7; gsub(/^ 
 [ "$seat_a_fam" = "google" ] || fail "--providers antigravity,claude seat A primary is google (got $seat_a_fam)"
 [ "$seat_b_fam" = "anthropic" ] || fail "--providers antigravity,claude seat B primary is anthropic (got $seat_b_fam)"
 [ "$seat_a_fam" != "$seat_b_fam" ] || fail "--providers antigravity,claude seat A and seat B have distinct primary families"
+seat_a_mod="$(awk -F '|' '$2 ~ /reviewer-a/ && $3 ~ /primary/ { mod=$5; gsub(/^ +| +$/, "", mod); print mod }' "$dual_md")"
+[ "$seat_a_mod" = "gemini-4-carbon" ] || fail "--providers antigravity,claude seat A primary is gemini-4-carbon (got $seat_a_mod)"
+impl_mod="$(awk -F '|' '$2 ~ /^ *implementer *$/ && $3 ~ /primary/ { mod=$5; gsub(/^ +| +$/, "", mod); print mod }' "$dual_md")"
+[ "$impl_mod" = "gemini-4-carbon" ] || fail "--providers antigravity,claude implementer primary is gemini-4-carbon (got $impl_mod)"
+impldeep_mod="$(awk -F '|' '$2 ~ /implementer-deep/ && $3 ~ /primary/ { mod=$5; gsub(/^ +| +$/, "", mod); print mod }' "$dual_md")"
+[ "$impldeep_mod" = "gemini-4-carbon" ] || fail "--providers antigravity,claude implementer-deep primary is gemini-4-carbon (got $impldeep_mod)"
 if grep -qE '\| reviewer-c \|' "$dual_md"; then
   fail "--providers antigravity,claude seat C should drop out in 2-family composition"
 fi

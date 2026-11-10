@@ -5,9 +5,9 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 - **Driver:** Codex `gpt-6.1-sol` (`medium`), Antigravity `claude-sonnet-5-5` (`medium`) fallback.
 - **Discovery (`scout`):** OpenCode Go `mimo-v2.6-flash`, `deepseek-v4.1-flash` (`low`), Antigravity `gemini-3.8-flash`.
 - **Testing & script running (`tester`):** OpenCode Go `deepseek-v4.1-flash` (`high`), Codex `gpt-6-luna` (`medium`), Antigravity `gemini-3.8-flash`.
-- **Implementation (`implementer`, `implementer-deep`, `patch`):** `implementer` runs on Antigravity `gemini-4-argon` (`high`), falling back to `claude-sonnet-5-5` (`medium`) and Codex `gpt-6.1-sol` (`medium`); `implementer-deep` runs on Antigravity `claude-opus-5-5` (`high`), falling back to Codex `gpt-6-astra` (`high`) and OpenCode Go `deepseek-v4.1-flash` (`max`); `patch` shares the `tester` ladder for 1-2 file edits.
+- **Implementation (`implementer`, `implementer-deep`, `patch`):** `implementer` runs on Antigravity `gemini-4-carbon` (`high`), falling back to `claude-sonnet-5-5` (`medium`) and Codex `gpt-6.1-sol` (`medium`); `implementer-deep` runs on Antigravity `gemini-4-carbon` (`high`), falling back to Codex `gpt-6-astra` (`high`) and OpenCode Go `deepseek-v4.1-flash` (`max`); `patch` shares the `tester` ladder for 1-2 file edits.
 - **Per-task review (`task-reviewer`):** Codex `gpt-6.1-terra` (`high`), OpenCode Go `glm-5.3-flash` (`high`), Antigravity `gemini-3.8-flash` (`high`), skipping author families.
-- **Council (`reviewer-a`, `reviewer-b`, `reviewer-c`):** OpenAI frontier on Seat A (`gpt-6-astra` via Codex, fallback `mimo-v2.6-flash`), Anthropic frontier on Seat B (`claude-opus-5-5` via Antigravity, fallback `glm-5.3-flash`), and Meta frontier on Seat C (`opencode-go/muse-spark-1.3-contributor`, fallback `deepseek-v4.1-flash`). Three non-author families whenever Argon authors code.
+- **Council (`reviewer-a`, `reviewer-b`, `reviewer-c`):** OpenAI frontier on Seat A (`gpt-6-astra` via Codex, fallback `mimo-v2.6-flash`), Anthropic frontier on Seat B (`claude-opus-5-5` via Antigravity, fallback `glm-5.3-flash`), and Meta frontier on Seat C (`opencode-go/muse-spark-1.3-contributor`, fallback `deepseek-v4.1-flash`). Three non-author families whenever Carbon authors code.
 - **Escalation (`reviewer-esc`):** OpenCode Go flash models: `mimo-v2.6-flash` (`xiaomi`), falling back to `glm-5.3-flash` (`zhipu`) and `deepseek-v4.1-flash` (`deepseek`).
 
 ## Budget facts and provider load split
@@ -32,10 +32,10 @@ Expensive low-allowance Pro models are excluded from `tri`.
 
 Provider load split and council budget notes:
 
-- **Antigravity:** carries `implementer` (`gemini-4-argon`), fallback `claude-sonnet-5-5`, `implementer-deep` (`claude-opus-5-5`), and `reviewer-b` (`claude-opus-5-5`). `antigravity-claude` is soft-capped at 6 dispatches and reserved for `reviewer-b`. For Claude Code subscriptions, use [`providers/quad.md`](./quad.md).
+- **Antigravity:** carries `implementer` (`gemini-4-carbon`), fallback `claude-sonnet-5-5`, `implementer-deep` (`gemini-4-carbon`), and `reviewer-b` (`claude-opus-5-5`). `antigravity-claude` is soft-capped at 6 dispatches and reserved for `reviewer-b`. For Claude Code subscriptions, use [`providers/quad.md`](./quad.md).
 - **Codex:** carries `driver` (`gpt-6.1-sol`), `task-reviewer` (`gpt-6.1-terra`), council Seat A (`gpt-6-astra`), `implementer` last-resort, `implementer-deep` fallback, and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
 - **OpenCode Go Plus:** carries `scout`, `tester`, `patch`, `compaction` primary (`mimo-v2.6-flash`), `implementer-deep` last-resort, Seat C `reviewer-c`, cross-provider fallbacks for `reviewer-a`, `reviewer-b`, `task-reviewer`, and `reviewer-esc`.
-- **Council budget:** at most 3 rounds × 3 seats + 1 escalation per PR. Seat A (`gpt-6-astra`), Seat B (`claude-opus-5-5`), and Seat C (`muse-spark-1.3-contributor`) give three non-author families when Argon authors code; `reviewer-esc` starts on `mimo-v2.6-flash`.
+- **Council budget:** at most 3 rounds × 3 seats + 1 escalation per PR. Seat A (`gpt-6-astra`), Seat B (`claude-opus-5-5`), and Seat C (`muse-spark-1.3-contributor`) give three non-author families when Carbon authors code; `reviewer-esc` starts on `mimo-v2.6-flash`.
 
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -44,10 +44,10 @@ Provider load split and council budget notes:
 | scout | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
 | scout | fallback | opencode | opencode-go/deepseek-v4.1-flash | variant=low | deepseek | ok |
 | scout | last-resort | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |
-| implementer | primary | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| implementer | primary | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | implementer | fallback | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |
 | implementer | last-resort | codex | gpt-6.1-sol | reasoningEffort=medium | openai | ok |
-| implementer-deep | primary | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
+| implementer-deep | primary | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | implementer-deep | fallback | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
 | implementer-deep | last-resort | opencode | opencode-go/deepseek-v4.1-flash | variant=max | deepseek | ok |
 | tester | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
