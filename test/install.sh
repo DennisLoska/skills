@@ -2654,11 +2654,19 @@ oc_seat_c="$(awk -F '|' '$2 ~ /reviewer-c/ && $3 ~ /primary/ { fam=$7; gsub(/^ +
 [ "$oc_seat_a" != "$oc_seat_b" ] || fail "claude,opencode seat A and seat B share primary family"
 [ "$oc_seat_a" != "$oc_seat_c" ] || fail "claude,opencode seat A and seat C share primary family"
 [ "$oc_seat_b" != "$oc_seat_c" ] || fail "claude,opencode seat B and seat C share primary family"
-oc_seat_esc="$(awk -F '|' '$2 ~ /reviewer-esc/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$oc_md")"
-[ -n "$oc_seat_esc" ] || fail "claude,opencode reviewer-esc primary exists"
-[ "$oc_seat_esc" != "$oc_seat_a" ] || fail "claude,opencode reviewer-esc shares primary family with seat A"
-[ "$oc_seat_esc" != "$oc_seat_b" ] || fail "claude,opencode reviewer-esc shares primary family with seat B"
-[ "$oc_seat_esc" != "$oc_seat_c" ] || fail "claude,opencode reviewer-esc shares primary family with seat C"
+for test_esc_provs in "claude,opencode" "antigravity,opencode" "antigravity,claude,opencode" "antigravity,claude,codex,opencode"; do
+  esc_test_home="$TMPROOT/prov-esc-$(echo "$test_esc_provs" | tr ',' '-')"
+  HOME="$esc_test_home" "$INSTALL" --providers "$test_esc_provs" >/dev/null 2>&1
+  esc_md="$esc_test_home/.config/opencode/PROVIDERS.md"
+  esc_seat_a="$(awk -F '|' '$2 ~ /reviewer-a/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$esc_md")"
+  esc_seat_b="$(awk -F '|' '$2 ~ /reviewer-b/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$esc_md")"
+  esc_seat_c="$(awk -F '|' '$2 ~ /reviewer-c/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$esc_md")"
+  esc_seat_esc="$(awk -F '|' '$2 ~ /reviewer-esc/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$esc_md")"
+  [ -n "$esc_seat_esc" ] || fail "--providers $test_esc_provs reviewer-esc primary exists"
+  [ -z "$esc_seat_a" ] || [ "$esc_seat_esc" != "$esc_seat_a" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat A ($esc_seat_a)"
+  [ -z "$esc_seat_b" ] || [ "$esc_seat_esc" != "$esc_seat_b" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat B ($esc_seat_b)"
+  [ -z "$esc_seat_c" ] || [ "$esc_seat_esc" != "$esc_seat_c" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat C ($esc_seat_c)"
+done
 
 awk -F '|' '
   /^[|] (driver|scout|implementer|implementer-deep|tester|patch|task-reviewer|reviewer-a|reviewer-b|reviewer-esc|compaction) [|]/ {

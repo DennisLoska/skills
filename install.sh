@@ -1433,6 +1433,9 @@ generate_dynamic_profile() {
         role_pools[c_pool[pick]] = 1
         rung_name = rnames[r]
         printf "| %s | %s | %s | %s | %s | %s | %s |\n", role, rung_name, c_prov[pick], c_model[pick], c_effort[pick], c_fam[pick], c_priv[pick]
+        if (role == "reviewer-a" && r == 1) seat_a_fam = c_fam[pick]
+        if (role == "reviewer-b" && r == 1) seat_b_fam = c_fam[pick]
+        if (role == "reviewer-c" && r == 1) seat_c_fam = c_fam[pick]
       }
       c_n = 0
     }
@@ -1450,8 +1453,8 @@ generate_dynamic_profile() {
       if (has_oc) tot_fams += 4
 
       if (has_cdx) seat_a_fam = "openai"
-      else if (has_agy) seat_a_fam = "google"
       else if (has_oc) seat_a_fam = "xiaomi"
+      else if (has_agy) seat_a_fam = "google"
       else seat_a_fam = "anthropic"
 
       if ((has_agy || has_cld) && seat_a_fam != "anthropic") seat_b_fam = "anthropic"
@@ -1620,6 +1623,7 @@ generate_dynamic_profile() {
       }
 
       # reviewer-esc (3 rungs)
+      has_unused_esc_fam = (tot_fams > ((seat_c_fam != "none") ? 3 : 2))
       add_reviewer_cand("reviewer-esc", "opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
       add_reviewer_cand("reviewer-esc", "opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
       add_reviewer_cand("reviewer-esc", "opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
