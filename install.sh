@@ -313,6 +313,26 @@ validate_t3_userdata_dir() {
   fi
 }
 
+agy_has_artifacts() {
+  local dir="$1"
+  if [ -z "$dir" ] || [ ! -d "$dir" ]; then
+    return 1
+  fi
+  if [ -f "$dir/.harness-manifest" ]; then
+    return 0
+  fi
+  if [ -f "$dir/HARNESS.md" ]; then
+    return 0
+  fi
+  if [ -f "$dir/skills/oneshot/SKILL.md" ]; then
+    return 0
+  fi
+  if [ -f "$dir/plugins/oneshot-harness/.harness-manifest" ]; then
+    return 0
+  fi
+  return 1
+}
+
 agy_seen_canons=()
 agy_canon_seen() {
   local want="$1" c
@@ -335,12 +355,25 @@ for tok in "${selected_targets[@]}"; do
     continue
   fi
 
-  job_targets+=("antigravity")
-  job_override_agy+=(0)
-  job_agy_configs+=("")
+  agy_jobs_before="${#job_targets[@]}"
+  agy_primary_raw="${ANTIGRAVITY_CONFIG-${HOME:-}/.gemini/config}"
+  agy_probe_dir="$agy_primary_raw"
+  while [ "${agy_probe_dir%/}" != "$agy_probe_dir" ]; do
+    agy_probe_dir="${agy_probe_dir%/}"
+  done
+
+  # Install mode always claims the standalone root. Verify only claims it when
+  # harness artifacts already live there, so a machine with nothing but T3 Code
+  # instances does not fail on an empty standalone destination.
+  agy_standalone_added=0
+  if [ "$verify_mode" -eq 0 ] || agy_has_artifacts "$agy_probe_dir"; then
+    job_targets+=("antigravity")
+    job_override_agy+=(0)
+    job_agy_configs+=("")
+    agy_standalone_added=1
+  fi
 
   agy_seen_canons=()
-  agy_primary_raw="${ANTIGRAVITY_CONFIG-${HOME:-}/.gemini/config}"
   agy_primary_compact="${agy_primary_raw//[[:space:]]/}"
   agy_primary_compact="${agy_primary_compact//\//}"
   if [ -n "$agy_primary_compact" ]; then
@@ -418,6 +451,14 @@ for tok in "${selected_targets[@]}"; do
         fi
       fi
     fi
+  fi
+
+  # No root at all was claimed: fall back to the standalone destination so the
+  # job list is never empty (verify then reports the missing install itself).
+  if [ "$agy_standalone_added" -eq 0 ] && [ "${#job_targets[@]}" -eq "$agy_jobs_before" ]; then
+    job_targets+=("antigravity")
+    job_override_agy+=(0)
+    job_agy_configs+=("")
   fi
 done
 
@@ -887,7 +928,7 @@ verify_opencode_json() {
       }
       return 0
     }
-    function parse_value(in_inst,    c, s) {
+    function parse_value(in_inst,    c, s, rest) {
       skip_ws()
       if (pos > len) { bad = 1; return }
       c = substr(data, pos, 1)
@@ -913,8 +954,12 @@ verify_opencode_json() {
         if (in_inst) bad = 1
         pos += 4
       } else if (c ~ /[-0-9]/) {
-        if (in_inst) bad = 1
-        while (pos <= len && substr(data, pos, 1) ~ /[-+0-9.eE]/) pos++
+        rest = substr(data, pos)
+        if (in_inst || !match(rest, /^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?/)) {
+          bad = 1
+          return
+        }
+        pos += RLENGTH
       } else {
         bad = 1
       }
@@ -1098,8 +1143,8 @@ verify_target() {
         if [ ! -f "$DEST/$ag_rule" ]; then
           printf '  [FAIL] required instruction rule missing: %s\n' "$ag_rule"
           v_errors=$((v_errors + 1))
-        elif [ "$(wc -c <"$DEST/$ag_rule")" -ge 24576 ]; then
-          printf '  [FAIL] instruction rule exceeds 24576 bytes: %s\n' "$ag_rule"
+        elif [ "$(wc -c <"$DEST/$ag_rule")" -ge 24000 ]; then
+          printf '  [FAIL] instruction rule exceeds 24000 bytes: %s\n' "$ag_rule"
           v_errors=$((v_errors + 1))
         elif ! verify_agy_rule "$DEST/$ag_rule"; then
           printf '  [FAIL] instruction rule missing trigger: always_on frontmatter: %s\n' "$ag_rule"
