@@ -957,14 +957,19 @@ rc=0
 OPENCODE_CONFIG="$QUAD_DEST" "$INSTALL" --profile quad >"$TMPROOT/quad.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/quad.out" >&2; fail "quad install exits 0 (claudeAgent provider id accepted)"; }
 cmp -s "$ROOT/providers/quad.md" "$QUAD_DEST/PROVIDERS.md" || fail "quad PROVIDERS.md is a byte copy of providers/quad.md"
-grep -qxF 'model: opencode-go/deepseek-v4-pro' "$QUAD_DEST/agents/reviewer-c.md" || fail "quad reviewer-c pin"
-grep -qxF 'model: opencode-go/mimo-v2.6-pro' "$QUAD_DEST/agents/reviewer-esc.md" || fail "quad reviewer-esc pin"
+grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$QUAD_DEST/agents/reviewer-c.md" || fail "quad reviewer-c pin"
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$QUAD_DEST/agents/reviewer-esc.md" || fail "quad reviewer-esc pin"
 for seat in implementer implementer-deep reviewer-a reviewer-b; do
   if grep -q '^model:' "$QUAD_DEST/agents/$seat.md"; then
     fail "quad $seat has no native pin"
   fi
   grep -qxF "note: $seat has no opencode rung; dispatch it through delegate_task only" "$TMPROOT/quad.out" || fail "quad reports the $seat delegate-only seat"
 done
+if grep -nE 'opencode-go/(kimi|qwen3.8-max)' "$ROOT/providers/quad.md" >"$TMPROOT/quad-expensive.out" 2>&1; then
+  cat "$TMPROOT/quad-expensive.out" >&2
+  fail "quad profile contains no expensive kimi or qwen3.8-max models"
+fi
+grep -qF '| task-reviewer | fallback | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |' "$QUAD_DEST/PROVIDERS.md" || fail "quad task-reviewer fallback is claudeAgent sonnet"
 pass "quad installs cleanly and leaves its delegate-only seats unpinned"
 
 # 53. provider ids accept camelCase but reject underscores and a leading hyphen

@@ -462,14 +462,18 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 
 ### Four-subscription profile `quad`
 
-[`providers/quad.md`](./providers/quad.md) (`./install.sh --profile quad`) is `tri` plus **Claude Code** (`claudeAgent`), moving Anthropic roles onto `claudeAgent` (`effort=high|medium`) with Antigravity's Claude as fallback:
+[`providers/quad.md`](./providers/quad.md) (`./install.sh --profile quad`) is `tri` plus **Claude Code** (`claudeAgent`), moving Anthropic roles onto `claudeAgent` (`effort=high|medium|low`) with Antigravity's Claude as fallback:
 
 | role | primary | fallback | last-resort |
 | --- | --- | --- | --- |
 | driver (advisory) | codex `gpt-6.1-sol` medium | claudeAgent `claude-sonnet-5-5` medium | - |
 | implementer | antigravity `gemini-4-argon` high | claudeAgent `claude-sonnet-5-5` medium | codex `gpt-6.1-sol` medium |
 | implementer-deep | claudeAgent `claude-opus-5-5` high | codex `gpt-6-astra` high | antigravity `claude-opus-5-5` high |
+| task-reviewer | codex `gpt-6.1-terra` high | claudeAgent `claude-sonnet-5-5` high | antigravity `gemini-3.8-flash` high |
 | reviewer-b (Anthropic) | claudeAgent `claude-opus-5-5` high | antigravity `claude-opus-5-5` high | claudeAgent `claude-sonnet-5-5` high |
+| reviewer-c (Meta / Open-weight) | opencode `muse-spark-1.3-contributor` xhigh | opencode `mimo-v2.6-flash` - | opencode `glm-5.3-flash` high |
+| reviewer-esc | opencode `mimo-v2.6-flash` - | opencode `glm-5.3-flash` high | opencode `deepseek-v4.1-flash` high |
+| compaction (advisory) | claudeAgent `claude-haiku-5-5` low | codex `gpt-6-luna` low | - |
 
 ### Standalone single-provider profiles (`opencode-go`, `codex`, `antigravity`, `claude`)
 
