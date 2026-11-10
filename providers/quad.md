@@ -1,6 +1,6 @@
 # Quad provider profile
 
-Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code** (Anthropic subscription, T3 Code provider instance id `claudeAgent`). Pick `quad` (`./install.sh --profile quad`) when you have a Claude subscription alongside Antigravity, Codex, and OpenCode Go: Antigravity's Claude limits are low, so `quad` moves high-volume Anthropic roles (`driver` fallback, `implementer` fallback, `implementer-deep` primary, `task-reviewer` fallback, `compaction` primary, and `reviewer-b` fallback/last-resort) onto `claudeAgent` while keeping Antigravity's Claude (`claude-opus-5-5`) as `reviewer-b` primary and `implementer-deep` last-resort. OpenCode Go roles use only high-allowance flash and spark models (`muse-spark-1.3-contributor` ~90k req/5h, `deepseek-v4.1-flash` ~86k req/5h, `mimo-v2.6-flash` ~60k req/5h, `glm-5.3-flash` ~19k req/5h).
+Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code** (Anthropic subscription, T3 Code provider instance id `claudeAgent`). Pick `quad` (`./install.sh --profile quad`) when you have a Claude subscription alongside Antigravity, Codex, and OpenCode Go: Antigravity's Claude limits are low, so `quad` moves high-volume Anthropic roles (`driver` fallback, `implementer` fallback, `implementer-deep` primary, `task-reviewer` fallback, `compaction` primary, and `reviewer-b` fallback) onto `claudeAgent` while keeping Antigravity's Claude (`claude-opus-5-5`) as `reviewer-b` primary and `implementer-deep` last-resort. OpenCode Go roles use only high-allowance flash and spark models (`muse-spark-1.3-contributor` ~90k req/5h, `deepseek-v4.1-flash` ~86k req/5h, `mimo-v2.6-flash` ~60k req/5h, `glm-5.3-flash` ~19k req/5h).
 
 ## Connecting Claude Code in T3 Code
 
@@ -17,7 +17,7 @@ Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code
 - **Testing & script running (`tester`):** OpenCode Go `deepseek-v4.1-flash` (`high`), falling back to Codex `gpt-6-luna` (`medium`) and Antigravity `gemini-3.8-flash` (`medium`).
 - **Implementation (`implementer`, `implementer-deep`, `patch`):** `implementer` runs on Antigravity `gemini-4-argon` (`high`), falling back to `claudeAgent` `claude-sonnet-5-5` (`effort=medium`) and Codex `gpt-6.1-sol` (`medium`); `implementer-deep` runs on `claudeAgent` `claude-opus-5-5` (`effort=high`), falling back to Codex `gpt-6-astra` (`reasoningEffort=high`) and Antigravity `claude-opus-5-5` (`thinking_level=high`); `patch` shares the `tester` ladder.
 - **Per-task review (`task-reviewer`):** Codex `gpt-6.1-terra` (`high`), falling back to `claudeAgent` `claude-sonnet-5-5` (`effort=high`) and Antigravity `gemini-3.8-flash` (`high`), skipping any rung whose family authored the task.
-- **Council (`reviewer-a`, `reviewer-b`, `reviewer-c`):** OpenAI frontier on Seat A (`gpt-6-astra` via Codex at `high`, falling back cross-provider to `claudeAgent` `claude-sonnet-5-5` and Codex `gpt-6.1-sol`), Anthropic frontier on Seat B (`claude-opus-5-5` via Antigravity, falling back cross-provider to `claudeAgent` `claude-opus-5-5` and `claudeAgent` `claude-sonnet-5-5`), and Meta on Seat C (`opencode-go/muse-spark-1.3-contributor` at ~90,600 req/5h, falling back to `opencode-go/deepseek-v4.1-flash` and `opencode-go/glm-5.3-flash`).
+- **Council (`reviewer-a`, `reviewer-b`, `reviewer-c`):** OpenAI frontier on Seat A (`gpt-6-astra` via Codex at `high`, falling back cross-provider to OpenCode Go `opencode-go/mimo-v2.6-flash` and `opencode-go/glm-5.3-flash`), Anthropic frontier on Seat B (`claude-opus-5-5` via Antigravity, falling back cross-provider to `claudeAgent` `claude-opus-5-5` and OpenCode Go `opencode-go/glm-5.3-flash`), and Meta on Seat C (`opencode-go/muse-spark-1.3-contributor` at ~90,600 req/5h, falling back to `opencode-go/deepseek-v4.1-flash` and `opencode-go/glm-5.3-flash`).
 - **Escalation (`reviewer-esc`):** high-volume OpenCode flash rungs (`opencode-go/mimo-v2.6-flash` ~60,200 req/5h -> `opencode-go/glm-5.3-flash` ~19,000 req/5h -> `opencode-go/deepseek-v4.1-flash` ~86,670 req/5h), advancing past any family held by a council seat.
 
 ## Budget facts and provider load split
@@ -25,10 +25,10 @@ Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code
 No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model is routed through OpenCode Go in `quad`: all Google models come from Antigravity, all Claude models come from Antigravity or `claudeAgent`, and all `gpt-*` models come from Codex.
 
 - **Antigravity Separate Quota Pools:** Antigravity isolates `gemini-*` (`antigravity-gemini`) from `claude-*` (`antigravity-claude`, soft-capped at 6 dispatches per run and reserved for `reviewer-b`).
-- **Claude Code (`claudeAgent`):** carries `implementer-deep` primary (`claude-opus-5-5`), `implementer` fallback (`claude-sonnet-5-5`), `task-reviewer` fallback (`claude-sonnet-5-5`), `reviewer-a` fallback (`claude-sonnet-5-5`), `reviewer-b` fallback (`claude-opus-5-5`) and last-resort (`claude-sonnet-5-5`), `driver` fallback (`claude-sonnet-5-5`), and `compaction` primary (`claude-haiku-5-5`).
+- **Claude Code (`claudeAgent`):** carries `implementer-deep` primary (`claude-opus-5-5`), `implementer` fallback (`claude-sonnet-5-5`), `task-reviewer` fallback (`claude-sonnet-5-5`), `reviewer-b` fallback (`claude-opus-5-5`), `driver` fallback (`claude-sonnet-5-5`), and `compaction` primary (`claude-haiku-5-5`).
 - **Antigravity:** focuses on Google models (`implementer` primary `gemini-4-argon` at `high` and `gemini-3.8-flash` last-resorts), plus `claude-opus-5-5` for `reviewer-b` primary and `implementer-deep` last-resort.
-- **Codex:** carries `driver` (`gpt-6.1-sol`), `task-reviewer` (`gpt-6.1-terra`), council Seat A `reviewer-a` primary (`gpt-6-astra`) and last-resort (`gpt-6.1-sol`), `implementer` last-resort (`gpt-6.1-sol`), `implementer-deep` fallback (`gpt-6-astra`), and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
-- **OpenCode Go:** carries high-allowance roles (`scout`, `tester`, `patch`), council Seat C `reviewer-c` (`muse-spark-1.3-contributor` -> `deepseek-v4.1-flash` -> `glm-5.3-flash`), and `reviewer-esc` (`mimo-v2.6-flash` -> `glm-5.3-flash` -> `deepseek-v4.1-flash`).
+- **Codex:** carries `driver` (`gpt-6.1-sol`), `task-reviewer` (`gpt-6.1-terra`), council Seat A `reviewer-a` primary (`gpt-6-astra`), `implementer` last-resort (`gpt-6.1-sol`), `implementer-deep` fallback (`gpt-6-astra`), and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
+- **OpenCode Go:** carries high-allowance roles (`scout`, `tester`, `patch`), council Seat C `reviewer-c` (`muse-spark-1.3-contributor` -> `deepseek-v4.1-flash` -> `glm-5.3-flash`), cross-provider fallbacks/last-resorts for `reviewer-a` (`mimo-v2.6-flash` -> `glm-5.3-flash`) and `reviewer-b` (`glm-5.3-flash`), and `reviewer-esc` (`mimo-v2.6-flash` -> `glm-5.3-flash` -> `deepseek-v4.1-flash`).
 - **Council budget:** Seat C (`muse-spark-1.3-contributor` ~90,600 req/5h -> `deepseek-v4.1-flash` ~86,670 req/5h) and `reviewer-esc` (`mimo-v2.6-flash` ~60,200 req/5h) have vast OpenCode Go allowances.
 
 | role | rung | provider | model | effort | family | privacy |
@@ -54,11 +54,11 @@ No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model is rou
 | task-reviewer | fallback | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
 | task-reviewer | last-resort | antigravity | gemini-3.8-flash | thinking_level=high | google | ok |
 | reviewer-a | primary | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
-| reviewer-a | fallback | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
-| reviewer-a | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| reviewer-a | fallback | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
+| reviewer-a | last-resort | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
 | reviewer-b | primary | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
 | reviewer-b | fallback | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |
-| reviewer-b | last-resort | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
+| reviewer-b | last-resort | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
 | reviewer-c | primary | opencode | opencode-go/muse-spark-1.3-contributor | variant=xhigh | meta | trains |
 | reviewer-c | fallback | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | reviewer-c | last-resort | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
@@ -92,7 +92,7 @@ No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model is rou
 
 The `driver` row stays advisory; the installer validates it when present, never requires it, and never renders it. Two setups are supported:
 
-1. **Standalone host (without T3 Code):** OpenCode, Codex, Antigravity (Gemini session; Claude sessions use `--profile antigravity`), or Claude Code runs same-provider rungs natively via Dispatch Adapter Path 2/Path 3 (falling back to the matching `*` row in `## Backup ladder` when primary rungs sit on other providers; single-provider users can also bind `--profile opencode-go|codex|antigravity|claude`). Under `quad` on OpenCode, `implementer`, `implementer-deep`, `reviewer-a`, and `reviewer-b` have no `opencode` ladder rung and install unpinned (never using Path 2).
+1. **Standalone host (without T3 Code):** OpenCode, Codex, Antigravity (Gemini session; Claude sessions use `--profile antigravity`), or Claude Code runs same-provider rungs natively via Dispatch Adapter Path 2/Path 3 (falling back to the matching `*` row in `## Backup ladder` when primary rungs sit on other providers; single-provider users can also bind `--profile opencode-go|codex|antigravity|claude`). Under `quad` on OpenCode, `implementer` and `implementer-deep` have no `opencode` ladder rung and install unpinned (never using Path 2).
 2. **Any T3 Code provider session:** `./install.sh --target all` populates standalone roots and any T3 Antigravity instances (`skills/_harness/`), dispatching across all connected providers via `delegate_task` with child-enforced permissions.
 
 ## Privacy
