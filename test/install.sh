@@ -2104,6 +2104,80 @@ done
 "$INSTALL" --help >"$TMPROOT/verify-help.out" 2>&1
 grep -qF -- '--verify' "$TMPROOT/verify-help.out" || fail "--help documents --verify"
 grep -qF -- '--doctor' "$TMPROOT/verify-help.out" || fail "--help documents --doctor"
+
+# 76b. Tightened --verify checks: opencode.json JSON/instructions array validation,
+# AGENTS.md / CLAUDE.md harness & provider content validation, Antigravity always_on
+# frontmatter validation, shared state canonical path validation, manifest-deleted
+# target discovery, and existing T3_USERDATA_DIR check for T3 tip.
+printf 'not valid json HARNESS.md PROVIDERS.md\n' >"$VERIFY_DEST/opencode.json"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --force >"$TMPROOT/verify-reinstall.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "--force reinstall on verify-home exits 0"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-bad-json.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || fail "--verify exits 0 with WARN on invalid opencode.json (got $rc)"
+if grep -qF '[OK] opencode.json' "$TMPROOT/verify-bad-json.out"; then
+  cat "$TMPROOT/verify-bad-json.out" >&2
+  fail "--verify does not report [OK] when opencode.json is invalid JSON"
+fi
+grep -qF '[WARN] opencode.json' "$TMPROOT/verify-bad-json.out" || fail "--verify warns when opencode.json is invalid JSON"
+
+printf '{"other": ["%s/HARNESS.md", "%s/PROVIDERS.md"], "instructions": []}\n' "$VERIFY_DEST" "$VERIFY_DEST" >"$VERIFY_DEST/opencode.json"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-outside-inst.out" 2>&1 || rc=$?
+if grep -qF '[OK] opencode.json' "$TMPROOT/verify-outside-inst.out"; then
+  cat "$TMPROOT/verify-outside-inst.out" >&2
+  fail "--verify does not report [OK] when HARNESS.md/PROVIDERS.md appear outside instructions array"
+fi
+grep -qF '[WARN] opencode.json' "$TMPROOT/verify-outside-inst.out" || fail "--verify warns when instructions array is empty"
+
+# Codex / Claude empty or unrelated instruction files fail --verify
+printf 'unrelated instructions\n' >"$VERIFY_ALL_HOME/.codex/AGENTS.md"
+rc=0
+HOME="$VERIFY_ALL_HOME" "$INSTALL" --verify --target codex >"$TMPROOT/verify-bad-codex.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/verify-bad-codex.out" >&2; fail "--verify fails when codex AGENTS.md has unrelated content (got $rc)"; }
+HOME="$VERIFY_ALL_HOME" "$INSTALL" --force --target codex >"$TMPROOT/verify-fix-codex.out" 2>&1
+
+: >"$VERIFY_ALL_HOME/.claude/CLAUDE.md"
+rc=0
+HOME="$VERIFY_ALL_HOME" "$INSTALL" --verify --target claude >"$TMPROOT/verify-bad-claude.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/verify-bad-claude.out" >&2; fail "--verify fails when claude CLAUDE.md is empty (got $rc)"; }
+HOME="$VERIFY_ALL_HOME" "$INSTALL" --force --target claude >"$TMPROOT/verify-fix-claude.out" 2>&1
+
+# Antigravity rules without trigger: always_on fail --verify
+printf '# rule without frontmatter\n' >"$VERIFY_ALL_HOME/.gemini/config/rules/HARNESS.md"
+rc=0
+HOME="$VERIFY_ALL_HOME" "$INSTALL" --verify --target antigravity >"$TMPROOT/verify-bad-agy.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/verify-bad-agy.out" >&2; fail "--verify fails when antigravity rule lacks trigger: always_on (got $rc)"; }
+HOME="$VERIFY_ALL_HOME" "$INSTALL" --force --target antigravity >"$TMPROOT/verify-fix-agy.out" 2>&1
+
+# Non-OpenCode target with independent state directory fails --verify
+rm -f "$VERIFY_ALL_HOME/.codex/state"
+mkdir -p "$VERIFY_ALL_HOME/.codex/state"
+rc=0
+HOME="$VERIFY_ALL_HOME" "$INSTALL" --verify --target codex >"$TMPROOT/verify-indep-state.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/verify-indep-state.out" >&2; fail "--verify fails when codex has an independent state directory instead of shared state (got $rc)"; }
+HOME="$VERIFY_ALL_HOME" "$INSTALL" --force --target codex >"$TMPROOT/verify-fix-codex-state.out" 2>&1
+
+# Automatic discovery includes installed target whose manifest was deleted and fails on missing manifest
+rm -f "$VERIFY_ALL_HOME/.claude/.harness-manifest"
+rc=0
+HOME="$VERIFY_ALL_HOME" "$INSTALL" --verify >"$TMPROOT/verify-del-manifest.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/verify-del-manifest.out" >&2; fail "--verify auto-discovers target with deleted manifest and exits 1 (got $rc)"; }
+grep -qF "verifying claude" "$TMPROOT/verify-del-manifest.out" || fail "--verify auto-discovers claude even when .harness-manifest was deleted"
+grep -qF "manifest missing" "$TMPROOT/verify-del-manifest.out" || fail "--verify reports missing manifest for discovered claude target"
+HOME="$VERIFY_ALL_HOME" "$INSTALL" --force --target claude >"$TMPROOT/verify-restore-claude.out" 2>&1
+
+# T3_USERDATA_DIR pointing to non-existent directory does not print T3 Code detected tip
+NO_T3_HOME="$TMPROOT/no-t3-dir-home"
+rc=0
+HOME="$NO_T3_HOME" T3_USERDATA_DIR="$TMPROOT/nonexistent-t3-userdata" "$INSTALL" >"$TMPROOT/no-t3-tip.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/no-t3-tip.out" >&2; fail "install with non-existent T3_USERDATA_DIR exits 0 (got $rc)"; }
+if grep -qF "tip: T3 Code detected" "$TMPROOT/no-t3-tip.out"; then
+  cat "$TMPROOT/no-t3-tip.out" >&2
+  fail "non-existent T3_USERDATA_DIR does not trigger T3 Code detected tip"
+fi
+
 pass "--verify gates installed and uninstalled targets and --doctor accepts a valid install"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

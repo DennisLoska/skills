@@ -160,14 +160,14 @@ if [ "$verify_mode" -eq 1 ] && [ "$target_given" -eq 0 ]; then
       antigravity) cand_dir="${ANTIGRAVITY_CONFIG-${HOME:-}/.gemini/config}" ;;
       claude)      cand_dir="${CLAUDE_CONFIG_DIR-${HOME:-}/.claude}" ;;
     esac
-    if [ -n "$cand_dir" ] && [ -f "$cand_dir/.harness-manifest" ]; then
+    if [ -n "$cand_dir" ] && { [ -f "$cand_dir/.harness-manifest" ] || [ -f "$cand_dir/HARNESS.md" ] || [ -d "$cand_dir/skills" ]; }; then
       cand_has=1
     elif [ "$cand" = "antigravity" ]; then
       cand_t3="${T3_USERDATA_DIR:-${HOME:-}/.t3/userdata}"
       if [ -n "$cand_t3" ] && [ -d "$cand_t3/providers/antigravity" ]; then
         for cand_inst in "$cand_t3/providers/antigravity"/[!.]*; do
           [ -d "$cand_inst" ] || continue
-          if [ -f "$cand_inst/config/.harness-manifest" ]; then
+          if [ -f "$cand_inst/config/.harness-manifest" ] || [ -f "$cand_inst/config/HARNESS.md" ] || [ -d "$cand_inst/config/skills" ]; then
             cand_has=1
             break
           fi
@@ -675,7 +675,7 @@ if [ "${#job_targets[@]}" -gt 1 ]; then
   done
   rm -f -- "$sr_token_file"
   sr_token_file=""
-  if [ "$target_given" -eq 0 ] && { [ -n "${T3_USERDATA_DIR:-}" ] || [ -d "${HOME:-}/.t3/userdata" ]; }; then
+  if [ "$target_given" -eq 0 ] && { { [ -n "${T3_USERDATA_DIR:-}" ] && [ -d "$T3_USERDATA_DIR" ]; } || [ -d "${HOME:-}/.t3/userdata" ]; }; then
     printf "tip: T3 Code detected; pass '--target all' to install across all T3-connected providers (Antigravity, Codex, OpenCode, Claude).\n"
   fi
   exit 0
@@ -828,6 +828,188 @@ if [ -L "$MANIFEST" ] || { [ -e "$MANIFEST" ] && [ ! -f "$MANIFEST" ]; }; then
   exit 1
 fi
 
+verify_opencode_json() {
+  JSON_FILE="$1" awk '
+    function skip_ws(    c) {
+      while (pos <= len) {
+        c = substr(data, pos, 1)
+        if (c == " " || c == "\t" || c == "\n" || c == "\r") pos++
+        else break
+      }
+    }
+    function parse_string(    c, esc, s) {
+      if (substr(data, pos, 1) != "\"") return ""
+      pos++
+      s = ""
+      while (pos <= len) {
+        c = substr(data, pos, 1)
+        if (c == "\\") {
+          pos++
+          if (pos > len) { bad = 1; return "" }
+          esc = substr(data, pos, 1)
+          s = s esc
+          pos++
+        } else if (c == "\"") {
+          pos++
+          return s
+        } else if (c == "\n" || c == "\r") {
+          bad = 1
+          return ""
+        } else {
+          s = s c
+          pos++
+        }
+      }
+      bad = 1
+      return ""
+    }
+    function parse_value(in_inst,    c, s) {
+      skip_ws()
+      if (pos > len) { bad = 1; return }
+      c = substr(data, pos, 1)
+      if (c == "{") {
+        parse_object()
+      } else if (c == "[") {
+        parse_array(in_inst)
+      } else if (c == "\"") {
+        s = parse_string()
+        if (in_inst) {
+          if (s == "HARNESS.md" || substr(s, length(s) - 10) == "/HARNESS.md") has_harness = 1
+          if (s == "PROVIDERS.md" || substr(s, length(s) - 12) == "/PROVIDERS.md") has_providers = 1
+        }
+      } else if (substr(data, pos, 4) == "true") {
+        if (in_inst) bad = 1
+        pos += 4
+      } else if (substr(data, pos, 5) == "false") {
+        if (in_inst) bad = 1
+        pos += 5
+      } else if (substr(data, pos, 4) == "null") {
+        if (in_inst) bad = 1
+        pos += 4
+      } else if (c ~ /[-0-9]/) {
+        if (in_inst) bad = 1
+        while (pos <= len && substr(data, pos, 1) ~ /[-+0-9.eE]/) pos++
+      } else {
+        bad = 1
+      }
+    }
+    function parse_array(in_inst,    c) {
+      pos++
+      skip_ws()
+      if (pos <= len && substr(data, pos, 1) == "]") {
+        pos++
+        return
+      }
+      while (pos <= len && !bad) {
+        parse_value(in_inst ? 1 : 0)
+        if (bad) return
+        skip_ws()
+        c = substr(data, pos, 1)
+        if (c == ",") {
+          pos++
+        } else if (c == "]") {
+          pos++
+          return
+        } else {
+          bad = 1
+          return
+        }
+      }
+      bad = 1
+    }
+    function parse_object(    c, k) {
+      pos++
+      skip_ws()
+      if (pos <= len && substr(data, pos, 1) == "}") {
+        pos++
+        return
+      }
+      while (pos <= len && !bad) {
+        skip_ws()
+        if (substr(data, pos, 1) != "\"") { bad = 1; return }
+        k = parse_string()
+        if (bad) return
+        skip_ws()
+        if (substr(data, pos, 1) != ":") { bad = 1; return }
+        pos++
+        skip_ws()
+        if (k == "instructions") {
+          if (substr(data, pos, 1) != "[") { bad = 1; return }
+          found_inst = 1
+          parse_array(1)
+        } else {
+          parse_value(0)
+        }
+        if (bad) return
+        skip_ws()
+        c = substr(data, pos, 1)
+        if (c == ",") {
+          pos++
+        } else if (c == "}") {
+          pos++
+          return
+        } else {
+          bad = 1
+          return
+        }
+      }
+      bad = 1
+    }
+    BEGIN {
+      jf = ENVIRON["JSON_FILE"]
+      data = ""
+      while ((getline line < jf) > 0) {
+        data = data line "\n"
+      }
+      close(jf)
+      pos = 1
+      len = length(data)
+      found_inst = 0
+      has_harness = 0
+      has_providers = 0
+      skip_ws()
+      if (pos > len || substr(data, pos, 1) != "{") {
+        exit 1
+      }
+      parse_object()
+      skip_ws()
+      if (bad || pos <= len || !found_inst || !has_harness || !has_providers) {
+        exit 1
+      }
+      exit 0
+    }
+  ' </dev/null
+}
+
+verify_combined_instructions() {
+  local doc="$1"
+  grep -qF '# Cybernetic SDLC Harness' "$doc" &&
+    grep -qF '## Dispatch Adapter' "$doc" &&
+    grep -qE '^\|[[:space:]]*implementer[[:space:]]*\|[[:space:]]*primary[[:space:]]*\|' "$doc"
+}
+
+verify_agy_rule() {
+  local rule_file="$1"
+  awk '
+    NR == 1 {
+      if ($0 != "---") exit 1
+      in_fm = 1
+      next
+    }
+    in_fm && $0 == "---" {
+      in_fm = 0
+      closed = 1
+      exit (has_trigger ? 0 : 1)
+    }
+    in_fm && /^[[:space:]]*trigger:[[:space:]]*always_on[[:space:]]*$/ {
+      has_trigger = 1
+    }
+    END {
+      if (!closed || !has_trigger) exit 1
+    }
+  ' "$rule_file"
+}
+
 verify_target() {
   local v_errors=0
   local req
@@ -853,7 +1035,7 @@ verify_target() {
   case "$TARGET_HOST" in
     opencode)
       if [ -f "$DEST/opencode.json" ]; then
-        if grep -qF 'HARNESS.md' "$DEST/opencode.json" && grep -qF 'PROVIDERS.md' "$DEST/opencode.json"; then
+        if verify_opencode_json "$DEST/opencode.json"; then
           printf '  [OK] opencode.json includes HARNESS.md and PROVIDERS.md\n'
         else
           printf '  [WARN] opencode.json is missing HARNESS.md or PROVIDERS.md in instructions; add ["%s/HARNESS.md", "%s/PROVIDERS.md"] to instructions in %s/opencode.json\n' "$DEST" "$DEST" "$DEST"
@@ -865,6 +1047,9 @@ verify_target() {
     codex)
       if [ ! -f "$DEST/AGENTS.md" ]; then
         printf '  [FAIL] required instruction file missing: AGENTS.md\n'
+        v_errors=$((v_errors + 1))
+      elif ! verify_combined_instructions "$DEST/AGENTS.md"; then
+        printf '  [FAIL] instruction file missing harness or provider instructions: AGENTS.md\n'
         v_errors=$((v_errors + 1))
       else
         printf '  [OK] instruction wiring: AGENTS.md\n'
@@ -878,6 +1063,9 @@ verify_target() {
         elif [ "$(wc -c <"$DEST/$ag_rule")" -ge 24576 ]; then
           printf '  [FAIL] instruction rule exceeds 24576 bytes: %s\n' "$ag_rule"
           v_errors=$((v_errors + 1))
+        elif ! verify_agy_rule "$DEST/$ag_rule"; then
+          printf '  [FAIL] instruction rule missing trigger: always_on frontmatter: %s\n' "$ag_rule"
+          v_errors=$((v_errors + 1))
         else
           printf '  [OK] instruction wiring: %s\n' "$ag_rule"
         fi
@@ -887,6 +1075,9 @@ verify_target() {
       if [ ! -f "$DEST/CLAUDE.md" ]; then
         printf '  [FAIL] required instruction file missing: CLAUDE.md\n'
         v_errors=$((v_errors + 1))
+      elif ! verify_combined_instructions "$DEST/CLAUDE.md"; then
+        printf '  [FAIL] instruction file missing harness or provider instructions: CLAUDE.md\n'
+        v_errors=$((v_errors + 1))
       else
         printf '  [OK] instruction wiring: CLAUDE.md\n'
       fi
@@ -894,6 +1085,10 @@ verify_target() {
   esac
   if [ ! -d "$DEST/state" ]; then
     printf '  [FAIL] shared state directory missing: %s/state\n' "$DEST"
+    v_errors=$((v_errors + 1))
+  elif [ "$TARGET_HOST" != "opencode" ] && [ "$DEST" != "$SHARED_OC_CANON" ] &&
+       { [ ! -d "$SHARED_STATE" ] || [ "$(canonical_dest "$DEST/state")" != "$(canonical_dest "$SHARED_STATE")" ]; }; then
+    printf '  [FAIL] state directory does not resolve to shared state (%s): %s/state\n' "$SHARED_STATE" "$DEST"
     v_errors=$((v_errors + 1))
   elif [ -e "$DEST/state/quota-ledger.tsv" ] && { [ ! -f "$DEST/state/quota-ledger.tsv" ] || [ ! -r "$DEST/state/quota-ledger.tsv" ]; }; then
     printf '  [FAIL] quota-ledger.tsv is not a readable regular file: %s/state/quota-ledger.tsv\n' "$DEST"
@@ -2029,6 +2224,6 @@ if { [ "$profile_given" -eq 1 ] || [ "$profile_file_given" -eq 1 ]; } &&
 fi
 
 printf 'installed %d files into %s (harness instructions at %s)\n' "$installed" "$DEST" "$DEST/HARNESS.md"
-if [ "$target_given" -eq 0 ] && { [ -n "${T3_USERDATA_DIR:-}" ] || [ -d "${HOME:-}/.t3/userdata" ]; }; then
+if [ "$target_given" -eq 0 ] && { { [ -n "${T3_USERDATA_DIR:-}" ] && [ -d "$T3_USERDATA_DIR" ]; } || [ -d "${HOME:-}/.t3/userdata" ]; }; then
   printf "tip: T3 Code detected; pass '--target all' to install across all T3-connected providers (Antigravity, Codex, OpenCode, Claude).\n"
 fi
