@@ -12,15 +12,6 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 
 ## Budget facts and provider load split
 
-From the local Codex catalog (`~/.codex/models_cache.json`):
-
-| Model | Codex description |
-| --- | --- |
-| `gpt-6-astra` | frontier intelligence for the most demanding work |
-| `gpt-6.1-sol` | latest workhorse for coding and everyday work |
-| `gpt-6.1-terra` | balanced, for straightforward work (5.6-terra wording) |
-| `gpt-6-luna` | fast and affordable, for easier tasks |
-
 No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model is routed through OpenCode Go in `tri`: all Google and Claude models in `tri` come from Antigravity and all `gpt-*` models come from Codex. Antigravity and Codex limits use rolling 5-hour windows (check with `/status`).
 
 OpenCode Go (`opencode.ai/docs/go`): each model has a monthly dollar limit with a 20% 5-hour cap and a 50% weekly cap. Estimated requests per 5h on the **Go Plus ($40/mo)** tier for the high-allowance open-weight models used in this profile:
@@ -80,6 +71,7 @@ Provider load split and council budget notes:
 
 | pool | provider | models | window | soft-cap | reserve |
 | --- | --- | --- | --- | --- | --- |
+| opencode-go | opencode | * | 5h | - | - |
 | antigravity-claude | antigravity | claude-* | 5h | 6 | reviewer-b |
 | antigravity-gemini | antigravity | gemini-* | 5h | - | - |
 | codex | codex | * | 5h | - | - |
@@ -93,6 +85,7 @@ Provider load split and council budget notes:
 | 3 | * | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
 | 4 | * | codex | gpt-6.1-sol | reasoningEffort=medium | openai | ok |
 | 5 | * | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |
+| 6 | * | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |
 
 ## Supported driver setups
 

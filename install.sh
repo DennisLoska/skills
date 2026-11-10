@@ -1525,8 +1525,8 @@ generate_dynamic_profile() {
       # reviewer-a (3 rungs)
       add_cand("codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
       add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
-      add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
       add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
       add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
       add_cand("antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
       add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
@@ -1593,6 +1593,9 @@ generate_dynamic_profile() {
   printf '\n## Quota pools\n\n'
   printf '| pool | provider | models | window | soft-cap | reserve |\n'
   printf '| --- | --- | --- | --- | --- | --- |\n'
+  if [ "$has_oc" -eq 1 ]; then
+    printf '| opencode-go | opencode | * | 5h | - | - |\n'
+  fi
   if [ "$has_cld" -eq 1 ]; then
     printf '| claude-code | claudeAgent | * | 5h | - | - |\n'
   fi
@@ -1623,6 +1626,8 @@ generate_dynamic_profile() {
   if [ "$has_agy" -eq 1 ]; then
     b_order=$((b_order + 1))
     printf '| %d | * | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |\n' "$b_order"
+    b_order=$((b_order + 1))
+    printf '| %d | * | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |\n' "$b_order"
   fi
   if [ "$has_cld" -eq 1 ]; then
     b_order=$((b_order + 1))

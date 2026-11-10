@@ -51,6 +51,7 @@ Each OpenCode Go model has its own per-model monthly dollar limit and 5-hour cap
 
 | pool | provider | models | window | soft-cap | reserve |
 | --- | --- | --- | --- | --- | --- |
+| opencode-go | opencode | * | 5h | - | - |
 
 ## Backup ladder
 

@@ -2616,5 +2616,25 @@ for shipped_providers in "$ROOT/providers/tri.md" "$ROOT/providers/quad.md"; do
 done
 pass "shipped tri and quad tables carry no Pro models and no third-party models on opencode"
 
+# 78. Cybernetic quota resilience: opencode-go pool presence, multi-provider backup diversity,
+# and distinct primary families for council seats under 2-provider profiles.
+grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$ROOT/providers/tri.md" || fail "tri carries opencode-go pool row"
+grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$ROOT/providers/quad.md" || fail "quad carries opencode-go pool row"
+grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$ROOT/providers/opencode-go.md" || fail "opencode-go carries opencode-go pool row"
+grep -qF '| antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |' "$ROOT/providers/tri.md" || fail "tri backup ladder carries an antigravity Claude fallback rung"
+grep -qF '| antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |' "$ROOT/providers/quad.md" || fail "quad backup ladder carries an antigravity Claude fallback rung"
+
+# Verify that under --providers antigravity,claude, Seat A and Seat B have distinct primary families
+prov_test_home="$TMPROOT/prov-dual-home"
+HOME="$prov_test_home" "$INSTALL" --providers antigravity,claude >/dev/null 2>&1
+dual_md="$prov_test_home/.config/opencode/PROVIDERS.md"
+seat_a_fam="$(awk -F '|' '$2 ~ /reviewer-a/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$dual_md")"
+seat_b_fam="$(awk -F '|' '$2 ~ /reviewer-b/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$dual_md")"
+[ "$seat_a_fam" = "google" ] || fail "--providers antigravity,claude seat A primary is google (got $seat_a_fam)"
+[ "$seat_b_fam" = "anthropic" ] || fail "--providers antigravity,claude seat B primary is anthropic (got $seat_b_fam)"
+[ "$seat_a_fam" != "$seat_b_fam" ] || fail "--providers antigravity,claude seat A and seat B have distinct primary families"
+grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$TMPROOT/prov-home-1/.config/opencode/PROVIDERS.md" || fail "dynamic profile with opencode carries opencode-go pool row"
+pass "cybernetic quota resilience: opencode-go pools, backup diversity, and dual-provider seat independence"
+
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
 
