@@ -27,7 +27,7 @@ When `auto-approve: true` is present (read from the spec header, or from the dis
 
 Otherwise present exactly these, get user choice:
 
-1. **Merge PR** - verify Council consensus PASS is recorded in `$(git rev-parse --git-dir)/info/oneshot-state.md` (or run Phase 6 Council before merge), run `gh pr merge --squash -t "<subject>"` then handoff (Part 3)
+1. **Merge PR** - check `$(git rev-parse --git-dir)/info/oneshot-state.md` for `council_verdict: PASS` with `head=<sha>` matching `git rev-parse HEAD` (or, for standalone runs outside oneshot where no state artifact exists, verify a Phase 6 Council consensus PASS on the current `HEAD` in the current session; otherwise run Phase 6 Council before merge), run `gh pr merge --squash -t "<subject>"` then handoff (Part 3)
 2. **Keep PR open** - done, report URL
 3. **Keep branch** - done, report branch name
 4. **Discard** - report state and stop; destructive removal only on explicit user instruction afterward
@@ -48,7 +48,7 @@ Same menu as the standalone flow, reusable any time a PR is merged:
 
 ## Rules
 
-- Under oneshot or cybernetic harness, merging requires an audited Phase 6 Council consensus PASS (nominal >= 2/3 or degraded unanimous 2/2) recorded in `$(git rev-parse --git-dir)/info/oneshot-state.md`. Never merge without verified Council consensus PASS.
+- Under oneshot, merging requires an audited Phase 6 Council consensus PASS (nominal >= 2/3 or degraded unanimous 2/2) recorded as `council_verdict: PASS` in `$(git rev-parse --git-dir)/info/oneshot-state.md` with `head=<sha>` matching `git rev-parse HEAD`. For standalone runs outside oneshot (where no state artifact exists), allow a Phase 6 Council consensus PASS on the current `HEAD` in the current session. Never merge without verified Council consensus PASS.
 - Never merge on red tests or open review findings
 - Never create-PR-if-none when tests are red: verify first
 - Never commit to master directly; master advances only via PR merge

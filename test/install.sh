@@ -2697,20 +2697,47 @@ grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$prov_oc_home/.config/op
 pass "cybernetic quota resilience: opencode-go pools, backup diversity, and dual-provider seat independence"
 
 # 79. Harness compliance and council integrity invariants:
-# - dispatch forbids manual execution in when_to_use and has driver inline HARD-GATE
-# - council forbids self-review in HARD-GATE and enforces all-seats round N+1 reruns
-# - land requires council consensus PASS recorded in state before merge
-# - oneshot description recognizes "use oneshot" and "use the oneshot harness"
+# - dispatch forbids manual execution (case-insensitive), has 4 bootstrap checks + driver inline HARD-GATE
+# - plan header template does not allow inline execution under dispatch
+# - council forbids identical-model self-review (not provider instance), clarifies reviewer-esc in Step 0,
+#   enforces all-seats round N+1 reruns, and writes council_verdict with head=<sha>
+# - land requires council_verdict: PASS with head=<sha> matching git rev-parse HEAD (plus standalone rule)
+# - oneshot records <provider>/<model> in author logs, council_verdict with head=<sha>, and recognizes "use the oneshot harness"
+# - AGENTS.md review & council contracts carry oneshot-state.md council_verdict, explicit author-family rungs recorded in state, and <=21250 bytes
+grep -qF 'verify all four bootstrap checks' "$ROOT/skills/dispatch/SKILL.md" || fail "dispatch SKILL.md Step 0 verifies all four bootstrap checks"
 grep -qF 'Forbid driver inline execution' "$ROOT/skills/dispatch/SKILL.md" || fail "dispatch SKILL.md carries driver inline execution hard-gate"
-if grep -qF '"Manual execution"' "$ROOT/skills/dispatch/SKILL.md"; then
-  fail "dispatch SKILL.md must not offer manual execution in when_to_use flowchart"
+if grep -qiF 'manual execution' "$ROOT/skills/dispatch/SKILL.md"; then
+  fail "dispatch SKILL.md must not offer manual execution anywhere (case-insensitive)"
+fi
+if grep -qF 'inline execution with batch checkpoints is also allowed' "$ROOT/skills/plan/SKILL.md"; then
+  fail "plan SKILL.md header template must not allow inline execution under dispatch"
 fi
 grep -qF 'Forbid same-model council seats and author self-review' "$ROOT/skills/council/SKILL.md" || fail "council SKILL.md carries author self-review hard-gate"
+if grep -qF 'or provider instance' "$ROOT/skills/council/SKILL.md"; then
+  fail "council SKILL.md Step 0 bans identical model only, not provider instance"
+fi
+sed -n '/^## Step 0: Routing Bootstrap/,/^## /p' "$ROOT/skills/council/SKILL.md" | grep -qF 'reviewer-esc' || fail "council SKILL.md Step 0 clarifies reviewer-esc supplies the non-author vote when all nominal seats are authors"
 grep -qF 'round N+1 review = all active fresh reviewer seats' "$ROOT/skills/council/SKILL.md" || fail "council SKILL.md round loop specifies all active seats"
+grep -qF 'council_verdict: PASS round=<n> mode=<nominal|degraded> head=<sha>' "$ROOT/skills/council/SKILL.md" || fail "council SKILL.md writes council_verdict with round, mode, and head=<sha>"
+grep -qF 'git rev-parse HEAD' "$ROOT/skills/council/SKILL.md" || fail "council SKILL.md binds head=<sha> to git rev-parse HEAD"
+grep -qF 'council_verdict: PASS' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md checks council_verdict: PASS in oneshot-state.md"
+grep -qF 'head=<sha>' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md checks head=<sha> in oneshot-state.md"
+grep -qF 'git rev-parse HEAD' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md verifies head=<sha> matches git rev-parse HEAD"
+grep -qiF 'standalone' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md documents standalone consensus PASS outside oneshot"
 grep -qF 'Never merge without verified Council consensus PASS' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md requires verified council consensus PASS before merge"
 grep -qF 'use the oneshot harness' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot SKILL.md description recognizes use the oneshot harness trigger"
+sed -n '/^## Phase 3: DISPATCH/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF '<provider>/<model>' || fail "oneshot SKILL.md Phase 3 step 7 records <provider>/<model> alongside family"
+sed -n '/^## Phase 6: COUNCIL/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'council_verdict: PASS round=<n> mode=<nominal|degraded> head=<sha>' || fail "oneshot SKILL.md Phase 6 records council_verdict with head=<sha>"
 grep -qF 'Phase 6 Council consensus PASS is recorded' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot SKILL.md Phase 7 requires council consensus in state artifact"
-[ "$(wc -c <"$ROOT/AGENTS.md")" -le 24000 ] || fail "AGENTS.md stays within 24000 byte limit"
+sed -n '/^## Phase 7: FINISH/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'git rev-parse HEAD' || fail "oneshot SKILL.md Phase 7 requires head=<sha> match against git rev-parse HEAD"
+sed -n '/^## State Artifact/,/^## /p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'council_verdict: PASS|FAIL round=<n> mode=<nominal|degraded> head=<sha>' || fail "oneshot SKILL.md State Artifact documents council_verdict schema"
+sed -n '/^### Review contracts/,/^## /p' "$ROOT/AGENTS.md" | grep -qF 'oneshot-state.md' || fail "AGENTS.md Review contracts require consensus PASS in oneshot-state.md"
+sed -n '/^### Review contracts/,/^## /p' "$ROOT/AGENTS.md" | grep -qF 'council_verdict: PASS' || fail "AGENTS.md Review contracts reference council_verdict: PASS"
+grep -qF '(`implementer*`, `tester`, `patch`, CI/council fixers)' "$ROOT/AGENTS.md" || fail "AGENTS.md restores explicit author-family rung list"
+grep -qF 'producing branch commits recorded in state' "$ROOT/AGENTS.md" || fail "AGENTS.md specifies author-family commits are recorded in state"
+grep -qF 'single-seat re-dispatch across rounds is forbidden' "$ROOT/AGENTS.md" || fail "AGENTS.md Council Contract forbids single-seat re-dispatch across rounds"
+grep -qF 'No council seat may review code authored by the identical model.' "$ROOT/AGENTS.md" || fail "AGENTS.md Council Contract forbids identical-model self-review"
+[ "$(wc -c <"$ROOT/AGENTS.md")" -le 21250 ] || fail "AGENTS.md stays within 21250 byte limit"
 pass "harness compliance: context hygiene hard-gate, council integrity, and land pre-merge gate"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
