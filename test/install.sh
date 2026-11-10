@@ -47,13 +47,13 @@ while read -r seat pin; do
 done <<'PINS'
 scout opencode-go/mimo-v2.6-flash
 implementer -
-implementer-deep -
+implementer-deep opencode-go/deepseek-v4.1-flash#max
 patch opencode-go/deepseek-v4.1-flash#high
 tester opencode-go/deepseek-v4.1-flash#high
-reviewer-a -
-reviewer-b opencode-go/claude-haiku-5-5#high
-reviewer-c opencode-go/deepseek-v4-pro
-reviewer-esc opencode-go/kimi-k3.1-pro#high
+reviewer-a opencode-go/mimo-v2.6-flash
+reviewer-b opencode-go/glm-5.3-flash#high
+reviewer-c opencode-go/muse-spark-1.3-contributor#xhigh
+reviewer-esc opencode-go/mimo-v2.6-flash
 PINS
 
 # 1. clean install into an empty HOME
@@ -614,12 +614,14 @@ cmp -s "$ROOT/providers/tri.md" "$DEST/PROVIDERS.md" || fail "default selects tr
 grep -qx 'PROVIDERS.md' "$MANIFEST" || fail "manifest owns PROVIDERS.md"
 [ "$(sed -n '2p' "$MANIFEST")" = '# profile tri' ] || fail "manifest line 2 names tri"
 grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$DEST/agents/scout.md" || fail "tri scout pin"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#max' "$DEST/agents/implementer-deep.md" || fail "tri implementer-deep pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$DEST/agents/tester.md" || fail "tri tester pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$DEST/agents/patch.md" || fail "tri patch pin"
-grep -qxF 'model: opencode-go/claude-haiku-5-5#high' "$DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
-grep -qxF 'model: opencode-go/deepseek-v4-pro' "$DEST/agents/reviewer-c.md" || fail "tri reviewer-c pin"
-grep -qxF 'model: opencode-go/kimi-k3.1-pro#high' "$DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
-for seat in implementer implementer-deep reviewer-a; do
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$DEST/agents/reviewer-a.md" || fail "tri reviewer-a pin"
+grep -qxF 'model: opencode-go/glm-5.3-flash#high' "$DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
+grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$DEST/agents/reviewer-c.md" || fail "tri reviewer-c pin"
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
+for seat in implementer; do
   if grep -q '^model:' "$DEST/agents/$seat.md"; then
     fail "tri $seat has no native pin"
   fi
@@ -838,7 +840,8 @@ for legacy_kind in headerless premanifest; do
   fi
   OPENCODE_CONFIG="$OLD_DEST" "$INSTALL" --force >"$TMPROOT/old.out"
   [ "$(sed -n '2p' "$OLD_DEST/.harness-manifest")" = '# profile opencode-go' ] || fail "$legacy_kind metadata"
-  grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$OLD_DEST/agents/reviewer-a.md" || fail "$legacy_kind pin"
+  grep -qxF 'model: opencode-go/glm-5.3-flash#high' "$OLD_DEST/agents/reviewer-a.md" || fail "$legacy_kind reviewer-a pin"
+  grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$OLD_DEST/agents/reviewer-c.md" || fail "$legacy_kind reviewer-c pin"
   grep -qxF 'profile: opencode-go (previous install predates profiles)' "$TMPROOT/old.out" || fail "$legacy_kind announcement"
   pass "$legacy_kind preserves historical profile"
 done
@@ -937,12 +940,14 @@ rc=0
 OPENCODE_CONFIG="$PINS_DEST" "$INSTALL" >"$TMPROOT/pins.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/pins.out" >&2; fail "fresh tri install exits 0"; }
 grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$PINS_DEST/agents/scout.md" || fail "tri scout pin"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#max' "$PINS_DEST/agents/implementer-deep.md" || fail "tri implementer-deep pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$PINS_DEST/agents/tester.md" || fail "tri tester pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$PINS_DEST/agents/patch.md" || fail "tri patch pin"
-grep -qxF 'model: opencode-go/claude-haiku-5-5#high' "$PINS_DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
-grep -qxF 'model: opencode-go/deepseek-v4-pro' "$PINS_DEST/agents/reviewer-c.md" || fail "tri reviewer-c pin"
-grep -qxF 'model: opencode-go/kimi-k3.1-pro#high' "$PINS_DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
-for seat in implementer implementer-deep reviewer-a; do
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$PINS_DEST/agents/reviewer-a.md" || fail "tri reviewer-a pin"
+grep -qxF 'model: opencode-go/glm-5.3-flash#high' "$PINS_DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
+grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$PINS_DEST/agents/reviewer-c.md" || fail "tri reviewer-c pin"
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$PINS_DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
+for seat in implementer; do
   if grep -q '^model:' "$PINS_DEST/agents/$seat.md"; then
     fail "tri $seat has no native pin"
   fi
@@ -957,9 +962,11 @@ rc=0
 OPENCODE_CONFIG="$QUAD_DEST" "$INSTALL" --profile quad >"$TMPROOT/quad.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/quad.out" >&2; fail "quad install exits 0 (claudeAgent provider id accepted)"; }
 cmp -s "$ROOT/providers/quad.md" "$QUAD_DEST/PROVIDERS.md" || fail "quad PROVIDERS.md is a byte copy of providers/quad.md"
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$QUAD_DEST/agents/reviewer-a.md" || fail "quad reviewer-a pin"
+grep -qxF 'model: opencode-go/glm-5.3-flash#high' "$QUAD_DEST/agents/reviewer-b.md" || fail "quad reviewer-b pin"
 grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$QUAD_DEST/agents/reviewer-c.md" || fail "quad reviewer-c pin"
 grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$QUAD_DEST/agents/reviewer-esc.md" || fail "quad reviewer-esc pin"
-for seat in implementer implementer-deep reviewer-a reviewer-b; do
+for seat in implementer implementer-deep; do
   if grep -q '^model:' "$QUAD_DEST/agents/$seat.md"; then
     fail "quad $seat has no native pin"
   fi
@@ -2346,6 +2353,268 @@ rm -f "$t_dir/state/quota-ledger.tsv"
 pass "--verify rejects dangling manifest symlinks and symlinked quota-ledger.tsv"
 
 pass "--verify gates installed and uninstalled targets and --doctor accepts a valid install"
+
+# 77. --providers composes a dynamic profile from the exact provider set, records
+# the binding, verifies cleanly, and enforces official-provider boundaries and
+# the Pro-model purge. Seat C stays on muse-spark-1.3-contributor with the
+# deepseek-v4.1-flash fallback for every composition that includes opencode.
+prov_reviewer_c_row() {
+  awk -F '|' -v want="$2" '
+    $2 == " reviewer-c " && $3 == " " want " " {
+      p = $4; gsub(/^ +| +$/, "", p)
+      m = $5; gsub(/^ +| +$/, "", m)
+      print p " " m
+    }
+  ' "$1"
+}
+
+prov_opencode_violations() {
+  awk -F '|' 'NF > 7 && $4 == " opencode " && $5 ~ /(claude-|gemini-|gpt-)/ {
+    m = $5; gsub(/^ +| +$/, "", m)
+    print FILENAME ":" NR ": " m
+  }' "$1"
+}
+
+prov_purged_models() {
+  for prov_pro in deepseek-v4-pro kimi-k3.1-pro mimo-v2.6-pro minimax-m3 qwen3.8-max; do
+    grep -nF "$prov_pro" "$1" || true
+  done
+}
+
+prov_pool_independence() {
+  awk -F '|' -v check_lr="$2" '
+    function pool_of(prov, model) {
+      if (prov == "antigravity") {
+        if (model ~ /^claude-/) return "antigravity-claude"
+        return "antigravity-gemini"
+      }
+      if (prov == "codex") return "codex"
+      if (prov == "claudeAgent") return "claude-code"
+      return "opencode:" model
+    }
+    /^##[[:space:]]+Quota pools/ { exit }
+    NF > 7 && $2 !~ /^ *role *$/ && $2 !~ /^ *:?-+:? *$/ {
+      role = $2; gsub(/^ +| +$/, "", role)
+      rung = $3; gsub(/^ +| +$/, "", rung)
+      prov = $4; gsub(/^ +| +$/, "", prov)
+      model = $5; gsub(/^ +| +$/, "", model)
+      if (prov == "-") next
+      pool = pool_of(prov, model)
+      rpool[role, rung] = pool
+      roles[role] = 1
+    }
+    END {
+      for (r in roles) {
+        if ((r, "primary") in rpool && (r, "fallback") in rpool) {
+          if (rpool[r, "fallback"] == rpool[r, "primary"]) {
+            print r ": fallback pool (" rpool[r, "fallback"] ") == primary pool (" rpool[r, "primary"] ")"
+          }
+        }
+        if (check_lr == "1" && (r, "last-resort") in rpool) {
+          if (rpool[r, "last-resort"] == rpool[r, "primary"] || rpool[r, "last-resort"] == rpool[r, "fallback"]) {
+            print r ": last-resort pool (" rpool[r, "last-resort"] ") reuses primary (" rpool[r, "primary"] ") or fallback (" rpool[r, "fallback"] ")"
+          }
+        }
+      }
+    }
+  ' "$1"
+}
+
+prov_role_rung_pool() {
+  awk -F '|' -v want_role="$2" -v want_rung="$3" '
+    function pool_of(prov, model) {
+      if (prov == "antigravity") {
+        if (model ~ /^claude-/) return "antigravity-claude"
+        return "antigravity-gemini"
+      }
+      if (prov == "codex") return "codex"
+      if (prov == "claudeAgent") return "claude-code"
+      return "opencode:" model
+    }
+    /^##[[:space:]]+Quota pools/ { exit }
+    $2 == " " want_role " " && $3 == " " want_rung " " {
+      p = $4; gsub(/^ +| +$/, "", p)
+      m = $5; gsub(/^ +| +$/, "", m)
+      print pool_of(p, m)
+    }
+  ' "$1"
+}
+
+prov_case=0
+for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode codex,opencode antigravity,opencode opencode; do
+  prov_case=$((prov_case + 1))
+  prov_home="$TMPROOT/prov-home-$prov_case"
+  prov_md="$prov_home/.config/opencode/PROVIDERS.md"
+  rc=0
+  HOME="$prov_home" "$INSTALL" --providers "$prov_combo" >"$TMPROOT/prov-install-$prov_case.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-install-$prov_case.out" >&2; fail "--providers $prov_combo exits 0 (got $rc)"; }
+  [ -f "$prov_md" ] || fail "--providers $prov_combo installs PROVIDERS.md"
+  grep -qxF "# providers $prov_combo" "$prov_home/.config/opencode/.harness-manifest" || fail "--providers $prov_combo records '# providers $prov_combo' in .harness-manifest"
+  [ "$(prov_reviewer_c_row "$prov_md" primary)" = "opencode opencode-go/muse-spark-1.3-contributor" ] || fail "--providers $prov_combo keeps Seat C primary on muse-spark-1.3-contributor"
+  [ "$(prov_reviewer_c_row "$prov_md" fallback)" = "opencode opencode-go/deepseek-v4.1-flash" ] || fail "--providers $prov_combo keeps Seat C fallback on deepseek-v4.1-flash"
+  prov_purged_models "$prov_md" >"$TMPROOT/prov-purged-$prov_case.out"
+  if [ -s "$TMPROOT/prov-purged-$prov_case.out" ]; then
+    cat "$TMPROOT/prov-purged-$prov_case.out" >&2
+    fail "--providers $prov_combo carries no purged Pro models"
+  fi
+  prov_opencode_violations "$prov_md" >"$TMPROOT/prov-boundary-$prov_case.out"
+  if [ -s "$TMPROOT/prov-boundary-$prov_case.out" ]; then
+    cat "$TMPROOT/prov-boundary-$prov_case.out" >&2
+    fail "--providers $prov_combo routes no Claude, Gemini, or GPT model through opencode"
+  fi
+  if grep -qF '| opencode-go | opencode | opencode-go/*' "$prov_md"; then
+    fail "--providers $prov_combo does not emit wildcard opencode-go/* quota pool row"
+  fi
+  case "$prov_combo" in
+    *,*)
+      prov_pool_independence "$prov_md" 1 >"$TMPROOT/prov-pools-$prov_case.out"
+      if [ -s "$TMPROOT/prov-pools-$prov_case.out" ]; then
+        cat "$TMPROOT/prov-pools-$prov_case.out" >&2
+        fail "--providers $prov_combo enforces pool independence across rungs"
+      fi
+      ;;
+  esac
+  if [ "$prov_combo" = "codex,opencode" ]; then
+    [ "$(prov_role_rung_pool "$prov_md" implementer-deep last-resort)" != "codex" ] || fail "--providers codex,opencode implementer-deep last-resort does not reuse codex pool when opencode pools are available"
+  fi
+  rc=0
+  HOME="$prov_home" "$INSTALL" --verify >"$TMPROOT/prov-verify-$prov_case.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-verify-$prov_case.out" >&2; fail "--verify accepts the --providers $prov_combo install (got $rc)"; }
+  if grep -qF '[FAIL]' "$TMPROOT/prov-verify-$prov_case.out"; then
+    cat "$TMPROOT/prov-verify-$prov_case.out" >&2
+    fail "--verify reports no [FAIL] for --providers $prov_combo"
+  fi
+  pass "--providers $prov_combo composes, records, verifies, and keeps Seat C on muse-spark/deepseek"
+done
+
+# Non-opencode compositions and the claude alias (canonicalizing to claudeAgent
+# in PROVIDERS.md and claude in .harness-manifest) compose and verify cleanly.
+for non_oc_combo in antigravity,codex antigravity,claude claude,codex; do
+  prov_case=$((prov_case + 1))
+  prov_home="$TMPROOT/prov-home-$prov_case"
+  prov_md="$prov_home/.config/opencode/PROVIDERS.md"
+  rc=0
+  HOME="$prov_home" "$INSTALL" --providers "$non_oc_combo" >"$TMPROOT/prov-install-$prov_case.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-install-$prov_case.out" >&2; fail "--providers $non_oc_combo exits 0 (got $rc)"; }
+  [ -f "$prov_md" ] || fail "--providers $non_oc_combo installs PROVIDERS.md"
+  grep -qxF "# providers $non_oc_combo" "$prov_home/.config/opencode/.harness-manifest" || fail "--providers $non_oc_combo records '# providers $non_oc_combo' in .harness-manifest"
+  if grep -q '| opencode |' "$prov_md"; then
+    fail "--providers $non_oc_combo emits no opencode rows"
+  fi
+  prov_pool_independence "$prov_md" 0 >"$TMPROOT/prov-pools-$prov_case.out"
+  if [ -s "$TMPROOT/prov-pools-$prov_case.out" ]; then
+    cat "$TMPROOT/prov-pools-$prov_case.out" >&2
+    fail "--providers $non_oc_combo enforces fallback pool != primary pool"
+  fi
+  case "$non_oc_combo" in
+    antigravity,*)
+      prov_pool_independence "$prov_md" 1 >"$TMPROOT/prov-pools-lr-$prov_case.out"
+      if [ -s "$TMPROOT/prov-pools-lr-$prov_case.out" ]; then
+        cat "$TMPROOT/prov-pools-lr-$prov_case.out" >&2
+        fail "--providers $non_oc_combo enforces pool independence across all 3 rungs"
+      fi
+      ;;
+  esac
+  if [ "$non_oc_combo" = "antigravity,claude" ]; then
+    [ "$(prov_role_rung_pool "$prov_md" implementer fallback)" = "antigravity-claude" ] || fail "--providers antigravity,claude orders antigravity Claude before claudeAgent in implementer"
+    [ "$(prov_role_rung_pool "$prov_md" implementer-deep primary)" = "antigravity-claude" ] || fail "--providers antigravity,claude orders antigravity Claude before claudeAgent in implementer-deep"
+  fi
+  case "$non_oc_combo" in
+    *claude*)
+      grep -q '| claudeAgent |' "$prov_md" || fail "--providers $non_oc_combo canonicalizes claude alias to claudeAgent in PROVIDERS.md"
+      grep -qF '| claude-code | claudeAgent | * | 5h | - | - |' "$prov_md" || fail "--providers $non_oc_combo emits claudeAgent quota pool"
+      ;;
+  esac
+  rc=0
+  HOME="$prov_home" "$INSTALL" --verify >"$TMPROOT/prov-verify-$prov_case.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-verify-$prov_case.out" >&2; fail "--verify accepts the --providers $non_oc_combo install (got $rc)"; }
+  pass "--providers $non_oc_combo composes without opencode and canonicalizes claude to claudeAgent"
+done
+pass "--providers enforces pool independence across rungs and orders antigravity Claude before claudeAgent"
+
+# Single-provider alias claude (and claudeAgent) canonicalizes to claudeAgent in PROVIDERS.md.
+for cld_alias in claude claudeAgent; do
+  prov_case=$((prov_case + 1))
+  prov_home="$TMPROOT/prov-home-$prov_case"
+  prov_md="$prov_home/.config/opencode/PROVIDERS.md"
+  rc=0
+  HOME="$prov_home" "$INSTALL" --providers "$cld_alias" >"$TMPROOT/prov-install-$prov_case.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-install-$prov_case.out" >&2; fail "--providers $cld_alias exits 0 (got $rc)"; }
+  grep -qxF '# providers claude' "$prov_home/.config/opencode/.harness-manifest" || fail "--providers $cld_alias records '# providers claude' in .harness-manifest"
+  grep -q '| claudeAgent |' "$prov_md" || fail "--providers $cld_alias canonicalizes to claudeAgent in PROVIDERS.md"
+  rc=0
+  HOME="$prov_home" "$INSTALL" --verify >"$TMPROOT/prov-verify-$prov_case.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-verify-$prov_case.out" >&2; fail "--verify accepts the --providers $cld_alias install (got $rc)"; }
+done
+pass "--providers claude and claudeAgent canonicalize to claudeAgent in PROVIDERS.md"
+
+# Provider order normalizes to the canonical antigravity,claude,codex,opencode
+# order, and a plain refresh reuses the recorded --providers binding.
+PROV_REFRESH_HOME="$TMPROOT/prov-refresh-home"
+rc=0
+HOME="$PROV_REFRESH_HOME" "$INSTALL" --providers opencode,codex >"$TMPROOT/prov-order.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-order.out" >&2; fail "--providers opencode,codex exits 0 (got $rc)"; }
+grep -qxF '# providers codex,opencode' "$PROV_REFRESH_HOME/.config/opencode/.harness-manifest" || fail "--providers normalizes provider order to codex,opencode"
+rc=0
+HOME="$PROV_REFRESH_HOME" "$INSTALL" --force >"$TMPROOT/prov-refresh.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-refresh.out" >&2; fail "refresh without flags reuses the --providers binding (got $rc)"; }
+grep -qxF '# providers codex,opencode' "$PROV_REFRESH_HOME/.config/opencode/.harness-manifest" || fail "refresh keeps '# providers codex,opencode'"
+rc=0
+HOME="$PROV_REFRESH_HOME" "$INSTALL" --verify >"$TMPROOT/prov-refresh-verify.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-refresh-verify.out" >&2; fail "refresh keeps the install verifiable (got $rc)"; }
+pass "--providers normalizes provider order and refresh reuses the recorded binding"
+
+# Invalid provider names exit 2 before any write, even with force and prune.
+for bad_prov in badprovider antigravity,openai; do
+  prov_bad_dest="$TMPROOT/prov-bad-$(printf '%s' "$bad_prov" | tr ',' '-')"
+  rc=0
+  OPENCODE_CONFIG="$prov_bad_dest" "$INSTALL" --force --prune --providers "$bad_prov" >"$TMPROOT/prov-bad.out" 2>"$TMPROOT/prov-bad.err" || rc=$?
+  [ "$rc" -eq 2 ] || fail "invalid --providers exits 2: $bad_prov (got $rc)"
+  grep -qF 'install.sh: unknown provider in --providers:' "$TMPROOT/prov-bad.err" || fail "invalid --providers names the offending provider: $bad_prov"
+  if [ "$bad_prov" = badprovider ]; then
+    grep -qxF 'install.sh: unknown provider in --providers: badprovider (available: antigravity codex claude opencode)' "$TMPROOT/prov-bad.err" || fail "invalid --providers prints the available provider list"
+  else
+    grep -qxF 'install.sh: unknown provider in --providers: openai (available: antigravity codex claude opencode)' "$TMPROOT/prov-bad.err" || fail "invalid --providers names the offending provider inside a list"
+  fi
+  [ ! -e "$prov_bad_dest" ] || fail "invalid --providers writes nothing: $bad_prov"
+done
+pass "invalid --providers names exit 2 and write nothing"
+
+# --providers conflicts with --profile and --profile-file in either order.
+for prov_conflict in profile profile-file profile-order; do
+  prov_conflict_dest="$TMPROOT/prov-conflict-$prov_conflict"
+  rc=0
+  case "$prov_conflict" in
+    profile)
+      OPENCODE_CONFIG="$prov_conflict_dest" "$INSTALL" --providers antigravity,codex --profile tri >"$TMPROOT/prov-conflict.out" 2>"$TMPROOT/prov-conflict.err" || rc=$?
+      ;;
+    profile-file)
+      OPENCODE_CONFIG="$prov_conflict_dest" "$INSTALL" --providers antigravity,codex --profile-file "$ROOT/providers/tri.md" >"$TMPROOT/prov-conflict.out" 2>"$TMPROOT/prov-conflict.err" || rc=$?
+      ;;
+    profile-order)
+      OPENCODE_CONFIG="$prov_conflict_dest" "$INSTALL" --profile tri --providers antigravity,codex >"$TMPROOT/prov-conflict.out" 2>"$TMPROOT/prov-conflict.err" || rc=$?
+      ;;
+  esac
+  [ "$rc" -eq 2 ] || { cat "$TMPROOT/prov-conflict.err" >&2; fail "--providers conflicts with $prov_conflict and exits 2 (got $rc)"; }
+  grep -qF 'usage: install.sh' "$TMPROOT/prov-conflict.err" || fail "conflict with $prov_conflict prints usage"
+  [ ! -e "$prov_conflict_dest" ] || fail "conflicting flags write nothing: $prov_conflict"
+done
+pass "--providers conflicts with --profile and --profile-file, exit 2, no writes"
+
+# Shipped multi-provider tables obey the same purge and boundary invariants.
+for shipped_providers in "$ROOT/providers/tri.md" "$ROOT/providers/quad.md"; do
+  prov_purged_models "$shipped_providers" >"$TMPROOT/shipped-purged.out"
+  if [ -s "$TMPROOT/shipped-purged.out" ]; then
+    cat "$TMPROOT/shipped-purged.out" >&2
+    fail "$(basename "$shipped_providers") carries no purged Pro models"
+  fi
+  prov_opencode_violations "$shipped_providers" >"$TMPROOT/shipped-boundary.out"
+  if [ -s "$TMPROOT/shipped-boundary.out" ]; then
+    cat "$TMPROOT/shipped-boundary.out" >&2
+    fail "$(basename "$shipped_providers") routes no Claude, Gemini, or GPT model through opencode"
+  fi
+done
+pass "shipped tri and quad tables carry no Pro models and no third-party models on opencode"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
 
