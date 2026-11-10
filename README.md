@@ -379,7 +379,7 @@ providers/        swappable provider profiles: tri (default), quad (tri + Claude
                                                opencode-go, codex, antigravity, claude
 docs/             design specs and plans:      docs/specs/, docs/plans/
 docs/assets/      vector visuals:              logo.svg, architecture.svg
-test/install.sh   138-assertion contract suite (runs in throwaway HOME on Bash >=3.2)
+test/install.sh   144-assertion contract suite (runs in throwaway HOME on Bash >=3.2)
 AGENTS.md         harness routing instructions (installed as <dest>/HARNESS.md)
 install.sh        multi-host installer         (opencode, codex, antigravity, claude, all)
 NOTICE            upstream MIT attribution     (mattpocock/skills)
@@ -390,7 +390,7 @@ LICENSE           MIT license
 
 ## 🧪 Testing
 
-Run the 138-assertion installer contract suite (hermetic throwaway `HOME` under `$TMPDIR`):
+Run the 144-assertion installer contract suite (hermetic throwaway `HOME` under `$TMPDIR`):
 
 ```sh
 bash -n install.sh && bash -n test/install.sh

@@ -1380,16 +1380,16 @@ generate_dynamic_profile() {
       c_pool[c_n] = pool_of(prov, model)
       c_used[c_n] = 0
     }
-    function emit_role(role, max_rungs, allow_same_pool_fb,    r, i, pick, rung_name, p1_pool) {
+    function emit_role(role, max_rungs, allow_same_pool_fb,    r, i, pick, rung_name, role_pools) {
       rnames[1] = "primary"
       rnames[2] = "fallback"
       rnames[3] = "last-resort"
-      p1_pool = ""
+      split("", role_pools)
       for (r = 1; r <= max_rungs; r++) {
         pick = 0
-        if (r == 2 && !allow_same_pool_fb) {
+        if (r > 1 && !(r == 2 && allow_same_pool_fb)) {
           for (i = 1; i <= c_n; i++) {
-            if (!c_used[i] && c_pool[i] != p1_pool) {
+            if (!c_used[i] && !(c_pool[i] in role_pools)) {
               pick = i
               break
             }
@@ -1405,7 +1405,7 @@ generate_dynamic_profile() {
         }
         if (pick == 0) break
         c_used[pick] = 1
-        if (r == 1) p1_pool = c_pool[pick]
+        role_pools[c_pool[pick]] = 1
         rung_name = rnames[r]
         printf "| %s | %s | %s | %s | %s | %s | %s |\n", role, rung_name, c_prov[pick], c_model[pick], c_effort[pick], c_fam[pick], c_priv[pick]
       }
@@ -1425,6 +1425,7 @@ generate_dynamic_profile() {
       add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=medium", "anthropic", "ok")
       add_cand("codex", "gpt-6-astra", "reasoningEffort=medium", "openai", "ok")
       add_cand("claudeAgent", "claude-opus-5-5", "effort=medium", "anthropic", "ok")
+      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
       if (c_n > 0) {
         emit_role("driver", 2, 0)
       } else {
@@ -1448,10 +1449,10 @@ generate_dynamic_profile() {
 
       # implementer (3 rungs)
       add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=medium", "anthropic", "ok")
       add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
       add_cand("codex", "gpt-6.1-sol", "reasoningEffort=medium", "openai", "ok")
       add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
-      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=medium", "anthropic", "ok")
       add_cand("opencode", "opencode-go/muse-spark-1.3-contributor", "variant=medium", "meta", "trains")
       add_cand("codex", "gpt-6-astra", "reasoningEffort=medium", "openai", "ok")
       add_cand("claudeAgent", "claude-opus-5-5", "effort=medium", "anthropic", "ok")
@@ -1462,15 +1463,15 @@ generate_dynamic_profile() {
       emit_role("implementer", 3, 0)
 
       # implementer-deep (3 rungs)
-      add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
       add_cand("antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
+      add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
       add_cand("codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
       add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=max", "deepseek", "ok")
       add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=high", "anthropic", "ok")
       add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
       add_cand("codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
       add_cand("opencode", "opencode-go/muse-spark-1.3-contributor", "variant=high", "meta", "trains")
-      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=high", "anthropic", "ok")
       add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
       add_cand("codex", "gpt-6-sol", "reasoningEffort=high", "openai", "ok")
       add_cand("claudeAgent", "claude-fable-5-1", "effort=high", "anthropic", "ok")

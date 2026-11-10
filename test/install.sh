@@ -2381,6 +2381,65 @@ prov_purged_models() {
   done
 }
 
+prov_pool_independence() {
+  awk -F '|' -v check_lr="$2" '
+    function pool_of(prov, model) {
+      if (prov == "antigravity") {
+        if (model ~ /^claude-/) return "antigravity-claude"
+        return "antigravity-gemini"
+      }
+      if (prov == "codex") return "codex"
+      if (prov == "claudeAgent") return "claude-code"
+      return "opencode:" model
+    }
+    /^##[[:space:]]+Quota pools/ { exit }
+    NF > 7 && $2 !~ /^ *role *$/ && $2 !~ /^ *:?-+:? *$/ {
+      role = $2; gsub(/^ +| +$/, "", role)
+      rung = $3; gsub(/^ +| +$/, "", rung)
+      prov = $4; gsub(/^ +| +$/, "", prov)
+      model = $5; gsub(/^ +| +$/, "", model)
+      if (prov == "-") next
+      pool = pool_of(prov, model)
+      rpool[role, rung] = pool
+      roles[role] = 1
+    }
+    END {
+      for (r in roles) {
+        if ((r, "primary") in rpool && (r, "fallback") in rpool) {
+          if (rpool[r, "fallback"] == rpool[r, "primary"]) {
+            print r ": fallback pool (" rpool[r, "fallback"] ") == primary pool (" rpool[r, "primary"] ")"
+          }
+        }
+        if (check_lr == "1" && (r, "last-resort") in rpool) {
+          if (rpool[r, "last-resort"] == rpool[r, "primary"] || rpool[r, "last-resort"] == rpool[r, "fallback"]) {
+            print r ": last-resort pool (" rpool[r, "last-resort"] ") reuses primary (" rpool[r, "primary"] ") or fallback (" rpool[r, "fallback"] ")"
+          }
+        }
+      }
+    }
+  ' "$1"
+}
+
+prov_role_rung_pool() {
+  awk -F '|' -v want_role="$2" -v want_rung="$3" '
+    function pool_of(prov, model) {
+      if (prov == "antigravity") {
+        if (model ~ /^claude-/) return "antigravity-claude"
+        return "antigravity-gemini"
+      }
+      if (prov == "codex") return "codex"
+      if (prov == "claudeAgent") return "claude-code"
+      return "opencode:" model
+    }
+    /^##[[:space:]]+Quota pools/ { exit }
+    $2 == " " want_role " " && $3 == " " want_rung " " {
+      p = $4; gsub(/^ +| +$/, "", p)
+      m = $5; gsub(/^ +| +$/, "", m)
+      print pool_of(p, m)
+    }
+  ' "$1"
+}
+
 prov_case=0
 for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode codex,opencode antigravity,opencode opencode; do
   prov_case=$((prov_case + 1))
@@ -2406,6 +2465,18 @@ for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode c
   if grep -qF '| opencode-go | opencode | opencode-go/*' "$prov_md"; then
     fail "--providers $prov_combo does not emit wildcard opencode-go/* quota pool row"
   fi
+  case "$prov_combo" in
+    *,*)
+      prov_pool_independence "$prov_md" 1 >"$TMPROOT/prov-pools-$prov_case.out"
+      if [ -s "$TMPROOT/prov-pools-$prov_case.out" ]; then
+        cat "$TMPROOT/prov-pools-$prov_case.out" >&2
+        fail "--providers $prov_combo enforces pool independence across rungs"
+      fi
+      ;;
+  esac
+  if [ "$prov_combo" = "codex,opencode" ]; then
+    [ "$(prov_role_rung_pool "$prov_md" implementer-deep last-resort)" != "codex" ] || fail "--providers codex,opencode implementer-deep last-resort does not reuse codex pool when opencode pools are available"
+  fi
   rc=0
   HOME="$prov_home" "$INSTALL" --verify >"$TMPROOT/prov-verify-$prov_case.out" 2>&1 || rc=$?
   [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-verify-$prov_case.out" >&2; fail "--verify accepts the --providers $prov_combo install (got $rc)"; }
@@ -2430,6 +2501,24 @@ for non_oc_combo in antigravity,codex antigravity,claude claude,codex; do
   if grep -q '| opencode |' "$prov_md"; then
     fail "--providers $non_oc_combo emits no opencode rows"
   fi
+  prov_pool_independence "$prov_md" 0 >"$TMPROOT/prov-pools-$prov_case.out"
+  if [ -s "$TMPROOT/prov-pools-$prov_case.out" ]; then
+    cat "$TMPROOT/prov-pools-$prov_case.out" >&2
+    fail "--providers $non_oc_combo enforces fallback pool != primary pool"
+  fi
+  case "$non_oc_combo" in
+    antigravity,*)
+      prov_pool_independence "$prov_md" 1 >"$TMPROOT/prov-pools-lr-$prov_case.out"
+      if [ -s "$TMPROOT/prov-pools-lr-$prov_case.out" ]; then
+        cat "$TMPROOT/prov-pools-lr-$prov_case.out" >&2
+        fail "--providers $non_oc_combo enforces pool independence across all 3 rungs"
+      fi
+      ;;
+  esac
+  if [ "$non_oc_combo" = "antigravity,claude" ]; then
+    [ "$(prov_role_rung_pool "$prov_md" implementer fallback)" = "antigravity-claude" ] || fail "--providers antigravity,claude orders antigravity Claude before claudeAgent in implementer"
+    [ "$(prov_role_rung_pool "$prov_md" implementer-deep primary)" = "antigravity-claude" ] || fail "--providers antigravity,claude orders antigravity Claude before claudeAgent in implementer-deep"
+  fi
   case "$non_oc_combo" in
     *claude*)
       grep -q '| claudeAgent |' "$prov_md" || fail "--providers $non_oc_combo canonicalizes claude alias to claudeAgent in PROVIDERS.md"
@@ -2441,6 +2530,7 @@ for non_oc_combo in antigravity,codex antigravity,claude claude,codex; do
   [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-verify-$prov_case.out" >&2; fail "--verify accepts the --providers $non_oc_combo install (got $rc)"; }
   pass "--providers $non_oc_combo composes without opencode and canonicalizes claude to claudeAgent"
 done
+pass "--providers enforces pool independence across rungs and orders antigravity Claude before claudeAgent"
 
 # Single-provider alias claude (and claudeAgent) canonicalizes to claudeAgent in PROVIDERS.md.
 for cld_alias in claude claudeAgent; do
