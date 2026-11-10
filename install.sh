@@ -837,7 +837,7 @@ verify_opencode_json() {
         else break
       }
     }
-    function parse_string(    c, esc, s) {
+    function parse_string(    c, esc, hex, s) {
       if (substr(data, pos, 1) != "\"") return ""
       pos++
       s = ""
@@ -847,6 +847,14 @@ verify_opencode_json() {
           pos++
           if (pos > len) { bad = 1; return "" }
           esc = substr(data, pos, 1)
+          if (esc == "u") {
+            hex = substr(data, pos + 1, 4)
+            if (length(hex) != 4 || hex !~ /^[0-9a-fA-F]+$/) { bad = 1; return "" }
+          } else if (esc != "\"" && esc != "\\" && esc != "/" &&
+                     esc != "b" && esc != "f" && esc != "n" && esc != "r" && esc != "t") {
+            bad = 1
+            return ""
+          }
           s = s esc
           pos++
         } else if (c == "\"") {
@@ -952,11 +960,15 @@ verify_opencode_json() {
         pos++
         skip_ws()
         if (is_top && k == "instructions") {
-          if (substr(data, pos, 1) != "[") { bad = 1; return }
-          found_inst = 1
-          has_harness = 0
-          has_providers = 0
-          parse_array(1)
+          if (substr(data, pos, 1) == "[") {
+            found_inst = 1
+            has_harness = 0
+            has_providers = 0
+            parse_array(1)
+          } else {
+            found_inst = 0
+            parse_value(0)
+          }
         } else {
           parse_value(0)
         }

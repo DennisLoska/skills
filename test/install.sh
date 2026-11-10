@@ -2215,6 +2215,44 @@ if grep -qF '[OK] opencode.json' "$TMPROOT/verify-dup-inst.out"; then
 fi
 grep -qF '[WARN] opencode.json' "$TMPROOT/verify-dup-inst.out" || fail "--verify warns when last duplicate top-level instructions key omits harness files"
 
+# 76d. Validate string escapes and use the last top-level instructions value.
+json_regression_failures=0
+for invalid_escape in '\q' '\u123' '\u12xz'; do
+  printf '{"other": "%s", "instructions": ["HARNESS.md", "PROVIDERS.md"]}\n' "$invalid_escape" >"$VERIFY_DEST/opencode.json"
+  rc=0
+  HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-invalid-escape.out" 2>&1 || rc=$?
+  if grep -qF '[OK] opencode.json' "$TMPROOT/verify-invalid-escape.out" ||
+     ! grep -qF '[WARN] opencode.json' "$TMPROOT/verify-invalid-escape.out"; then
+    printf 'regression: --verify must reject JSON escape %s\n' "$invalid_escape" >&2
+    json_regression_failures=$((json_regression_failures + 1))
+  fi
+done
+
+printf '%s\n' '{"instructions": "none", "instructions": ["HARNESS.md", "PROVIDERS.md"]}' >"$VERIFY_DEST/opencode.json"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-dup-nonarray.out" 2>&1 || rc=$?
+if ! grep -qF '[OK] opencode.json includes HARNESS.md and PROVIDERS.md' "$TMPROOT/verify-dup-nonarray.out"; then
+  printf 'regression: --verify must accept a valid instructions array after a non-array duplicate\n' >&2
+  json_regression_failures=$((json_regression_failures + 1))
+fi
+[ "$json_regression_failures" -eq 0 ] || fail "JSON parser regressions ($json_regression_failures failures)"
+pass "--verify rejects invalid JSON string escapes and accepts the effective last instructions array"
+
+printf '%s\n' '{"other": "\"\\\/\b\f\n\r\t\u00aF", "instructions": ["HARNESS.md", "PROVIDERS.md"]}' >"$VERIFY_DEST/opencode.json"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-valid-escapes.out" 2>&1 || rc=$?
+grep -qF '[OK] opencode.json includes HARNESS.md and PROVIDERS.md' "$TMPROOT/verify-valid-escapes.out" || fail "--verify accepts all valid JSON string escapes"
+pass "--verify accepts all valid JSON string escapes"
+
+printf '%s\n' '{"instructions": ["HARNESS.md", "PROVIDERS.md"], "instructions": "none"}' >"$VERIFY_DEST/opencode.json"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-last-nonarray.out" 2>&1 || rc=$?
+if grep -qF '[OK] opencode.json' "$TMPROOT/verify-last-nonarray.out"; then
+  fail "--verify rejects a final non-array instructions value"
+fi
+grep -qF '[WARN] opencode.json' "$TMPROOT/verify-last-nonarray.out" || fail "--verify warns about a final non-array instructions value"
+pass "--verify rejects a final non-array instructions value"
+
 GENERIC_SKILLS_HOME="$TMPROOT/generic-skills-home"
 HOME="$GENERIC_SKILLS_HOME" "$INSTALL" --target opencode >"$TMPROOT/generic-skills-install.out" 2>&1
 mkdir -p "$GENERIC_SKILLS_HOME/.codex/skills/unrelated-skill" "$GENERIC_SKILLS_HOME/.claude/skills"
