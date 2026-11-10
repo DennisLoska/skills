@@ -2275,7 +2275,8 @@ rm -f \
 rc=0
 HOME="$DAMAGED_AGY_HOME" "$INSTALL" --verify --target antigravity >"$TMPROOT/damaged-agy-verify.out" 2>&1 || rc=$?
 [ "$rc" -eq 1 ] || { cat "$TMPROOT/damaged-agy-verify.out" >&2; fail "--verify fails when standalone antigravity root is damaged alongside valid T3 instance (got $rc)"; }
-grep -qF "verifying antigravity ($DAMAGED_AGY_HOME/.gemini/config)" "$TMPROOT/damaged-agy-verify.out" || fail "--verify schedules damaged standalone antigravity root when remaining harness artifacts exist"
+DAMAGED_AGY_CANON="$(cd "$DAMAGED_AGY_HOME/.gemini/config" && pwd -P)"
+grep -qF "verifying antigravity ($DAMAGED_AGY_CANON)" "$TMPROOT/damaged-agy-verify.out" || fail "--verify schedules damaged standalone antigravity root when remaining harness artifacts exist"
 
 pass "--verify gates installed and uninstalled targets and --doctor accepts a valid install"
 
