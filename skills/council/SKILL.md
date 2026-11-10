@@ -17,7 +17,7 @@ Consensus review by 3 independent reviewers, followed by disciplined application
 Before dispatching ANY council reviewer or fixer subagent, verify all three bootstrap checks:
 1. **Load `HARNESS.md` and `PROVIDERS.md` into context:** Check whether `# Cybernetic SDLC Harness` (`HARNESS.md`) AND the active provider profile routing table (`PROVIDERS.md`) are BOTH already loaded verbatim in this session. If either is missing, read `../_harness/HARNESS.md` and `../_harness/PROVIDERS.md` (or `../../HARNESS.md` and `../../PROVIDERS.md`) relative to this skill's directory NOW before taking any other action.
 2. **Select the `HARNESS.md` Dispatch Adapter path (including lazy MCP servers):** Inspect both eager tools and any lazy-loaded MCP server schemas in your environment before choosing a subagent tool. Run the one-time session capability check required by `HARNESS.md` `## Dispatch Adapter` Path 1 when cross-provider orchestration tools are present (reading their lazy MCP schema files first when needed), and NEVER fall back to native same-session subagent tools while Path 1 orchestration tools are available.
-3. **Forbid same-model council seats:** Every dispatched council seat (`reviewer-a`, `reviewer-b`, `reviewer-c`, `reviewer-esc`) MUST resolve its rung from `PROVIDERS.md` (carrying `Role contract:` + `Rung:` on non-autoloaded paths, or `Rung:` only on autoloaded pinned seats), with no two active seats sharing a model family and at least 2 (`>= 2`) healthy independent families overall (else stop with `yellow: degraded council`). Never spawn native `inherit`/same-model subagents for council seats.
+3. **Forbid same-model council seats and author self-review:** Every dispatched council seat (`reviewer-a`, `reviewer-b`, `reviewer-c`, `reviewer-esc`) MUST resolve its rung from `PROVIDERS.md` (carrying `Role contract:` + `Rung:` on non-autoloaded paths, or `Rung:` only on autoloaded pinned seats), with no two active seats sharing a model family and at least 2 (`>= 2`) healthy independent families overall (else stop with `yellow: degraded council`). Never spawn native `inherit`/same-model subagents for council seats. Furthermore, no council seat may review code authored by the identical model or provider instance, and in nominal mode at least one active seat must belong to a non-author family; reviewing one's own code without required model/family independence is a hard protocol violation.
 </HARD-GATE>
 
 ## Request phase
@@ -39,7 +39,7 @@ Output:
 No praise. No "looks good". No scope creep.
 ```
 
-4. If a seat's rung is exhausted, unreachable, soft-cap reserved, or fails a transient retry mid-round: re-dispatch the SAME seat role on its next eligible ladder rung (or matching `## Backup ladder` row) from the active provider profile per AGENTS.md Routing Rules (mechanics below). Rerun only that seat. Never fill a seat with a rung whose family is active on another council seat anywhere in this PR (AGENTS.md Routing Rules).
+4. Mid-round provider retry vs Round N+1 re-review: If a seat's rung is exhausted, unreachable, soft-cap reserved, or fails a transient retry mid-round: re-dispatch that SAME seat role on its next eligible ladder rung (or matching `## Backup ladder` row) from the active provider profile per AGENTS.md Routing Rules (mechanics below). Rerun only that failed seat to complete the current round. Conversely, whenever implementation fix subagents push new commits in Round N+1, ALL active council seats (all 3 in nominal, all 2 in degraded) MUST be re-dispatched against the new HEAD. Cherry-picking or re-dispatching only a single rejecting seat across rounds is strictly forbidden.
 5. Confidentiality gate: if the review brief or referenced diff carries a confidential flag, the AGENTS.md Routing Rules privacy gate applies to every seat (`privacy: trains` rungs in the active provider profile auto-skip); demote to the next privacy-safe rung and announce.
 
 6. Author-family rule: PASS also needs the author-family vote from the AGENTS.md Council Contract (at least one PASS from a council seat whose family is not an author family, or dual-family model-level independence in degraded council). Read the author families from the state artifact. If every seat's family is an author family: in nominal 3-seat mode dispatch `reviewer-esc` for the non-author vote on a rung whose family is neither a council-seat nor an author family (AGENTS.md Council Contract; one extra dispatch counted against the 14-dispatch guard); in degraded mode with 2 healthy families both in the author set, accept intra-family model-level independence (each seat's reviewer model must differ from the identical author model) and record in state: `degraded council author vote: dual-family model-level independence (<model1>, <model2>)`; if that is impossible, stop with `yellow: degraded council`.
@@ -80,14 +80,14 @@ total review batches = 3, counted out loud:
     dispatch fresh fixer subagents from the implementation seats (`implementer`, or `implementer-deep` for hard clusters; one per finding cluster, max 2 files each; see `AGENTS.md` Review contracts for fixer seat routing); allow `patch` only for a finding that needs a 1-2 file edit with no test run
     implementation-seat fixers run tests before declaring done
     re-run verify skill checks (tests, lint, typecheck, build)
-    round N+1 review = 3 fresh reviewer seats
+    round N+1 review = all active fresh reviewer seats (all 3 in nominal, all 2 in degraded; never a single seat)
     PASS + green -> done
     streamed, no user pause
 ```
 
 - Rounds exhausted -> escalation review on the `reviewer-esc` rung of the active provider profile (own family, not one already used).
 - Escalation still FAIL -> STOP: report rounds, final findings, test output. This is one of the council stop points (alongside the degraded-council stop).
-- Reviewer never fixes. Fixer never reviews. Fresh subagent each round, both ways.
+- Reviewer never fixes. Fixer never reviews. Fresh subagent each round, both ways. Never re-dispatch only one rejecting seat in round N+1; all active seats must evaluate the fixed code together.
 
 ## No test suite
 

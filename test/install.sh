@@ -2696,5 +2696,22 @@ awk '/^## Backup ladder/,0' "$oc_md" | grep -qF '| claudeAgent |' || fail "dynam
 grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$prov_oc_home/.config/opencode/PROVIDERS.md" || fail "dynamic profile with opencode carries opencode-go pool row"
 pass "cybernetic quota resilience: opencode-go pools, backup diversity, and dual-provider seat independence"
 
+# 79. Harness compliance and council integrity invariants:
+# - dispatch forbids manual execution in when_to_use and has driver inline HARD-GATE
+# - council forbids self-review in HARD-GATE and enforces all-seats round N+1 reruns
+# - land requires council consensus PASS recorded in state before merge
+# - oneshot description recognizes "use oneshot" and "use the oneshot harness"
+grep -qF 'Forbid driver inline execution' "$ROOT/skills/dispatch/SKILL.md" || fail "dispatch SKILL.md carries driver inline execution hard-gate"
+if grep -qF '"Manual execution"' "$ROOT/skills/dispatch/SKILL.md"; then
+  fail "dispatch SKILL.md must not offer manual execution in when_to_use flowchart"
+fi
+grep -qF 'Forbid same-model council seats and author self-review' "$ROOT/skills/council/SKILL.md" || fail "council SKILL.md carries author self-review hard-gate"
+grep -qF 'round N+1 review = all active fresh reviewer seats' "$ROOT/skills/council/SKILL.md" || fail "council SKILL.md round loop specifies all active seats"
+grep -qF 'Never merge without verified Council consensus PASS' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md requires verified council consensus PASS before merge"
+grep -qF 'use the oneshot harness' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot SKILL.md description recognizes use the oneshot harness trigger"
+grep -qF 'Phase 6 Council consensus PASS is recorded' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot SKILL.md Phase 7 requires council consensus in state artifact"
+[ "$(wc -c <"$ROOT/AGENTS.md")" -le 24000 ] || fail "AGENTS.md stays within 24000 byte limit"
+pass "harness compliance: context hygiene hard-gate, council integrity, and land pre-merge gate"
+
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
 

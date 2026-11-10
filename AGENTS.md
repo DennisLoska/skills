@@ -7,7 +7,7 @@ Instructions for the `oneshot` cybernetic control system. Skills and ad-hoc disp
 - Code searches touching >1 file or 50+ lines go to `scout` (read-only locator returning compressed `path:line` tables), never inline main-session search loops.
 - Failing-test authoring (TDD red step) and verification/CI script runs go to `tester` (writes uncommitted failing tests without production code; runs suites/scripts/CI logs and returns compressed pass/fail excerpts).
 - The main session orchestrates and never writes implementation code inline; dispatch a fresh subagent per task (`tester` first when testable behaviour changes, then `implementer` or `implementer-deep`) via `dispatch`.
-- `patch` handles 1-2 file edits needing no test run (micro-loops, typos, mechanical renames). Council/CI fixers that run tests use implementation seats (`implementer`, or `implementer-deep` for hard clusters).
+- `patch` handles 1-2 file edits needing no test run. Council/CI fixers running tests use implementation seats (`implementer`, or `implementer-deep` for hard clusters).
 
 ## Provider Profiles
 
@@ -71,6 +71,7 @@ Walk each role's rungs in ladder order (`primary -> fallback -> last-resort`, th
 
 ### Review contracts
 
+- Under oneshot, land PR merge requires an audited Phase 6 Council consensus PASS in `$(git rev-parse --git-dir)/info/oneshot-state.md`.
 - A `no-tests` review pass is labelled `provisional: no-tests` and satisfies no green-tests gate except via the single exception below.
 - A repo with no test suite may proceed only on a `provisional: no-tests` PASS with build and lint green and `no-tests decision: proceed` recorded in state.
 - A degraded council (< 2 independent families) stops with `yellow: degraded council`; dual-family degraded mode never reports a provisional `no-tests` PASS.
@@ -80,13 +81,13 @@ Walk each role's rungs in ladder order (`primary -> fallback -> last-resort`, th
 
 - Seats are named agents: `implementer`, `implementer-deep`, `tester`, `scout`, `patch`, `reviewer-a`, `reviewer-b`, `reviewer-c`, escalation `reviewer-esc` (rungs in `PROVIDERS.md`; OpenCode seats with an `opencode` rung render a native pin).
 - When `GLOSSARY.md` exists, task briefs carry the required terms; spec review flags new undefined terms.
-- Three reviewers, three independent model families, fresh subagent each.
+- Three reviewers, three independent model families, fresh subagent each. Round N+1 review re-dispatches all active council seats together; single-seat re-dispatch across rounds is forbidden.
 - One line per finding: `path:line: emoji severity: problem. fix.`
 - Severity only: red bug, yellow risk, blue nit (nits only on request).
 - No praise, no scope creep, no "looks good".
 - PASS requires: agreed verdict from >= 2 of 3 reviewers in nominal mode (unanimous 2/2 in degraded mode) + zero unresolved confirmed red findings + green tests (or the no-tests exception under Review contracts).
-- PASS also requires >= 1 PASS vote from a council seat whose family is not an author family (or dual-family model-level independence under degraded council when all healthy families are authors). Author families are implementation, `tester` (when tests are committed), and fixer rungs (`implementer*`, `tester`, `patch`, CI/council fixers) producing branch commits recorded in state. If every council seat's family is an author family in nominal mode, `reviewer-esc` supplies the non-author vote; in degraded mode where all healthy families are authors, require intra-family model-level independence (each seat's reviewer model must differ from the identical author model) and record in state: `degraded council author vote: dual-family model-level independence (<model1>, <model2>)`; else stop with `yellow: degraded council`.
-- Reviewer never fixes, fixer never reviews.
+- PASS also requires >= 1 PASS vote from a council seat whose family is not an author family (or dual-family model-level independence under degraded council when all healthy families are authors). Author families are implementation, `tester` (if tests committed), and fixer rungs producing branch commits. If every council seat's family is an author family in nominal mode, `reviewer-esc` supplies the non-author vote; in degraded mode where all healthy families are authors, require intra-family model-level independence (each seat's reviewer model must differ from the identical author model) and record in state: `degraded council author vote: dual-family model-level independence (<model1>, <model2>)`; else stop with `yellow: degraded council`.
+- Reviewer never fixes, fixer never reviews. No council seat may review code authored by the identical model.
 - Receiving-side rigor: verify each finding against real code before acting; no performative agreement with hostile-but-wrong findings.
 
 ## Unit Naming Map

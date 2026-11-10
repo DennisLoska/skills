@@ -1,6 +1,6 @@
 ---
 name: oneshot
-description: Use when user says "oneshot" followed by a complete task description, or a feature/bugfix request phrased as "oneshot build X". Runs the entire SDLC pipeline autonomously. NOT for single-step tasks, questions, or tasks needing human judgment per step.
+description: Use when user says "oneshot", "use oneshot", "use the oneshot harness", or requests end-to-end autonomous implementation of a feature, bugfix, or ticket. Runs the entire SDLC pipeline autonomously. NOT for single-step tasks, questions, or tasks needing human judgment per step.
 ---
 
 # Oneshot Pipeline
@@ -157,7 +157,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 
 **Skill:** `land` (Gate 3)
 
-1. Verify tests pass on final state (or satisfy the `no-tests` gate rule in `AGENTS.md` Review contracts).
+1. Verify tests pass on final state (or satisfy the `no-tests` gate rule in `AGENTS.md` Review contracts) AND verify Phase 6 Council consensus PASS is recorded in `$(git rev-parse --git-dir)/info/oneshot-state.md`. Never merge or land without verified Council consensus PASS.
 2. Refresh the PR body's `## Budget` block and include a **Budget** summary block in the final report (pools hit, demotions, backup rungs used, and any degraded seats; `AGENTS.md` Routing Rules, budget stop & resume). Landed options: merge PR and clean up, keep PR open, keep branch, discard. Present options (skip under bypass: default keep PR open).
 3. `land` executes the user choice. It reuses the standard flow: create-PR-if-none, merge open PR, checkout default, pull (the "next feature" handoff).
 4. Record it with the memory tool: mode "add", content "oneshot completed: [task] on [branch]". Remove the state artifact at the end of the run.
