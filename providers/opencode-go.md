@@ -29,15 +29,15 @@ Only `opencode-go/*` models are permitted in this profile.
 | scout | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
 | scout | fallback | opencode | opencode-go/deepseek-v4.1-flash | variant=low | deepseek | ok |
 | scout | last-resort | opencode | opencode-go/glm-5.3-flash | variant=low | zhipu | ok |
-| reviewer-a | primary | opencode | opencode-go/muse-spark-1.3-contributor | variant=xhigh | meta | trains |
+| reviewer-a | primary | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
 | reviewer-a | fallback | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
-| reviewer-a | last-resort | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
+| reviewer-a | last-resort | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | reviewer-b | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=max | deepseek | ok |
 | reviewer-b | fallback | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
 | reviewer-b | last-resort | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
-| reviewer-c | primary | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
-| reviewer-c | fallback | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
-| reviewer-c | last-resort | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
+| reviewer-c | primary | opencode | opencode-go/muse-spark-1.3-contributor | variant=xhigh | meta | trains |
+| reviewer-c | fallback | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
+| reviewer-c | last-resort | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
 | reviewer-esc | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
 | reviewer-esc | fallback | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
 | reviewer-esc | last-resort | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
@@ -51,7 +51,6 @@ Each OpenCode Go model has its own per-model monthly dollar limit and 5-hour cap
 
 | pool | provider | models | window | soft-cap | reserve |
 | --- | --- | --- | --- | --- | --- |
-| opencode-go | opencode | opencode-go/* | 5h | - | - |
 
 ## Backup ladder
 

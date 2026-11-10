@@ -1602,9 +1602,6 @@ generate_dynamic_profile() {
   if [ "$has_cdx" -eq 1 ]; then
     printf '| codex | codex | * | 5h | - | - |\n'
   fi
-  if [ "$has_oc" -eq 1 ]; then
-    printf '| opencode-go | opencode | opencode-go/* | 5h | - | - |\n'
-  fi
 
   printf '\n## Backup ladder\n\n'
   printf '| order | roles | provider | model | effort | family | privacy |\n'

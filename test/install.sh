@@ -840,7 +840,8 @@ for legacy_kind in headerless premanifest; do
   fi
   OPENCODE_CONFIG="$OLD_DEST" "$INSTALL" --force >"$TMPROOT/old.out"
   [ "$(sed -n '2p' "$OLD_DEST/.harness-manifest")" = '# profile opencode-go' ] || fail "$legacy_kind metadata"
-  grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$OLD_DEST/agents/reviewer-a.md" || fail "$legacy_kind pin"
+  grep -qxF 'model: opencode-go/glm-5.3-flash#high' "$OLD_DEST/agents/reviewer-a.md" || fail "$legacy_kind reviewer-a pin"
+  grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$OLD_DEST/agents/reviewer-c.md" || fail "$legacy_kind reviewer-c pin"
   grep -qxF 'profile: opencode-go (previous install predates profiles)' "$TMPROOT/old.out" || fail "$legacy_kind announcement"
   pass "$legacy_kind preserves historical profile"
 done
@@ -2381,7 +2382,7 @@ prov_purged_models() {
 }
 
 prov_case=0
-for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode codex,opencode antigravity,opencode; do
+for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode codex,opencode antigravity,opencode opencode; do
   prov_case=$((prov_case + 1))
   prov_home="$TMPROOT/prov-home-$prov_case"
   prov_md="$prov_home/.config/opencode/PROVIDERS.md"
@@ -2402,6 +2403,9 @@ for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode c
     cat "$TMPROOT/prov-boundary-$prov_case.out" >&2
     fail "--providers $prov_combo routes no Claude, Gemini, or GPT model through opencode"
   fi
+  if grep -qF '| opencode-go | opencode | opencode-go/*' "$prov_md"; then
+    fail "--providers $prov_combo does not emit wildcard opencode-go/* quota pool row"
+  fi
   rc=0
   HOME="$prov_home" "$INSTALL" --verify >"$TMPROOT/prov-verify-$prov_case.out" 2>&1 || rc=$?
   [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-verify-$prov_case.out" >&2; fail "--verify accepts the --providers $prov_combo install (got $rc)"; }
@@ -2411,6 +2415,48 @@ for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode c
   fi
   pass "--providers $prov_combo composes, records, verifies, and keeps Seat C on muse-spark/deepseek"
 done
+
+# Non-opencode compositions and the claude alias (canonicalizing to claudeAgent
+# in PROVIDERS.md and claude in .harness-manifest) compose and verify cleanly.
+for non_oc_combo in antigravity,codex antigravity,claude claude,codex; do
+  prov_case=$((prov_case + 1))
+  prov_home="$TMPROOT/prov-home-$prov_case"
+  prov_md="$prov_home/.config/opencode/PROVIDERS.md"
+  rc=0
+  HOME="$prov_home" "$INSTALL" --providers "$non_oc_combo" >"$TMPROOT/prov-install-$prov_case.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-install-$prov_case.out" >&2; fail "--providers $non_oc_combo exits 0 (got $rc)"; }
+  [ -f "$prov_md" ] || fail "--providers $non_oc_combo installs PROVIDERS.md"
+  grep -qxF "# providers $non_oc_combo" "$prov_home/.config/opencode/.harness-manifest" || fail "--providers $non_oc_combo records '# providers $non_oc_combo' in .harness-manifest"
+  if grep -q '| opencode |' "$prov_md"; then
+    fail "--providers $non_oc_combo emits no opencode rows"
+  fi
+  case "$non_oc_combo" in
+    *claude*)
+      grep -q '| claudeAgent |' "$prov_md" || fail "--providers $non_oc_combo canonicalizes claude alias to claudeAgent in PROVIDERS.md"
+      grep -qF '| claude-code | claudeAgent | * | 5h | - | - |' "$prov_md" || fail "--providers $non_oc_combo emits claudeAgent quota pool"
+      ;;
+  esac
+  rc=0
+  HOME="$prov_home" "$INSTALL" --verify >"$TMPROOT/prov-verify-$prov_case.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-verify-$prov_case.out" >&2; fail "--verify accepts the --providers $non_oc_combo install (got $rc)"; }
+  pass "--providers $non_oc_combo composes without opencode and canonicalizes claude to claudeAgent"
+done
+
+# Single-provider alias claude (and claudeAgent) canonicalizes to claudeAgent in PROVIDERS.md.
+for cld_alias in claude claudeAgent; do
+  prov_case=$((prov_case + 1))
+  prov_home="$TMPROOT/prov-home-$prov_case"
+  prov_md="$prov_home/.config/opencode/PROVIDERS.md"
+  rc=0
+  HOME="$prov_home" "$INSTALL" --providers "$cld_alias" >"$TMPROOT/prov-install-$prov_case.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-install-$prov_case.out" >&2; fail "--providers $cld_alias exits 0 (got $rc)"; }
+  grep -qxF '# providers claude' "$prov_home/.config/opencode/.harness-manifest" || fail "--providers $cld_alias records '# providers claude' in .harness-manifest"
+  grep -q '| claudeAgent |' "$prov_md" || fail "--providers $cld_alias canonicalizes to claudeAgent in PROVIDERS.md"
+  rc=0
+  HOME="$prov_home" "$INSTALL" --verify >"$TMPROOT/prov-verify-$prov_case.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-verify-$prov_case.out" >&2; fail "--verify accepts the --providers $cld_alias install (got $rc)"; }
+done
+pass "--providers claude and claudeAgent canonicalize to claudeAgent in PROVIDERS.md"
 
 # Provider order normalizes to the canonical antigravity,claude,codex,opencode
 # order, and a plain refresh reuses the recorded --providers binding.
