@@ -25,6 +25,71 @@ The harness is provider-neutral: which provider, model, and effort runs each rol
 
 ---
 
+## 🛠️ Installation & Setup
+
+### Quickstart Tracks (Pick One)
+
+Every track is complete on its own. Run from inside the cloned repository (`git clone https://github.com/DennisLoska/skills.git && cd skills`). Every track ends with `./install.sh --verify` (alias `--doctor`), which checks installation health non-destructively (exit code 0 on success).
+
+#### Track 1: T3 Code (Multi-Provider: Antigravity + Codex + OpenCode [+ Claude Code])
+- **Install:** `./install.sh --target all` (default `tri` profile) or `./install.sh --profile quad --target all` (with Claude Code).
+- **Configure (OpenCode threads):** Add `~/.config/opencode/HARNESS.md` and `~/.config/opencode/PROVIDERS.md` to `instructions` in `~/.config/opencode/opencode.json`. Antigravity, Codex, and Claude Code threads load instructions automatically.
+- **Verify:** `./install.sh --verify`
+- **Run:** In T3 Code, prompt `oneshot <task>`.
+
+#### Track 2: OpenCode V2 Standalone
+- **Install:** `./install.sh --profile opencode-go`
+- **Configure:** Add `~/.config/opencode/HARNESS.md` and `~/.config/opencode/PROVIDERS.md` to `instructions` in `~/.config/opencode/opencode.json`.
+- **Verify:** `./install.sh --verify --target opencode`
+- **Run:** In OpenCode V2, prompt `oneshot <task>`.
+
+#### Track 3: Codex Standalone
+- **Install:** `./install.sh --profile codex --target codex`
+- **Verify:** `./install.sh --verify --target codex`
+- **Run:** In Codex CLI/app, prompt `oneshot <task>` (loads `$CODEX_HOME/AGENTS.md` automatically).
+
+#### Track 4: Antigravity Standalone
+- **Install:** `./install.sh --profile antigravity --target antigravity`
+- **Verify:** `./install.sh --verify --target antigravity`
+- **Run:** In Antigravity, prompt `oneshot <task>` (loads `rules/HARNESS.md` and `rules/PROVIDERS.md` automatically).
+
+#### Track 5: Claude Code Standalone
+- **Install:** `./install.sh --profile claude --target claude`
+- **Verify:** `./install.sh --verify --target claude`
+- **Run:** In Claude Code, prompt `oneshot <task>` (loads `CLAUDE.md` automatically).
+
+---
+
+### Installer Reference
+
+```sh
+./install.sh                  # default: installs into OpenCode (${OPENCODE_CONFIG:-$HOME/.config/opencode})
+./install.sh --target all     # installs into OpenCode, Codex, Antigravity (+ T3 instances), and Claude Code
+```
+
+| Flag | Effect |
+| --- | --- |
+| `--target <targets>` | Comma-separated host targets: `opencode`, `codex`, `antigravity`, `claude`, or `all` (default `opencode`). |
+| `--profile <name>` | Bind to a shipped profile: `tri` (default), `quad`, `opencode-go`, `codex`, `antigravity`, `claude`. |
+| `--profile-file <path>` | Bind to a custom external profile file. Recorded in manifest and reused on refresh. |
+| `--verify`, `--doctor` | Non-destructive health check. Verifies manifest, core files, host wiring, and shared state. |
+| `--force` | Overwrite existing destination files and repair symlinked parent directories. |
+| `--prune` | Remove files recorded in previous manifest that this run no longer produces. Preserves unowned files. |
+| `-h`, `--help` | Print usage and exit 0. |
+
+**OpenCode instruction registration (`~/.config/opencode/opencode.json`):**
+```jsonc
+{
+  "$schema": "https://opencode.ai/config.json",
+  "instructions": [
+    "~/.config/opencode/HARNESS.md",
+    "~/.config/opencode/PROVIDERS.md"
+  ]
+}
+```
+
+---
+
 ## 🧭 Cybernetic Architecture
 
 <p align="center">
@@ -39,7 +104,7 @@ The harness is provider-neutral: which provider, model, and effort runs each rol
 | **What runs where?** | Every role resolves to a *rung* (`primary` &rarr; `fallback` &rarr; `last-resort`) in a swappable provider profile, then to a provider instance, model, and effort. No harness file names a model. |
 | **What does it guarantee?** | Tests-first task loops, evidence-before-claims verification, three independent council families, author-independent PASS, and hard budget stops instead of silent model downgrades. |
 | **Where does it install?** | OpenCode, Codex, Antigravity, and Claude Code, one profile bound at install time (`--target all` for every host). |
-| **How do I start?** | `./install.sh` then prompt `oneshot <task>`. See [Installation](#️-installation-for-agents-and-humans). |
+| **How do I start?** | Run the track command for your host in [Installation & Setup](#️-installation--setup), then prompt `oneshot <task>`. |
 
 ### Three-Layer Routing Architecture
 
@@ -318,71 +383,6 @@ AGENTS.md         harness routing instructions (installed as <dest>/HARNESS.md)
 install.sh        multi-host installer         (opencode, codex, antigravity, claude, all)
 NOTICE            upstream MIT attribution     (mattpocock/skills)
 LICENSE           MIT license
-```
-
----
-
-## 🛠️ Installation (For Agents and Humans)
-
-### Quickstart Tracks (Pick One)
-
-Every track is complete on its own. Run from inside the cloned repository (`git clone https://github.com/DennisLoska/skills.git && cd skills`). Every track ends with `./install.sh --verify` (alias `--doctor`), which checks installation health non-destructively (exit code 0 on success).
-
-#### Track 1: T3 Code (Multi-Provider: Antigravity + Codex + OpenCode [+ Claude Code])
-- **Install:** `./install.sh --target all` (default `tri` profile) or `./install.sh --profile quad --target all` (with Claude Code).
-- **Configure (OpenCode threads):** Add `~/.config/opencode/HARNESS.md` and `~/.config/opencode/PROVIDERS.md` to `instructions` in `~/.config/opencode/opencode.json`. Antigravity, Codex, and Claude Code threads load instructions automatically.
-- **Verify:** `./install.sh --verify`
-- **Run:** In T3 Code, prompt `oneshot <task>`.
-
-#### Track 2: OpenCode V2 Standalone
-- **Install:** `./install.sh --profile opencode-go`
-- **Configure:** Add `~/.config/opencode/HARNESS.md` and `~/.config/opencode/PROVIDERS.md` to `instructions` in `~/.config/opencode/opencode.json`.
-- **Verify:** `./install.sh --verify --target opencode`
-- **Run:** In OpenCode V2, prompt `oneshot <task>`.
-
-#### Track 3: Codex Standalone
-- **Install:** `./install.sh --profile codex --target codex`
-- **Verify:** `./install.sh --verify --target codex`
-- **Run:** In Codex CLI/app, prompt `oneshot <task>` (loads `$CODEX_HOME/AGENTS.md` automatically).
-
-#### Track 4: Antigravity Standalone
-- **Install:** `./install.sh --profile antigravity --target antigravity`
-- **Verify:** `./install.sh --verify --target antigravity`
-- **Run:** In Antigravity, prompt `oneshot <task>` (loads `rules/HARNESS.md` and `rules/PROVIDERS.md` automatically).
-
-#### Track 5: Claude Code Standalone
-- **Install:** `./install.sh --profile claude --target claude`
-- **Verify:** `./install.sh --verify --target claude`
-- **Run:** In Claude Code, prompt `oneshot <task>` (loads `CLAUDE.md` automatically).
-
----
-
-### Installer Reference
-
-```sh
-./install.sh                  # default: installs into OpenCode (${OPENCODE_CONFIG:-$HOME/.config/opencode})
-./install.sh --target all     # installs into OpenCode, Codex, Antigravity (+ T3 instances), and Claude Code
-```
-
-| Flag | Effect |
-| --- | --- |
-| `--target <targets>` | Comma-separated host targets: `opencode`, `codex`, `antigravity`, `claude`, or `all` (default `opencode`). |
-| `--profile <name>` | Bind to a shipped profile: `tri` (default), `quad`, `opencode-go`, `codex`, `antigravity`, `claude`. |
-| `--profile-file <path>` | Bind to a custom external profile file. Recorded in manifest and reused on refresh. |
-| `--verify`, `--doctor` | Non-destructive health check. Verifies manifest, core files, host wiring, and shared state. |
-| `--force` | Overwrite existing destination files and repair symlinked parent directories. |
-| `--prune` | Remove files recorded in previous manifest that this run no longer produces. Preserves unowned files. |
-| `-h`, `--help` | Print usage and exit 0. |
-
-**OpenCode instruction registration (`~/.config/opencode/opencode.json`):**
-```jsonc
-{
-  "$schema": "https://opencode.ai/config.json",
-  "instructions": [
-    "~/.config/opencode/HARNESS.md",
-    "~/.config/opencode/PROVIDERS.md"
-  ]
-}
 ```
 
 ---
