@@ -17,7 +17,7 @@
   <img src="https://img.shields.io/badge/Skills-12%20Pipeline%20Units-1AD1A5?style=flat-square" alt="12 Pipeline Skills" />
   <img src="https://img.shields.io/badge/Council-3%20Independent%20Families-FF6B35?style=flat-square" alt="3-Family Council" />
   <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
-  <img src="https://img.shields.io/badge/Tests-117%2F117%20Passing-2ECC71?style=flat-square" alt="117/117 Tests Passing" />
+  <img src="https://img.shields.io/badge/Tests-127%2F127%20Passing-2ECC71?style=flat-square" alt="127/127 Tests Passing" />
   <img src="https://img.shields.io/badge/Profiles-tri%20%7C%20quad%20%7C%20opencode--go%20%7C%20codex%20%7C%20antigravity%20%7C%20claude-8B5CF6?style=flat-square" alt="Profiles: tri, quad, opencode-go, codex, antigravity, claude" />
 </p>
 
@@ -572,7 +572,7 @@ providers/        swappable provider profiles: tri (default), quad (tri + Claude
                                                opencode-go, codex, antigravity, claude
 docs/             design specs and plans:      docs/specs/, docs/plans/
 docs/assets/      vector visuals:              logo.svg, architecture.svg
-test/install.sh   117-assertion contract suite (runs in throwaway HOME on Bash >=3.2)
+test/install.sh   127-assertion contract suite (runs in throwaway HOME on Bash >=3.2)
 AGENTS.md         harness routing instructions (installed as <dest>/HARNESS.md)
 install.sh        multi-host installer         (opencode, codex, antigravity, claude, all)
 NOTICE            upstream MIT attribution     (mattpocock/skills)
@@ -585,7 +585,44 @@ LICENSE           MIT license
 
 Requires T3 Code, OpenCode V2, Codex, Antigravity, or Claude Code as the host. Connect whichever providers your chosen profile uses: `tri` combines Antigravity, Codex, and OpenCode Go; `quad` adds Claude Code (`claudeAgent`); single-provider profiles (`opencode-go`, `codex`, `antigravity`, `claude`) require only that single subscription. Inside T3 Code, `delegate_task` reaches every enabled provider across `tri` and `quad`; standalone hosts without T3 Code dispatch same-provider rungs natively (either via `--profile opencode-go|codex|antigravity|claude`, or via same-provider rungs and `## Backup ladder` under `tri`/`quad`). Config reloads automatically without a restart.
 
-### 1. Clone and run `./install.sh`
+### Quickstart tracks (pick one)
+
+Every track below is complete on its own. All commands assume you are inside the cloned repo (`git clone https://github.com/DennisLoska/skills.git && cd skills`). Every track ends with the same `./install.sh --verify` health check (alias `--doctor`), which is read-only and exits 0 on a valid install, 1 on failure.
+
+#### Track 1: T3 Code (Multi-Provider: Antigravity + Codex + OpenCode [+ Claude Code])
+
+- **Install:** `./install.sh --target all` (default `tri` profile: Antigravity + Codex + OpenCode Go) or `./install.sh --profile quad --target all` when you also have a Claude Code subscription.
+- **Verify:** `./install.sh --verify`
+- **Run:** open a thread in T3 Code and prompt `oneshot <task>`. T3 Code dispatches every enabled provider through `delegate_task` (Dispatch Adapter Path 1), so no standalone wiring is needed.
+
+#### Track 2: OpenCode V2 Standalone
+
+- **Install:** `./install.sh --profile opencode-go` (or keep the default `tri`, which a standalone OpenCode install falls back through its `## Backup ladder` rows).
+- **Configure:** add `~/.config/opencode/HARNESS.md` and `~/.config/opencode/PROVIDERS.md` to `instructions` in `~/.config/opencode/opencode.json` (step 2 below).
+- **Verify:** `./install.sh --verify --target opencode`
+- **Run:** in OpenCode V2, prompt `oneshot <task>`.
+
+#### Track 3: Codex Standalone
+
+- **Install:** `./install.sh --profile codex --target codex`
+- **Verify:** `./install.sh --verify --target codex`
+- **Run:** in Codex CLI/app, prompt `oneshot <task>`. Codex loads `$CODEX_HOME/AGENTS.md` automatically, so no extra wiring is needed.
+
+#### Track 4: Antigravity Standalone
+
+- **Install:** `./install.sh --profile antigravity --target antigravity`
+- **Verify:** `./install.sh --verify --target antigravity`
+- **Run:** in Antigravity, prompt `oneshot <task>`. Antigravity loads `rules/HARNESS.md` and `rules/PROVIDERS.md` automatically, so no extra wiring is needed.
+
+#### Track 5: Claude Code Standalone
+
+- **Install:** `./install.sh --profile claude --target claude`
+- **Verify:** `./install.sh --verify --target claude`
+- **Run:** in Claude Code, prompt `oneshot <task>`. Claude Code loads `CLAUDE.md` automatically, so no extra wiring is needed.
+
+The numbered sections below are the install reference: what each target receives, the `opencode` wiring step, and manual verification.
+
+### 1. Install reference: clone and run `./install.sh`
 
 ```sh
 git clone https://github.com/DennisLoska/skills.git
@@ -611,6 +648,8 @@ The copy is collision-safe. Before touching anything, the installer runs preflig
 | `--target <targets>` | comma-separated host targets: `opencode`, `codex`, `antigravity`, `claude`, or `all` (also `--target=<targets>`; default `opencode`; `antigravity` installs standalone `${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config}` plus any T3 Code instances under `${T3_USERDATA_DIR:-$HOME/.t3/userdata}/providers/antigravity/*/config`). An unknown or empty target exits 2 with `install.sh: unknown target: <token> (available: opencode codex antigravity claude all)` before writing anything |
 | `--profile <name>` | bind the install to `providers/<name>.md` (also `--profile=<name>`; default `tri`, available: `antigravity`, `claude`, `codex`, `opencode-go`, `quad`, `tri`). Mutually exclusive with `--profile-file` (exit 2). Without `--profile` or `--profile-file`, the previous manifest's `# profile` or `# profile-file` is reused (else `tri`); a previous install that predates profiles (a manifest with entries but no `# profile` line, or `HARNESS.md` with no manifest) keeps `opencode-go` and prints `profile: opencode-go (previous install predates profiles)`; an explicit change prints `profile changed: X -> Y`. An unknown profile exits 2 with `install.sh: unknown profile: <name> (available: ...)`; an incomplete or invalid profile exits 1 with `install.sh: profile <name> incomplete: <role>` (a dispatched role without a `primary` row), `install.sh: profile <name> invalid row: <role> <rung>: <reason>`, `install.sh: profile <name> invalid pool row: <pool>: <reason>`, or `install.sh: profile <name> invalid backup row: <order>: <reason>`; all are checked before anything is written |
 | `--profile-file <path>` | bind the install to an external profile file at `<path>` (also `--profile-file=<path>`), recorded in `<dest>/.harness-manifest` line 2 as `# profile-file <abs path>` and reused on subsequent refreshes. Mutually exclusive with `--profile` (exit 2). If `<path>` (or a recorded `# profile-file` on refresh) does not exist, exits 2 with `install.sh: profile file not found: <path>` before writing anything; validates with the same `incomplete` / `invalid row` / `invalid pool row` / `invalid backup row` rules as `--profile` |
+| `--verify` | verify target installation health non-destructively: validates manifests, required files, host instruction wiring (opencode.json, AGENTS.md, rules/, CLAUDE.md), and shared state; exits 0 on valid install, 1 on failure |
+| `--doctor` | alias for `--verify` |
 | `--force` | overwrite files that already exist in the destination, and repair any symlinked parent directory under the destination by replacing the link with a real directory (warning: this removes the link) |
 | `--prune` | after copying, remove files that the previous `<dest>/.harness-manifest` records as installed but this run no longer produces, then print `pruned N stale file(s)` (on `--target antigravity`, also migrates any legacy pre-flat manifest/ledger and prunes its stale entries while preserving user files). Files the installer never wrote are never removed, so personal agents and skills in the same directory survive. With no previous manifest it prints `no previous manifest; prune skipped` and removes nothing |
 | `-h`, `--help` | print usage and exit 0 without copying |
@@ -654,24 +693,17 @@ OpenCode V2 loads `~/.config/opencode/AGENTS.md` automatically and then concaten
 ### 3. Verify installation
 
 ```sh
-grep -q 'HARNESS.md' ~/.config/opencode/opencode.json &&
-  grep -q 'PROVIDERS.md' ~/.config/opencode/opencode.json &&
-  test -f ~/.config/opencode/HARNESS.md &&
-  test -f ~/.config/opencode/PROVIDERS.md &&
-  test -f ~/.config/opencode/agents/implementer.md &&
-  test -f ~/.config/opencode/agents/implementer-deep.md &&
-  test -f ~/.config/opencode/agents/tester.md &&
-  test -f ~/.config/opencode/agents/reviewer-a.md &&
-  test -f ~/.config/opencode/skills/oneshot/SKILL.md &&
-  test -f ~/.config/opencode/skills/council/SKILL.md &&
-  echo "installed ok"
+./install.sh --verify                      # every installed host target (auto-discovered)
+./install.sh --verify --target opencode    # filter to one host: opencode, codex, antigravity, claude, or all
 ```
+
+`--verify` (alias `--doctor`) modifies nothing. It checks each selected `<dest>/.harness-manifest`, the required installed files (`HARNESS.md`, `PROVIDERS.md`, `agents/*.md`, `skills/**`), host instruction wiring (`opencode.json` `instructions` for OpenCode, `AGENTS.md` for Codex, `rules/HARNESS.md` plus `rules/PROVIDERS.md` for Antigravity, `CLAUDE.md` for Claude Code), and the shared `state` directory. It prints `[OK]` / `[WARN]` lines per check with remediation hints, exits 0 on a valid install, and exits 1 naming the failing check and missing file.
 
 ---
 
 ## 🧪 Testing
 
-Run the 117-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
+Run the 127-assertion installer contract suite (uses a throwaway `HOME` under `$TMPDIR` and never touches your real `~/.config/opencode`):
 
 ```sh
 bash -n install.sh && bash -n test/install.sh
