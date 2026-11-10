@@ -38,4 +38,4 @@ Spec: `docs/specs/2026-11-10-quad-claude-routing-design.md`.
   - Council round 2 re-review.
   - Merge PR on consensus.
   - Reinstall harness across all providers with `./install.sh --profile quad --target all`.
-  - Verify all providers with `./install.sh --verify --target all`.
+  - Verify all providers with `./test/install.sh` and profile verification.

@@ -8,7 +8,7 @@ Status: Approved.
 Claude Code is now installed and verified on the machine with T3 Code integration (`providerInstanceId: claudeAgent`). With four active subscriptions—Antigravity, Codex, OpenCode Go, and Claude Code—the `quad` provider profile must be refined to:
 1. Provide an optimal distribution of Anthropic models across roles (Sonnet 5.5, Opus 5.5, Fable 5.2/5.1, and Haiku 5.5).
 2. Exploit separate quota pools accurately: Antigravity's `antigravity-claude` is soft-capped at 6 dispatches per run, reserved for `reviewer-b` (separate from `antigravity-gemini`), so Antigravity Claude models are retained as a secondary reserve, while primary Anthropic workloads route through direct `claudeAgent`.
-3. Purge expensive quota-draining OpenCode models (`kimi-k3.1-pro` at ~147 req/5h and `qwen3.8-max` at ~160 req/5h) in favor of high-allowance, cost-effective models (`muse-spark-1.3-contributor` at ~90,600 req/5h, `mimo-v2.6-flash` at ~60,200 req/5h, `deepseek-v4.1-flash` at ~86,670 req/5h, and `glm-5.3-flash` at ~19,000 req/5h).
+3. Purge expensive quota-draining OpenCode models (`kimi-k3.1-pro` at ~588 req/5h Go Plus / ~147 Go and `qwen3.8-max` at ~640 req/5h Go Plus / ~160 Go) in favor of high-allowance, cost-effective models (`muse-spark-1.3-contributor` at ~90,600 req/5h, `mimo-v2.6-flash` at ~60,200 req/5h, `deepseek-v4.1-flash` at ~86,670 req/5h, and `glm-5.3-flash` at ~19,000 req/5h).
 4. Clarify and enforce the Author Independence invariant in `quad.md` so that `task-reviewer` and Council consensus deterministically avoid self-grading without arbitrary LLM guessing.
 5. Update `providers/quad.md`, documentation, and tests to validate the refined quad distribution.
 
@@ -87,10 +87,10 @@ Claude Code is now installed and verified on the machine with T3 Code integratio
 `quad.md` explicitly documents how author independence operates across rungs:
 - `task-reviewer` ladder: primary is OpenAI (`gpt-6.1-terra`), fallback is Anthropic (`claude-sonnet-5-5`), last-resort is Google (`gemini-3.8-flash`). When code is authored by Google (Gemini Argon), primary OpenAI dispatches immediately. When code is authored by OpenAI (`gpt-6.1-sol`), the driver advances to fallback Anthropic (`claude-sonnet-5-5`). Zero self-grading.
 - Council Contract: Seat A (`openai`), Seat B (`anthropic`), Seat C (`meta` primary `muse-spark-1.3-contributor`, fallback `xiaomi` `mimo-v2.6-flash`, last-resort `zhipu` `glm-5.3-flash`). At least one PASS vote must come from a family that authored zero commits on the branch.
-- Escalation Seat: `reviewer-esc` runs on `xiaomi` (`mimo-v2.6-flash`), `zhipu` (`glm-5.3-flash`), and `deepseek` (`deepseek-v4.1-flash`), maintaining strict family independence from the primary council families (`openai`, `anthropic`, `meta`). If Seat C demotes or skips `meta` due to `[confidential]` diffs and takes `xiaomi` or `zhipu`, `reviewer-esc` advances past those families to `deepseek-v4.1-flash`.
+- Escalation Seat: `reviewer-esc` runs on `xiaomi` (`mimo-v2.6-flash`), `zhipu` (`glm-5.3-flash`), and `deepseek` (`deepseek-v4.1-flash`), maintaining strict family independence from the primary council families (`openai`, `anthropic`, `meta`). If Seat C demotes or skips `meta` due to `[confidential]` diffs and takes `xiaomi` or `zhipu`, `reviewer-esc` advances past whichever family Seat C holds to the next free rung (`glm-5.3-flash`, else `deepseek-v4.1-flash`).
 
 ## Test & Verification Plan
 
 1. Verify `providers/quad.md` conforms to the table validation regexes in `test/install.sh`.
 2. Run `./test/install.sh` to ensure all tests pass cleanly against the updated profile.
-3. Test installation with `./install.sh --profile quad --target all` and `--verify --target all`.
+3. Test installation with `./install.sh --profile quad --target all` and verify byte-identical match against target `PROVIDERS.md`.
