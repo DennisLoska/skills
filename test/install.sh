@@ -2654,7 +2654,7 @@ oc_seat_c="$(awk -F '|' '$2 ~ /reviewer-c/ && $3 ~ /primary/ { fam=$7; gsub(/^ +
 [ "$oc_seat_a" != "$oc_seat_b" ] || fail "claude,opencode seat A and seat B share primary family"
 [ "$oc_seat_a" != "$oc_seat_c" ] || fail "claude,opencode seat A and seat C share primary family"
 [ "$oc_seat_b" != "$oc_seat_c" ] || fail "claude,opencode seat B and seat C share primary family"
-for test_esc_provs in "claude,opencode" "antigravity,opencode" "antigravity,claude,opencode" "antigravity,claude,codex,opencode"; do
+for test_esc_provs in "claude,opencode" "antigravity,opencode" "antigravity,claude,opencode" "codex,opencode" "antigravity,codex,opencode" "claude,codex,opencode" "antigravity,claude,codex,opencode"; do
   esc_test_home="$TMPROOT/prov-esc-$(echo "$test_esc_provs" | tr ',' '-')"
   HOME="$esc_test_home" "$INSTALL" --providers "$test_esc_provs" >/dev/null 2>&1
   esc_md="$esc_test_home/.config/opencode/PROVIDERS.md"
@@ -2663,8 +2663,10 @@ for test_esc_provs in "claude,opencode" "antigravity,opencode" "antigravity,clau
   esc_seat_c="$(awk -F '|' '$2 ~ /reviewer-c/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$esc_md")"
   esc_seat_esc="$(awk -F '|' '$2 ~ /reviewer-esc/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$esc_md")"
   [ -n "$esc_seat_esc" ] || fail "--providers $test_esc_provs reviewer-esc primary exists"
-  [ -z "$esc_seat_a" ] || [ "$esc_seat_esc" != "$esc_seat_a" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat A ($esc_seat_a)"
-  [ -z "$esc_seat_b" ] || [ "$esc_seat_esc" != "$esc_seat_b" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat B ($esc_seat_b)"
+  [ -n "$esc_seat_a" ] || fail "--providers $test_esc_provs reviewer-a primary exists"
+  [ -n "$esc_seat_b" ] || fail "--providers $test_esc_provs reviewer-b primary exists"
+  [ "$esc_seat_esc" != "$esc_seat_a" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat A ($esc_seat_a)"
+  [ "$esc_seat_esc" != "$esc_seat_b" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat B ($esc_seat_b)"
   [ -z "$esc_seat_c" ] || [ "$esc_seat_esc" != "$esc_seat_c" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat C ($esc_seat_c)"
 done
 
