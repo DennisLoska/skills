@@ -2041,4 +2041,69 @@ grep -qF 'spec-reviewer-prompt.md' "$ROOT/skills/oneshot/SKILL.md" || fail "ones
 grep -qF 'quality-reviewer-prompt.md' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot Phase 3 requires Stage 2 quality-reviewer-prompt.md via task-reviewer"
 pass "standalone profiles, multi-provider backup ladders, multi-host dispatch adapter, and strict 3-way decoupling"
 
+# 76. --verify re-checks an installed target without rewriting it, and --doctor
+# reports install health without touching the target.
+VERIFY_HOME="$TMPROOT/verify-home"
+VERIFY_DEST="$VERIFY_HOME/.config/opencode"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" >"$TMPROOT/verify-install.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/verify-install.out" >&2; fail "--verify fixture install exits 0 (got $rc)"; }
+
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-ok.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/verify-ok.out" >&2; fail "--verify exits 0 on a freshly installed opencode target (got $rc)"; }
+grep -qF 'opencode.json' "$TMPROOT/verify-ok.out" || fail "--verify warns with opencode.json remediation when opencode.json is absent"
+
+printf '{"instructions": ["%s/HARNESS.md", "%s/PROVIDERS.md"]}\n' "$VERIFY_DEST" "$VERIFY_DEST" >"$VERIFY_DEST/opencode.json"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-wired.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/verify-wired.out" >&2; fail "--verify exits 0 when opencode.json wires HARNESS.md and PROVIDERS.md (got $rc)"; }
+grep -qF '[OK] opencode.json includes HARNESS.md and PROVIDERS.md' "$TMPROOT/verify-wired.out" || fail "--verify reports [OK] when opencode.json includes HARNESS.md and PROVIDERS.md"
+
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --doctor >"$TMPROOT/doctor-ok.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/doctor-ok.out" >&2; fail "--doctor exits 0 on a valid install (got $rc)"; }
+
+rc=0
+HOME="$TMPROOT/verify-empty-home" "$INSTALL" --verify >"$TMPROOT/verify-uninstalled.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/verify-uninstalled.out" >&2; fail "--verify exits 1 on an uninstalled opencode target (got $rc)"; }
+
+rm "$VERIFY_DEST/HARNESS.md"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-missing.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/verify-missing.out" >&2; fail "--verify exits 1 when an installed required file is missing (got $rc)"; }
+grep -qF 'HARNESS.md' "$TMPROOT/verify-missing.out" || {
+  cat "$TMPROOT/verify-missing.out" >&2
+  fail "--verify names the missing required file (HARNESS.md)"
+}
+
+VERIFY_ALL_HOME="$TMPROOT/verify-all-home"
+mkdir -p "$VERIFY_ALL_HOME/.t3/userdata"
+rc=0
+HOME="$VERIFY_ALL_HOME" "$INSTALL" >"$TMPROOT/verify-t3-tip.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/verify-t3-tip.out" >&2; fail "default install with ~/.t3/userdata exits 0 (got $rc)"; }
+grep -qF "tip: T3 Code detected; pass '--target all' to install across all T3-connected providers (Antigravity, Codex, OpenCode, Claude)." "$TMPROOT/verify-t3-tip.out" || {
+  cat "$TMPROOT/verify-t3-tip.out" >&2
+  fail "default install prints T3 Code detection tip when ~/.t3/userdata exists"
+}
+
+rc=0
+HOME="$VERIFY_ALL_HOME" "$INSTALL" --force --target all >"$TMPROOT/verify-all-install.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/verify-all-install.out" >&2; fail "--force --target all exits 0 (got $rc)"; }
+if grep -qF "tip: T3 Code detected" "$TMPROOT/verify-all-install.out"; then
+  fail "explicit --target suppresses T3 Code tip"
+fi
+
+rc=0
+HOME="$VERIFY_ALL_HOME" "$INSTALL" --verify >"$TMPROOT/verify-discovered.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/verify-discovered.out" >&2; fail "--verify auto-discovers and verifies all 4 installed targets (got $rc)"; }
+for tgt_name in "verifying opencode" "verifying codex" "verifying antigravity" "verifying claude"; do
+  grep -qF "$tgt_name" "$TMPROOT/verify-discovered.out" || fail "--verify auto-discovery checks $tgt_name"
+done
+
+"$INSTALL" --help >"$TMPROOT/verify-help.out" 2>&1
+grep -qF -- '--verify' "$TMPROOT/verify-help.out" || fail "--help documents --verify"
+grep -qF -- '--doctor' "$TMPROOT/verify-help.out" || fail "--help documents --doctor"
+pass "--verify gates installed and uninstalled targets and --doctor accepts a valid install"
+
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"

@@ -22,7 +22,7 @@ available_profiles() {
 
 usage() {
   cat <<'EOF'
-usage: install.sh [--force] [--prune] [--profile NAME | --profile-file PATH] [--target TARGETS]
+usage: install.sh [--force] [--prune] [--verify | --doctor] [--profile NAME | --profile-file PATH] [--target TARGETS]
 
 Installs agents/, skills/, AGENTS.md (as HARNESS.md), PROVIDERS.md, NOTICE, and LICENSE into
 the selected host target(s) (default: opencode at ${OPENCODE_CONFIG:-$HOME/.config/opencode}),
@@ -36,6 +36,9 @@ options:
                        ${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config} plus any T3 Code instances under
                        ${T3_USERDATA_DIR:-$HOME/.t3/userdata}/providers/antigravity/*/config, sharing
                        the standalone root's profile binding on refresh)
+  --verify             check installed target health (manifest, required files, instruction wiring,
+                       and shared state) without modifying the destination
+  --doctor             alias for --verify
   --force              overwrite files that already exist in the destination
   --prune              remove files recorded in a previous .harness-manifest that
                        this run no longer produces; files the installer never wrote
@@ -55,6 +58,7 @@ unknown_target() {
 
 force=0
 prune=0
+verify_mode=0
 pf_token_file=""
 sr_token_file=""
 preflight_only=0
@@ -81,6 +85,7 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --force) force=1 ;;
     --prune) prune=1 ;;
+    --verify|--doctor) verify_mode=1 ;;
     --profile)
       if [ "$#" -lt 2 ] || [ -z "$2" ]; then usage >&2; exit 2; fi
       profile_given=1
@@ -143,6 +148,43 @@ done
 if [ "$profile_given" -eq 1 ] && [ "$profile_file_given" -eq 1 ]; then
   usage >&2
   exit 2
+fi
+
+if [ "$verify_mode" -eq 1 ] && [ "$target_given" -eq 0 ]; then
+  discovered_targets=""
+  for cand in opencode codex antigravity claude; do
+    cand_has=0
+    case "$cand" in
+      opencode)    cand_dir="${OPENCODE_CONFIG-${HOME:-}/.config/opencode}" ;;
+      codex)       cand_dir="${CODEX_HOME-${HOME:-}/.codex}" ;;
+      antigravity) cand_dir="${ANTIGRAVITY_CONFIG-${HOME:-}/.gemini/config}" ;;
+      claude)      cand_dir="${CLAUDE_CONFIG_DIR-${HOME:-}/.claude}" ;;
+    esac
+    if [ -n "$cand_dir" ] && [ -f "$cand_dir/.harness-manifest" ]; then
+      cand_has=1
+    elif [ "$cand" = "antigravity" ]; then
+      cand_t3="${T3_USERDATA_DIR:-${HOME:-}/.t3/userdata}"
+      if [ -n "$cand_t3" ] && [ -d "$cand_t3/providers/antigravity" ]; then
+        for cand_inst in "$cand_t3/providers/antigravity"/[!.]*; do
+          [ -d "$cand_inst" ] || continue
+          if [ -f "$cand_inst/config/.harness-manifest" ]; then
+            cand_has=1
+            break
+          fi
+        done
+      fi
+    fi
+    if [ "$cand_has" -eq 1 ]; then
+      if [ -n "$discovered_targets" ]; then
+        discovered_targets="$discovered_targets,$cand"
+      else
+        discovered_targets="$cand"
+      fi
+    fi
+  done
+  if [ -n "$discovered_targets" ]; then
+    target_arg="$discovered_targets"
+  fi
 fi
 
 # Parse and validate --target before touching anything.
@@ -432,6 +474,28 @@ read_prev_binding() {
 # preflight pass runs across all jobs first so any invalid destination or
 # collision aborts before any root is mutated.
 if [ "${#job_targets[@]}" -gt 1 ]; then
+  if [ "$verify_mode" -eq 1 ]; then
+    trap 'rm -f -- ${sr_token_file:+"$sr_token_file"}' EXIT
+    sr_token_file="$(mktemp "${TMPDIR:-/tmp}/harness-sr.XXXXXXXX")"
+    chmod 0600 "$sr_token_file"
+    sr_token="$$-$(date +%s)-${RANDOM:-0}-sr"
+    printf '%s' "$sr_token" >"$sr_token_file"
+    verify_rc=0
+    for idx in "${!job_targets[@]}"; do
+      jt="${job_targets[$idx]}"
+      if [ "${job_override_agy[$idx]}" -eq 1 ]; then
+        ANTIGRAVITY_CONFIG="${job_agy_configs[$idx]}" \
+          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+          "$SRC/install.sh" --verify --target "$jt" || verify_rc=1
+      else
+        HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+          "$SRC/install.sh" --verify --target "$jt" || verify_rc=1
+      fi
+    done
+    rm -f -- "$sr_token_file"
+    sr_token_file=""
+    exit "$verify_rc"
+  fi
   sub_args=()
   [ "$force" -eq 1 ] && sub_args+=("--force")
   [ "$prune" -eq 1 ] && sub_args+=("--prune")
@@ -611,6 +675,9 @@ if [ "${#job_targets[@]}" -gt 1 ]; then
   done
   rm -f -- "$sr_token_file"
   sr_token_file=""
+  if [ "$target_given" -eq 0 ] && { [ -n "${T3_USERDATA_DIR:-}" ] || [ -d "${HOME:-}/.t3/userdata" ]; }; then
+    printf "tip: T3 Code detected; pass '--target all' to install across all T3-connected providers (Antigravity, Codex, OpenCode, Claude).\n"
+  fi
   exit 0
 fi
 
@@ -760,6 +827,97 @@ if [ -L "$MANIFEST" ] || { [ -e "$MANIFEST" ] && [ ! -f "$MANIFEST" ]; }; then
   printf 'install.sh: manifest path is not a regular file: %s\n' "$MANIFEST" >&2
   exit 1
 fi
+
+verify_target() {
+  local v_errors=0
+  local req
+  printf 'verifying %s (%s):\n' "$TARGET_HOST" "$DEST"
+  if [ ! -d "$DEST" ]; then
+    printf '  [FAIL] destination directory missing: %s\n' "$DEST"
+    return 1
+  fi
+  if [ ! -f "$MANIFEST" ] || [ -L "$MANIFEST" ]; then
+    printf '  [FAIL] manifest missing: %s\n' "$MANIFEST"
+    v_errors=$((v_errors + 1))
+  else
+    printf '  [OK] manifest: %s\n' "$MANIFEST"
+  fi
+  for req in HARNESS.md PROVIDERS.md skills/oneshot/SKILL.md skills/council/SKILL.md; do
+    if [ ! -f "$DEST/$req" ]; then
+      printf '  [FAIL] required file missing: %s\n' "$req"
+      v_errors=$((v_errors + 1))
+    else
+      printf '  [OK] required file: %s\n' "$req"
+    fi
+  done
+  case "$TARGET_HOST" in
+    opencode)
+      if [ -f "$DEST/opencode.json" ]; then
+        if grep -qF 'HARNESS.md' "$DEST/opencode.json" && grep -qF 'PROVIDERS.md' "$DEST/opencode.json"; then
+          printf '  [OK] opencode.json includes HARNESS.md and PROVIDERS.md\n'
+        else
+          printf '  [WARN] opencode.json is missing HARNESS.md or PROVIDERS.md in instructions; add ["%s/HARNESS.md", "%s/PROVIDERS.md"] to instructions in %s/opencode.json\n' "$DEST" "$DEST" "$DEST"
+        fi
+      else
+        printf '  [WARN] opencode.json not found at %s/opencode.json; create it with {"instructions": ["%s/HARNESS.md", "%s/PROVIDERS.md"]} so OpenCode loads the harness\n' "$DEST" "$DEST" "$DEST"
+      fi
+      ;;
+    codex)
+      if [ ! -f "$DEST/AGENTS.md" ]; then
+        printf '  [FAIL] required instruction file missing: AGENTS.md\n'
+        v_errors=$((v_errors + 1))
+      else
+        printf '  [OK] instruction wiring: AGENTS.md\n'
+      fi
+      ;;
+    antigravity)
+      for ag_rule in rules/HARNESS.md rules/PROVIDERS.md; do
+        if [ ! -f "$DEST/$ag_rule" ]; then
+          printf '  [FAIL] required instruction rule missing: %s\n' "$ag_rule"
+          v_errors=$((v_errors + 1))
+        elif [ "$(wc -c <"$DEST/$ag_rule")" -ge 24576 ]; then
+          printf '  [FAIL] instruction rule exceeds 24576 bytes: %s\n' "$ag_rule"
+          v_errors=$((v_errors + 1))
+        else
+          printf '  [OK] instruction wiring: %s\n' "$ag_rule"
+        fi
+      done
+      ;;
+    claude)
+      if [ ! -f "$DEST/CLAUDE.md" ]; then
+        printf '  [FAIL] required instruction file missing: CLAUDE.md\n'
+        v_errors=$((v_errors + 1))
+      else
+        printf '  [OK] instruction wiring: CLAUDE.md\n'
+      fi
+      ;;
+  esac
+  if [ ! -d "$DEST/state" ]; then
+    printf '  [FAIL] shared state directory missing: %s/state\n' "$DEST"
+    v_errors=$((v_errors + 1))
+  elif [ -e "$DEST/state/quota-ledger.tsv" ] && { [ ! -f "$DEST/state/quota-ledger.tsv" ] || [ ! -r "$DEST/state/quota-ledger.tsv" ]; }; then
+    printf '  [FAIL] quota-ledger.tsv is not a readable regular file: %s/state/quota-ledger.tsv\n' "$DEST"
+    v_errors=$((v_errors + 1))
+  elif [ ! -e "$DEST/state/quota-ledger.tsv" ] && [ -L "$DEST/state/quota-ledger.tsv" ]; then
+    printf '  [FAIL] quota-ledger.tsv is a dangling symlink: %s/state/quota-ledger.tsv\n' "$DEST"
+    v_errors=$((v_errors + 1))
+  elif [ ! -w "$DEST/state" ]; then
+    printf '  [FAIL] shared state directory is not writable for quota-ledger.tsv: %s/state\n' "$DEST"
+    v_errors=$((v_errors + 1))
+  else
+    printf '  [OK] shared state: %s/state (quota-ledger.tsv accessible)\n' "$DEST"
+  fi
+  [ "$v_errors" -eq 0 ]
+}
+
+if [ "$verify_mode" -eq 1 ]; then
+  if verify_target; then
+    exit 0
+  else
+    exit 1
+  fi
+fi
+
 LEGACY_AGY_DIR=""
 LEGACY_AGY_MANIFEST=""
 if [ "$TARGET_HOST" = "antigravity" ]; then
@@ -1871,3 +2029,6 @@ if { [ "$profile_given" -eq 1 ] || [ "$profile_file_given" -eq 1 ]; } &&
 fi
 
 printf 'installed %d files into %s (harness instructions at %s)\n' "$installed" "$DEST" "$DEST/HARNESS.md"
+if [ "$target_given" -eq 0 ] && { [ -n "${T3_USERDATA_DIR:-}" ] || [ -d "${HOME:-}/.t3/userdata" ]; }; then
+  printf "tip: T3 Code detected; pass '--target all' to install across all T3-connected providers (Antigravity, Codex, OpenCode, Claude).\n"
+fi
