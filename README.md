@@ -304,7 +304,7 @@ Mark a prompt or diff as confidential to engage the privacy gate automatically:
 oneshot [confidential] implement HMAC signature rotation for partner billing webhooks
 ```
 
-Any rung marked `privacy: trains` in the active provider profile (`PROVIDERS.md`; the routing rule lives in [`AGENTS.md`](./AGENTS.md)) is automatically skipped across all seats, routing only to `privacy: ok` rungs. The default `tri` profile has none; the `opencode-go` profile marks `muse-spark-*`.
+Any rung marked `privacy: trains` in the active provider profile (`PROVIDERS.md`; the routing rule lives in [`AGENTS.md`](./AGENTS.md)) is automatically skipped across all seats, routing only to `privacy: ok` rungs. The default `tri` profile has none; the `opencode-go` and `quad` profiles mark `muse-spark-*`. When working on private or sensitive codebases, pass `[confidential]` so `quad` automatically skips Seat C to its `privacy: ok` fallbacks (`mimo-v2.6-flash`, etc.).
 
 ### 4. Standalone Skills & Individual Loops
 
@@ -458,18 +458,26 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 | reviewer-esc | opencode `kimi-k3.1-pro` high | opencode `mimo-v2.6-pro` - | opencode `qwen3.8-max` - |
 | compaction (advisory) | opencode `claude-haiku-5-5` low | codex `gpt-6-luna` low | - |
 
-`muse-spark-*` (trains on request data) is excluded from `tri`. See [`providers/tri.md`](./providers/tri.md) for the full 7-column machine-readable routing table, `## Quota pools`, `## Backup ladder`, and budget tables.
+`muse-spark-*` (trains on request data) is excluded from `tri`, while `quad` marks it `trains` on Seat C (skipped on `[confidential]`). See [`providers/tri.md`](./providers/tri.md) and [`providers/quad.md`](./providers/quad.md) for the full 7-column machine-readable routing tables, `## Quota pools`, `## Backup ladder`, and budget tables.
 
 ### Four-subscription profile `quad`
 
-[`providers/quad.md`](./providers/quad.md) (`./install.sh --profile quad`) is `tri` plus **Claude Code** (`claudeAgent`), moving Anthropic roles onto `claudeAgent` (`effort=high|medium`) with Antigravity's Claude as fallback:
+[`providers/quad.md`](./providers/quad.md) (`./install.sh --profile quad`) is `tri` plus **Claude Code** (`claudeAgent`), moving Anthropic roles onto `claudeAgent` (`effort=high|medium|low`) with Antigravity's Claude as fallback:
 
 | role | primary | fallback | last-resort |
 | --- | --- | --- | --- |
 | driver (advisory) | codex `gpt-6.1-sol` medium | claudeAgent `claude-sonnet-5-5` medium | - |
+| scout | opencode `mimo-v2.6-flash` - | opencode `deepseek-v4.1-flash` low | antigravity `gemini-3.8-flash` low |
 | implementer | antigravity `gemini-4-argon` high | claudeAgent `claude-sonnet-5-5` medium | codex `gpt-6.1-sol` medium |
 | implementer-deep | claudeAgent `claude-opus-5-5` high | codex `gpt-6-astra` high | antigravity `claude-opus-5-5` high |
+| tester | opencode `deepseek-v4.1-flash` high | codex `gpt-6-luna` medium | antigravity `gemini-3.8-flash` medium |
+| patch | opencode `deepseek-v4.1-flash` high | codex `gpt-6-luna` medium | antigravity `gemini-3.8-flash` medium |
+| task-reviewer | codex `gpt-6.1-terra` high | claudeAgent `claude-sonnet-5-5` high | antigravity `gemini-3.8-flash` high |
+| reviewer-a (OpenAI) | codex `gpt-6-astra` high | codex `gpt-6.1-sol` high | codex `gpt-6-sol` high |
 | reviewer-b (Anthropic) | claudeAgent `claude-opus-5-5` high | antigravity `claude-opus-5-5` high | claudeAgent `claude-sonnet-5-5` high |
+| reviewer-c (Meta / Open-weight) | opencode `muse-spark-1.3-contributor` xhigh | opencode `mimo-v2.6-flash` - | opencode `glm-5.3-flash` high |
+| reviewer-esc | opencode `mimo-v2.6-flash` - | opencode `glm-5.3-flash` high | opencode `deepseek-v4.1-flash` high |
+| compaction (advisory) | claudeAgent `claude-haiku-5-5` low | codex `gpt-6-luna` low | - |
 
 ### Standalone single-provider profiles (`opencode-go`, `codex`, `antigravity`, `claude`)
 
