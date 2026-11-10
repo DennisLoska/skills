@@ -2616,5 +2616,78 @@ for shipped_providers in "$ROOT/providers/tri.md" "$ROOT/providers/quad.md"; do
 done
 pass "shipped tri and quad tables carry no Pro models and no third-party models on opencode"
 
+# 78. Cybernetic quota resilience: opencode-go pool presence, multi-provider backup diversity,
+# and distinct primary families for council seats under 2-provider profiles.
+grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$ROOT/providers/tri.md" || fail "tri carries opencode-go pool row"
+grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$ROOT/providers/quad.md" || fail "quad carries opencode-go pool row"
+grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$ROOT/providers/opencode-go.md" || fail "opencode-go carries opencode-go pool row"
+grep -qF '| 6 | * | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |' "$ROOT/providers/tri.md" || fail "tri backup ladder carries an antigravity Claude fallback rung"
+grep -qF '| 7 | * | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |' "$ROOT/providers/quad.md" || fail "quad backup ladder carries an antigravity Claude fallback rung"
+
+# Verify that under --providers antigravity,claude, Seat A and Seat B have distinct primary families, no fallback cross-contamination, and Seat C drops out
+prov_test_home="$TMPROOT/prov-dual-home"
+HOME="$prov_test_home" "$INSTALL" --providers antigravity,claude >/dev/null 2>&1
+dual_md="$prov_test_home/.config/opencode/PROVIDERS.md"
+seat_a_fam="$(awk -F '|' '$2 ~ /reviewer-a/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$dual_md")"
+seat_b_fam="$(awk -F '|' '$2 ~ /reviewer-b/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$dual_md")"
+[ "$seat_a_fam" = "google" ] || fail "--providers antigravity,claude seat A primary is google (got $seat_a_fam)"
+[ "$seat_b_fam" = "anthropic" ] || fail "--providers antigravity,claude seat B primary is anthropic (got $seat_b_fam)"
+[ "$seat_a_fam" != "$seat_b_fam" ] || fail "--providers antigravity,claude seat A and seat B have distinct primary families"
+if grep -qE '\| reviewer-c \|' "$dual_md"; then
+  fail "--providers antigravity,claude seat C should drop out in 2-family composition"
+fi
+if awk -F '|' '$2 ~ /reviewer-a/ && $7 ~ /anthropic/ { found=1 } END { exit found ? 0 : 1 }' "$dual_md"; then
+  fail "--providers antigravity,claude seat A should have no anthropic rungs"
+fi
+if awk -F '|' '$2 ~ /reviewer-b/ && $7 ~ /google/ { found=1 } END { exit found ? 0 : 1 }' "$dual_md"; then
+  fail "--providers antigravity,claude seat B should have no google rungs"
+fi
+
+# Verify that under --providers claude,opencode, seats A, B, and C have pairwise-distinct primary families and per-role pool distinctness
+prov_oc_home="$TMPROOT/prov-oc-home"
+HOME="$prov_oc_home" "$INSTALL" --providers claude,opencode >/dev/null 2>&1
+oc_md="$prov_oc_home/.config/opencode/PROVIDERS.md"
+oc_seat_a="$(awk -F '|' '$2 ~ /reviewer-a/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$oc_md")"
+oc_seat_b="$(awk -F '|' '$2 ~ /reviewer-b/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$oc_md")"
+oc_seat_c="$(awk -F '|' '$2 ~ /reviewer-c/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$oc_md")"
+[ -n "$oc_seat_a" ] && [ -n "$oc_seat_b" ] && [ -n "$oc_seat_c" ] || fail "claude,opencode seats A, B, and C all exist"
+[ "$oc_seat_a" != "$oc_seat_b" ] || fail "claude,opencode seat A and seat B share primary family"
+[ "$oc_seat_a" != "$oc_seat_c" ] || fail "claude,opencode seat A and seat C share primary family"
+[ "$oc_seat_b" != "$oc_seat_c" ] || fail "claude,opencode seat B and seat C share primary family"
+for test_esc_provs in "claude,opencode" "antigravity,opencode" "antigravity,claude,opencode" "codex,opencode" "antigravity,codex,opencode" "claude,codex,opencode" "antigravity,claude,codex,opencode"; do
+  esc_test_home="$TMPROOT/prov-esc-$(echo "$test_esc_provs" | tr ',' '-')"
+  HOME="$esc_test_home" "$INSTALL" --providers "$test_esc_provs" >/dev/null 2>&1
+  esc_md="$esc_test_home/.config/opencode/PROVIDERS.md"
+  esc_seat_a="$(awk -F '|' '$2 ~ /reviewer-a/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$esc_md")"
+  esc_seat_b="$(awk -F '|' '$2 ~ /reviewer-b/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$esc_md")"
+  esc_seat_c="$(awk -F '|' '$2 ~ /reviewer-c/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$esc_md")"
+  esc_seat_esc="$(awk -F '|' '$2 ~ /reviewer-esc/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$esc_md")"
+  [ -n "$esc_seat_esc" ] || fail "--providers $test_esc_provs reviewer-esc primary exists"
+  [ -n "$esc_seat_a" ] || fail "--providers $test_esc_provs reviewer-a primary exists"
+  [ -n "$esc_seat_b" ] || fail "--providers $test_esc_provs reviewer-b primary exists"
+  [ "$esc_seat_esc" != "$esc_seat_a" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat A ($esc_seat_a)"
+  [ "$esc_seat_esc" != "$esc_seat_b" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat B ($esc_seat_b)"
+  [ -z "$esc_seat_c" ] || [ "$esc_seat_esc" != "$esc_seat_c" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat C ($esc_seat_c)"
+done
+
+awk -F '|' '
+  /^[|] (driver|scout|implementer|implementer-deep|tester|patch|task-reviewer|reviewer-a|reviewer-b|reviewer-esc|compaction) [|]/ {
+    role = $2; gsub(/^ +| +$/, "", role)
+    prov = $4; gsub(/^ +| +$/, "", prov)
+    model = $5; gsub(/^ +| +$/, "", model)
+    pool = (prov == "antigravity" ? (model ~ /^claude-/ ? "antigravity-claude" : "antigravity-gemini") : (prov == "codex" ? "codex" : (prov == "claudeAgent" ? "claude-code" : "opencode-go")))
+    if ((role SUBSEP pool) in seen) {
+      exit 1
+    }
+    seen[role SUBSEP pool] = 1
+  }
+' "$oc_md" || fail "claude,opencode violates per-role pool distinctness"
+
+awk '/^## Backup ladder/,0' "$oc_md" | grep -qF '| opencode |' || fail "dynamic backup ladder carries opencode"
+awk '/^## Backup ladder/,0' "$oc_md" | grep -qF '| claudeAgent |' || fail "dynamic backup ladder carries claudeAgent"
+
+grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$prov_oc_home/.config/opencode/PROVIDERS.md" || fail "dynamic profile with opencode carries opencode-go pool row"
+pass "cybernetic quota resilience: opencode-go pools, backup diversity, and dual-provider seat independence"
+
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
 

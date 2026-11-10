@@ -72,6 +72,7 @@ No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model is rou
 
 | pool | provider | models | window | soft-cap | reserve |
 | --- | --- | --- | --- | --- | --- |
+| opencode-go | opencode | * | 5h | - | - |
 | claude-code | claudeAgent | * | 5h | - | - |
 | antigravity-claude | antigravity | claude-* | 5h | 6 | reviewer-b |
 | antigravity-gemini | antigravity | gemini-* | 5h | - | - |
@@ -87,6 +88,7 @@ No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model is rou
 | 4 | * | codex | gpt-6.1-sol | reasoningEffort=medium | openai | ok |
 | 5 | * | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |
 | 6 | * | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |
+| 7 | * | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |
 
 ## Supported driver setups
 

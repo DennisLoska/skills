@@ -42,7 +42,7 @@ No praise. No "looks good". No scope creep.
 4. If a seat's rung is exhausted, unreachable, soft-cap reserved, or fails a transient retry mid-round: re-dispatch the SAME seat role on its next eligible ladder rung (or matching `## Backup ladder` row) from the active provider profile per AGENTS.md Routing Rules (mechanics below). Rerun only that seat. Never fill a seat with a rung whose family is active on another council seat anywhere in this PR (AGENTS.md Routing Rules).
 5. Confidentiality gate: if the review brief or referenced diff carries a confidential flag, the AGENTS.md Routing Rules privacy gate applies to every seat (`privacy: trains` rungs in the active provider profile auto-skip); demote to the next privacy-safe rung and announce.
 
-6. Author-family rule: PASS also needs the author-family vote from the AGENTS.md Council Contract (at least one PASS from a council seat whose family is not an author family). Read the author families from the state artifact. If every seat's family is an author family, dispatch `reviewer-esc` for the non-author vote on a rung whose family is neither a council-seat nor an author family (AGENTS.md Council Contract; one extra dispatch counted against the 14-dispatch guard); if that is impossible, stop with `yellow: degraded council`.
+6. Author-family rule: PASS also needs the author-family vote from the AGENTS.md Council Contract (at least one PASS from a council seat whose family is not an author family, or dual-family model-level independence in degraded council). Read the author families from the state artifact. If every seat's family is an author family: in nominal 3-seat mode dispatch `reviewer-esc` for the non-author vote on a rung whose family is neither a council-seat nor an author family (AGENTS.md Council Contract; one extra dispatch counted against the 14-dispatch guard); in degraded mode with 2 healthy families both in the author set, accept intra-family model-level independence (each seat's reviewer model must differ from the identical author model) and record in state: `degraded council author vote: dual-family model-level independence (<model1>, <model2>)`; if that is impossible, stop with `yellow: degraded council`.
 
 ## Fallback mechanics
 
@@ -59,8 +59,8 @@ announce: "seat <seat> demoted to <provider>/<model>" (or "backup: <seat> -> <pr
 
 ## Verdict phase
 
-- PASS = at least 2 of 3 seats vote PASS AND zero unresolved confirmed red findings from any seat, and tests green, or the no-tests rule satisfied, plus the author-family vote above. A confirmed red from a single FAIL seat blocks PASS just the same, until it is fixed or rebutted with evidence.
-- Fewer than 2 families healthy: STOP with `yellow: degraded council` per the canonical degraded-council rule in `AGENTS.md` Review contracts.
+- PASS = in nominal 3-seat mode at least 2 of 3 seats vote PASS (or in degraded mode unanimous 2 of 2 healthy seats vote PASS) AND zero unresolved confirmed red findings from any seat, and tests green, or the no-tests rule satisfied, plus the author-family vote above. A confirmed red from a single FAIL seat blocks PASS just the same, until it is fixed or rebutted with evidence.
+- Fewer than 2 families healthy: STOP with `yellow: degraded council` per the canonical degraded-council rule in `AGENTS.md` Routing Rules (Degraded council).
 - Merge findings into one list, severity sorted red -> yellow -> blue. Dedupe identical findings, keep the sharpest wording.
 - Escalation seat independence spans the whole PR: `reviewer-esc` never runs on a model family a council seat (`reviewer-a`, `reviewer-b`, `reviewer-c`) already used this PR (check the `family` column of the active provider profile per ladder rung). On conflict, demote along the `reviewer-esc` ladder in the profile until an unused family is found, else stop and surface `yellow: degraded council`.
 
@@ -96,7 +96,7 @@ See `AGENTS.md` Review contracts for the canonical `no-tests` gate rule. Operati
 ## Output format
 
 ```
-Round N: [3 verdicts] -> merged findings (r red, y yellow, b blue, k rejected)
+Round N: [verdicts (3 nominal, or 2 active + lost seats in degraded)] -> merged findings (r red, y yellow, b blue, k rejected)
 Verdict: PASS | FAIL | DEGRADED
 ```
 
