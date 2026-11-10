@@ -1234,7 +1234,7 @@ verify_target() {
         ''|'#'*) continue ;;
       esac
       m_count=$((m_count + 1))
-      if [ ! -f "$DEST/$file" ] && [ ! -L "$DEST/$file" ]; then
+      if [ ! -f "$DEST/$file" ]; then
         printf '  [FAIL] manifest file missing: %s\n' "$file"
         v_errors=$((v_errors + 1))
         m_missing=$((m_missing + 1))
@@ -1340,11 +1340,11 @@ verify_target() {
        { [ ! -d "$SHARED_STATE" ] || [ "$(canonical_dest "$DEST/state")" != "$(canonical_dest "$SHARED_STATE")" ]; }; then
     printf '  [FAIL] state directory does not resolve to shared state (%s): %s/state\n' "$SHARED_STATE" "$DEST"
     v_errors=$((v_errors + 1))
+  elif [ -L "$DEST/state/quota-ledger.tsv" ]; then
+    printf '  [FAIL] quota-ledger.tsv cannot be a symlink: %s\n' "$DEST/state/quota-ledger.tsv"
+    v_errors=$((v_errors + 1))
   elif [ -e "$DEST/state/quota-ledger.tsv" ] && { [ ! -f "$DEST/state/quota-ledger.tsv" ] || [ ! -r "$DEST/state/quota-ledger.tsv" ]; }; then
     printf '  [FAIL] quota-ledger.tsv is not a readable regular file: %s/state/quota-ledger.tsv\n' "$DEST"
-    v_errors=$((v_errors + 1))
-  elif [ ! -e "$DEST/state/quota-ledger.tsv" ] && [ -L "$DEST/state/quota-ledger.tsv" ]; then
-    printf '  [FAIL] quota-ledger.tsv is a dangling symlink: %s/state/quota-ledger.tsv\n' "$DEST"
     v_errors=$((v_errors + 1))
   elif [ ! -w "$DEST/state" ]; then
     printf '  [FAIL] shared state directory is not writable for quota-ledger.tsv: %s/state\n' "$DEST"

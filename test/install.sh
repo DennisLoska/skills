@@ -2310,6 +2310,32 @@ grep -qF '[FAIL] profile binding' "$TMPROOT/verify-76f.out" || {
 HOME="$VERIFY_HOME" "$INSTALL" --force --profile tri --target opencode >"$TMPROOT/verify-76f-restore.out" 2>&1
 pass "--verify detects tampered manifest profile binding"
 
+# 76g. Dangling symlink on a manifest-recorded file and symlinked quota-ledger.tsv fail --verify.
+rm -f "$t_dir/agents/implementer.md"
+ln -s "$TMPROOT/nonexistent-manifest-target" "$t_dir/agents/implementer.md"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify --target opencode >"$TMPROOT/verify-76g-dangling.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/verify-76g-dangling.out" >&2; fail "76g: --verify exits 1 when manifest file is a dangling symlink (got $rc)"; }
+grep -qF '[FAIL] manifest file missing: agents/implementer.md' "$TMPROOT/verify-76g-dangling.out" || {
+  cat "$TMPROOT/verify-76g-dangling.out" >&2
+  fail "76g: --verify reports [FAIL] manifest file missing: agents/implementer.md on dangling symlink"
+}
+rm -f "$t_dir/agents/implementer.md"
+HOME="$VERIFY_HOME" "$INSTALL" --force --profile tri --target opencode >"$TMPROOT/verify-76g-restore1.out" 2>&1
+
+printf 'ok\n' >"$TMPROOT/real-ledger.tsv"
+rm -f "$t_dir/state/quota-ledger.tsv"
+ln -s "$TMPROOT/real-ledger.tsv" "$t_dir/state/quota-ledger.tsv"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify --target opencode >"$TMPROOT/verify-76g-ledger-sym.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/verify-76g-ledger-sym.out" >&2; fail "76g: --verify exits 1 when quota-ledger.tsv is a symlink (got $rc)"; }
+grep -qF "[FAIL] quota-ledger.tsv cannot be a symlink: $t_dir/state/quota-ledger.tsv" "$TMPROOT/verify-76g-ledger-sym.out" || {
+  cat "$TMPROOT/verify-76g-ledger-sym.out" >&2
+  fail "76g: --verify reports [FAIL] quota-ledger.tsv cannot be a symlink"
+}
+rm -f "$t_dir/state/quota-ledger.tsv"
+pass "--verify rejects dangling manifest symlinks and symlinked quota-ledger.tsv"
+
 pass "--verify gates installed and uninstalled targets and --doctor accepts a valid install"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
