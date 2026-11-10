@@ -1092,9 +1092,119 @@ verify_agy_rule() {
   ' "$rule_file"
 }
 
+REQUIRED_ROLES='scout implementer implementer-deep patch tester reviewer-a reviewer-b reviewer-c reviewer-esc task-reviewer'
+
+validate_profile() {
+  PROFILE_NAME="$2" REQUIRED_ROLES="$REQUIRED_ROLES" awk -F '|' '
+    BEGIN {
+      profile = ENVIRON["PROFILE_NAME"]
+      n = split(ENVIRON["REQUIRED_ROLES"], ordered, " ")
+      for (i = 1; i <= n; i++) {
+        known[ordered[i]] = 1
+        dispatched[ordered[i]] = 1
+      }
+      known["driver"] = known["compaction"] = 1
+      section = "roles"
+    }
+    function invalid(reason) {
+      printf "install.sh: profile %s invalid row: %s %s: %s\n", profile, $2, $3, reason > "/dev/stderr"
+      failed = 1
+      exit 1
+    }
+    function invalid_pool(reason) {
+      printf "install.sh: profile %s invalid pool row: %s: %s\n", profile, $2, reason > "/dev/stderr"
+      failed = 1
+      exit 1
+    }
+    function invalid_backup(reason) {
+      printf "install.sh: profile %s invalid backup row: %s: %s\n", profile, $2, reason > "/dev/stderr"
+      failed = 1
+      exit 1
+    }
+    /^[[:space:]]*```/ { fenced = !fenced; next }
+    fenced { next }
+    /^##[[:space:]]+Quota pools([[:space:]]|$)/ { section = "pools"; next }
+    /^##[[:space:]]+Backup ladder([[:space:]]|$)/ { section = "backups"; next }
+    /^##[[:space:]]+/ { section = "roles"; next }
+    /^[[:space:]]*[|]/ {
+      for (i = 1; i <= NF; i++) gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
+      if (section == "pools") {
+        if (NF != 8 || $NF != "") invalid_pool("expected 6 cells")
+        if ($2 == "pool" && $3 == "provider" && $4 == "models" && $5 == "window" && $6 == "soft-cap" && $7 == "reserve") next
+        if ($2 ~ /^:?-+:?$/ && $3 ~ /^:?-+:?$/ && $4 ~ /^:?-+:?$/ && $5 ~ /^:?-+:?$/ && $6 ~ /^:?-+:?$/ && $7 ~ /^:?-+:?$/) next
+        for (i = 2; i <= 7; i++) if ($i == "") invalid_pool("empty cell")
+        if ($2 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_pool("invalid pool")
+        if ($2 in seen_pool) invalid_pool("duplicate pool")
+        seen_pool[$2] = 1
+        if ($3 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid_pool("invalid provider")
+        if ($4 !~ /^[A-Za-z0-9*][A-Za-z0-9._\/*-]*$/) invalid_pool("invalid models")
+        if ($5 !~ /^[1-9][0-9]*(h|d|w|mo)$/) invalid_pool("invalid window")
+        if ($6 != "-" && $6 !~ /^[1-9][0-9]*$/) invalid_pool("invalid soft-cap")
+        if ($7 != "-") {
+          m = split($7, rlist, ",")
+          if (m < 1) invalid_pool("invalid reserve")
+          for (j = 1; j <= m; j++) {
+            if (rlist[j] == "" || !(rlist[j] in known)) invalid_pool("invalid reserve")
+          }
+        }
+        next
+      }
+      if (section == "backups") {
+        if (NF != 9 || $NF != "") invalid_backup("expected 7 cells")
+        if ($2 == "order" && $3 == "roles" && $4 == "provider" && $5 == "model" && $6 == "effort" && $7 == "family" && $8 == "privacy") next
+        if ($2 ~ /^:?-+:?$/ && $3 ~ /^:?-+:?$/ && $4 ~ /^:?-+:?$/ && $5 ~ /^:?-+:?$/ && $6 ~ /^:?-+:?$/ && $7 ~ /^:?-+:?$/ && $8 ~ /^:?-+:?$/) next
+        for (i = 2; i <= 8; i++) if ($i == "") invalid_backup("empty cell")
+        if ($2 !~ /^[1-9][0-9]*$/) invalid_backup("invalid order")
+        if ($2 in seen_order) invalid_backup("duplicate order")
+        seen_order[$2] = 1
+        if ($3 != "*") {
+          m = split($3, blist, ",")
+          if (m < 1) invalid_backup("invalid roles")
+          for (j = 1; j <= m; j++) {
+            if (blist[j] == "" || !(blist[j] in dispatched)) invalid_backup("invalid roles")
+          }
+        }
+        if ($4 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid_backup("invalid provider")
+        if ($5 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) invalid_backup("invalid model")
+        if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid_backup("invalid effort")
+        if ($7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_backup("invalid family")
+        if ($8 != "ok" && $8 != "trains") invalid_backup("invalid privacy")
+        next
+      }
+      role = $2
+      if (!(role in known)) next
+      if (NF != 9 || $NF != "") invalid("expected 7 cells")
+      for (i = 2; i <= 8; i++) if ($i == "") invalid("empty cell")
+      if ($3 != "primary" && $3 != "fallback" && $3 != "last-resort") invalid("invalid rung")
+      if ($8 != "ok" && $8 != "trains") invalid("invalid privacy")
+      advisory = (role == "driver" || role == "compaction")
+      if (!(advisory && $4 == "-") && $4 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid("invalid provider")
+      if (!(advisory && $5 == "-") && $5 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) invalid("invalid model")
+      if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid("invalid effort")
+      if (!(advisory && $7 == "-") && $7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid("invalid family")
+      key = role SUBSEP $3
+      if (key in seen) invalid("duplicate rung")
+      seen[key] = 1
+      if ($3 == "primary") primary[role] = 1
+      print $2 "|" $3 "|" $4 "|" $5 "|" $6 "|" $7 "|" $8
+    }
+    END {
+      if (failed) exit 1
+      for (i = 1; i <= n; i++) {
+        role = ordered[i]
+        if (!(role in primary)) {
+          printf "install.sh: profile %s incomplete: %s\n", profile, role > "/dev/stderr"
+          exit 1
+        }
+      }
+    }
+  ' "$1"
+}
+
 verify_target() {
   local v_errors=0
-  local req
+  local req file m_count=0 m_missing=0
+  local mline v_prof_type="" v_prof_val="" v_prof_path=""
   printf 'verifying %s (%s):\n' "$TARGET_HOST" "$DEST"
   if [ ! -d "$DEST" ]; then
     printf '  [FAIL] destination directory missing: %s\n' "$DEST"
@@ -1105,6 +1215,64 @@ verify_target() {
     v_errors=$((v_errors + 1))
   else
     printf '  [OK] manifest: %s\n' "$MANIFEST"
+    while IFS= read -r file || [ -n "$file" ]; do
+      case "$file" in
+        '# profile '*)
+          if [ -z "$v_prof_type" ]; then
+            v_prof_type="profile"
+            v_prof_val="${file#'# profile '}"
+          fi
+          continue
+          ;;
+        '# profile-file '*)
+          if [ -z "$v_prof_type" ]; then
+            v_prof_type="profile-file"
+            v_prof_val="${file#'# profile-file '}"
+          fi
+          continue
+          ;;
+        ''|'#'*) continue ;;
+      esac
+      m_count=$((m_count + 1))
+      if [ ! -f "$DEST/$file" ] && [ ! -L "$DEST/$file" ]; then
+        printf '  [FAIL] manifest file missing: %s\n' "$file"
+        v_errors=$((v_errors + 1))
+        m_missing=$((m_missing + 1))
+      fi
+    done <"$MANIFEST"
+    if [ "$m_missing" -eq 0 ]; then
+      printf '  [OK] manifest files: all %d files verified\n' "$m_count"
+    fi
+    if [ -z "$v_prof_type" ] && [ "$m_count" -gt 0 ]; then
+      v_prof_type="profile"
+      v_prof_val="opencode-go"
+    fi
+    if [ -z "$v_prof_type" ] || [ -z "$v_prof_val" ]; then
+      printf '  [FAIL] profile binding missing or unreadable: %s\n' "${v_prof_val:-<none>}"
+      v_errors=$((v_errors + 1))
+    else
+      if [ "$v_prof_type" = "profile" ]; then
+        case "$v_prof_val" in
+          ''|[!a-z0-9]*|*[!a-z0-9-]*)
+            v_prof_path=""
+            ;;
+          *)
+            v_prof_path="$SRC/providers/$v_prof_val.md"
+            ;;
+        esac
+      else
+        v_prof_path="$v_prof_val"
+      fi
+      if [ -z "$v_prof_path" ] || [ ! -f "$v_prof_path" ] || [ ! -r "$v_prof_path" ]; then
+        printf '  [FAIL] profile binding missing or unreadable: %s\n' "$v_prof_val"
+        v_errors=$((v_errors + 1))
+      elif ! validate_profile "$v_prof_path" "$v_prof_val" >/dev/null 2>&1; then
+        printf '  [FAIL] profile binding invalid: %s\n' "$v_prof_val"
+        v_errors=$((v_errors + 1))
+      else
+        printf '  [OK] profile binding: %s\n' "$v_prof_val"
+      fi
+    fi
   fi
   for req in HARNESS.md PROVIDERS.md skills/oneshot/SKILL.md skills/council/SKILL.md; do
     if [ ! -f "$DEST/$req" ]; then
@@ -1246,112 +1414,8 @@ else
   [ -f "$PROFILE_FILE" ] || unknown_profile
   PROFILE_LABEL="$profile"
 fi
-REQUIRED_ROLES='scout implementer implementer-deep patch tester reviewer-a reviewer-b reviewer-c reviewer-esc task-reviewer'
 # Recognized required and advisory rows are validated; fenced examples are prose.
-PROFILE_ROWS="$(PROFILE_NAME="$PROFILE_LABEL" REQUIRED_ROLES="$REQUIRED_ROLES" awk -F '|' '
-  BEGIN {
-    profile = ENVIRON["PROFILE_NAME"]
-    n = split(ENVIRON["REQUIRED_ROLES"], ordered, " ")
-    for (i = 1; i <= n; i++) {
-      known[ordered[i]] = 1
-      dispatched[ordered[i]] = 1
-    }
-    known["driver"] = known["compaction"] = 1
-    section = "roles"
-  }
-  function invalid(reason) {
-    printf "install.sh: profile %s invalid row: %s %s: %s\n", profile, $2, $3, reason > "/dev/stderr"
-    failed = 1
-    exit 1
-  }
-  function invalid_pool(reason) {
-    printf "install.sh: profile %s invalid pool row: %s: %s\n", profile, $2, reason > "/dev/stderr"
-    failed = 1
-    exit 1
-  }
-  function invalid_backup(reason) {
-    printf "install.sh: profile %s invalid backup row: %s: %s\n", profile, $2, reason > "/dev/stderr"
-    failed = 1
-    exit 1
-  }
-  /^[[:space:]]*```/ { fenced = !fenced; next }
-  fenced { next }
-  /^##[[:space:]]+Quota pools([[:space:]]|$)/ { section = "pools"; next }
-  /^##[[:space:]]+Backup ladder([[:space:]]|$)/ { section = "backups"; next }
-  /^##[[:space:]]+/ { section = "roles"; next }
-  /^[[:space:]]*[|]/ {
-    for (i = 1; i <= NF; i++) gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
-    if (section == "pools") {
-      if (NF != 8 || $NF != "") invalid_pool("expected 6 cells")
-      if ($2 == "pool" && $3 == "provider" && $4 == "models" && $5 == "window" && $6 == "soft-cap" && $7 == "reserve") next
-      if ($2 ~ /^:?-+:?$/ && $3 ~ /^:?-+:?$/ && $4 ~ /^:?-+:?$/ && $5 ~ /^:?-+:?$/ && $6 ~ /^:?-+:?$/ && $7 ~ /^:?-+:?$/) next
-      for (i = 2; i <= 7; i++) if ($i == "") invalid_pool("empty cell")
-      if ($2 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_pool("invalid pool")
-      if ($2 in seen_pool) invalid_pool("duplicate pool")
-      seen_pool[$2] = 1
-      if ($3 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid_pool("invalid provider")
-      if ($4 !~ /^[A-Za-z0-9*][A-Za-z0-9._\/*-]*$/) invalid_pool("invalid models")
-      if ($5 !~ /^[1-9][0-9]*(h|d|w|mo)$/) invalid_pool("invalid window")
-      if ($6 != "-" && $6 !~ /^[1-9][0-9]*$/) invalid_pool("invalid soft-cap")
-      if ($7 != "-") {
-        m = split($7, rlist, ",")
-        if (m < 1) invalid_pool("invalid reserve")
-        for (j = 1; j <= m; j++) {
-          if (rlist[j] == "" || !(rlist[j] in known)) invalid_pool("invalid reserve")
-        }
-      }
-      next
-    }
-    if (section == "backups") {
-      if (NF != 9 || $NF != "") invalid_backup("expected 7 cells")
-      if ($2 == "order" && $3 == "roles" && $4 == "provider" && $5 == "model" && $6 == "effort" && $7 == "family" && $8 == "privacy") next
-      if ($2 ~ /^:?-+:?$/ && $3 ~ /^:?-+:?$/ && $4 ~ /^:?-+:?$/ && $5 ~ /^:?-+:?$/ && $6 ~ /^:?-+:?$/ && $7 ~ /^:?-+:?$/ && $8 ~ /^:?-+:?$/) next
-      for (i = 2; i <= 8; i++) if ($i == "") invalid_backup("empty cell")
-      if ($2 !~ /^[1-9][0-9]*$/) invalid_backup("invalid order")
-      if ($2 in seen_order) invalid_backup("duplicate order")
-      seen_order[$2] = 1
-      if ($3 != "*") {
-        m = split($3, blist, ",")
-        if (m < 1) invalid_backup("invalid roles")
-        for (j = 1; j <= m; j++) {
-          if (blist[j] == "" || !(blist[j] in dispatched)) invalid_backup("invalid roles")
-        }
-      }
-      if ($4 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid_backup("invalid provider")
-      if ($5 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) invalid_backup("invalid model")
-      if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid_backup("invalid effort")
-      if ($7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_backup("invalid family")
-      if ($8 != "ok" && $8 != "trains") invalid_backup("invalid privacy")
-      next
-    }
-    role = $2
-    if (!(role in known)) next
-    if (NF != 9 || $NF != "") invalid("expected 7 cells")
-    for (i = 2; i <= 8; i++) if ($i == "") invalid("empty cell")
-    if ($3 != "primary" && $3 != "fallback" && $3 != "last-resort") invalid("invalid rung")
-    if ($8 != "ok" && $8 != "trains") invalid("invalid privacy")
-    advisory = (role == "driver" || role == "compaction")
-    if (!(advisory && $4 == "-") && $4 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid("invalid provider")
-    if (!(advisory && $5 == "-") && $5 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) invalid("invalid model")
-    if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid("invalid effort")
-    if (!(advisory && $7 == "-") && $7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid("invalid family")
-    key = role SUBSEP $3
-    if (key in seen) invalid("duplicate rung")
-    seen[key] = 1
-    if ($3 == "primary") primary[role] = 1
-    print $2 "|" $3 "|" $4 "|" $5 "|" $6 "|" $7 "|" $8
-  }
-  END {
-    if (failed) exit 1
-    for (i = 1; i <= n; i++) {
-      role = ordered[i]
-      if (!(role in primary)) {
-        printf "install.sh: profile %s incomplete: %s\n", profile, role > "/dev/stderr"
-        exit 1
-      }
-    }
-  }
-' "$PROFILE_FILE")" || exit 1
+PROFILE_ROWS="$(validate_profile "$PROFILE_FILE" "$PROFILE_LABEL")" || exit 1
 
 # Select by ladder order, even if the table rows were written out of order.
 native_pin() {

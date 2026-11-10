@@ -2072,7 +2072,7 @@ rm "$VERIFY_DEST/HARNESS.md"
 rc=0
 HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-missing.out" 2>&1 || rc=$?
 [ "$rc" -eq 1 ] || { cat "$TMPROOT/verify-missing.out" >&2; fail "--verify exits 1 when an installed required file is missing (got $rc)"; }
-grep -qF 'HARNESS.md' "$TMPROOT/verify-missing.out" || {
+grep -qF '[FAIL] required file missing: HARNESS.md' "$TMPROOT/verify-missing.out" || {
   cat "$TMPROOT/verify-missing.out" >&2
   fail "--verify names the missing required file (HARNESS.md)"
 }
@@ -2277,6 +2277,33 @@ HOME="$DAMAGED_AGY_HOME" "$INSTALL" --verify --target antigravity >"$TMPROOT/dam
 [ "$rc" -eq 1 ] || { cat "$TMPROOT/damaged-agy-verify.out" >&2; fail "--verify fails when standalone antigravity root is damaged alongside valid T3 instance (got $rc)"; }
 DAMAGED_AGY_CANON="$(cd "$DAMAGED_AGY_HOME/.gemini/config" && pwd -P)"
 grep -qF "verifying antigravity ($DAMAGED_AGY_CANON)" "$TMPROOT/damaged-agy-verify.out" || fail "--verify schedules damaged standalone antigravity root when remaining harness artifacts exist"
+
+# 76e. Deleting an installed file recorded in the manifest causes --verify to print
+# [FAIL] manifest file missing: <file> and exit 1.
+t_dir="$VERIFY_DEST"
+rm "$t_dir/agents/implementer.md"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify --target opencode >"$TMPROOT/verify-76e.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/verify-76e.out" >&2; fail "76e: --verify exits 1 when manifest file agents/implementer.md is missing (got $rc)"; }
+grep -qF '[FAIL] manifest file missing: agents/implementer.md' "$TMPROOT/verify-76e.out" || {
+  cat "$TMPROOT/verify-76e.out" >&2
+  fail "76e: --verify prints [FAIL] manifest file missing: agents/implementer.md"
+}
+HOME="$VERIFY_HOME" "$INSTALL" --force --target opencode >"$TMPROOT/verify-76e-restore.out" 2>&1
+pass "--verify detects missing manifest-recorded file"
+
+# 76f. Tampering with the manifest profile binding causes --verify to fail with exit 1.
+sed 's/^# profile tri$/# profile non_existent_profile_xyz/' "$t_dir/.harness-manifest" >"$t_dir/.harness-manifest.tmp"
+mv -f "$t_dir/.harness-manifest.tmp" "$t_dir/.harness-manifest"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify --target opencode >"$TMPROOT/verify-76f.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/verify-76f.out" >&2; fail "76f: --verify exits 1 when manifest profile binding is tampered (got $rc)"; }
+grep -qF '[FAIL] profile binding' "$TMPROOT/verify-76f.out" || {
+  cat "$TMPROOT/verify-76f.out" >&2
+  fail "76f: --verify reports [FAIL] profile binding when manifest profile is non_existent_profile_xyz"
+}
+HOME="$VERIFY_HOME" "$INSTALL" --force --profile tri --target opencode >"$TMPROOT/verify-76f-restore.out" 2>&1
+pass "--verify detects tampered manifest profile binding"
 
 pass "--verify gates installed and uninstalled targets and --doctor accepts a valid install"
 

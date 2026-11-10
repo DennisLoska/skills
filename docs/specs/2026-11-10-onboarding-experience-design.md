@@ -79,7 +79,7 @@ An audit of the repository against real-world developer onboarding revealed 4 ke
    - Verify host-specific instruction configuration:
      - OpenCode: test if `opencode.json` contains `HARNESS.md` and `PROVIDERS.md`. If not, report warning with remediation JSON snippet.
      - Codex: check `AGENTS.md` exists.
-     - Antigravity: check `rules/HARNESS.md` and `rules/PROVIDERS.md` exist and are < 24576 bytes.
+     - Antigravity: check `rules/HARNESS.md` and `rules/PROVIDERS.md` exist and are < 24000 bytes.
      - Claude Code: check `CLAUDE.md` exists.
    - Verify state link: `state/` directory exists and points to or contains `quota-ledger.tsv`.
 4. Exit code 0 if all inspected targets are healthy; exit 1 if any target has errors.
