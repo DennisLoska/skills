@@ -2264,6 +2264,20 @@ if grep -qE 'verifying (codex|claude)' "$TMPROOT/generic-skills-verify.out"; the
   fail "--verify does not auto-discover targets with only generic skills/ directories"
 fi
 
+# Damaged standalone Antigravity root with remaining harness files is not skipped when T3 instances exist
+DAMAGED_AGY_HOME="$TMPROOT/damaged-agy-home"
+mkdir -p "$DAMAGED_AGY_HOME/.t3/userdata/providers/antigravity/hash-ok"
+HOME="$DAMAGED_AGY_HOME" "$INSTALL" --target antigravity >"$TMPROOT/damaged-agy-install.out" 2>&1
+rm -f \
+  "$DAMAGED_AGY_HOME/.gemini/config/.harness-manifest" \
+  "$DAMAGED_AGY_HOME/.gemini/config/HARNESS.md" \
+  "$DAMAGED_AGY_HOME/.gemini/config/skills/oneshot/SKILL.md"
+rc=0
+HOME="$DAMAGED_AGY_HOME" "$INSTALL" --verify --target antigravity >"$TMPROOT/damaged-agy-verify.out" 2>&1 || rc=$?
+[ "$rc" -eq 1 ] || { cat "$TMPROOT/damaged-agy-verify.out" >&2; fail "--verify fails when standalone antigravity root is damaged alongside valid T3 instance (got $rc)"; }
+grep -qF "verifying antigravity ($DAMAGED_AGY_HOME/.gemini/config)" "$TMPROOT/damaged-agy-verify.out" || fail "--verify schedules damaged standalone antigravity root when remaining harness artifacts exist"
+
 pass "--verify gates installed and uninstalled targets and --doctor accepts a valid install"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
+

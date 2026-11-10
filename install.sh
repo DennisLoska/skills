@@ -318,16 +318,15 @@ agy_has_artifacts() {
   if [ -z "$dir" ] || [ ! -d "$dir" ]; then
     return 1
   fi
-  if [ -f "$dir/.harness-manifest" ]; then
-    return 0
-  fi
-  if [ -f "$dir/HARNESS.md" ]; then
-    return 0
-  fi
-  if [ -f "$dir/skills/oneshot/SKILL.md" ]; then
-    return 0
-  fi
-  if [ -f "$dir/plugins/oneshot-harness/.harness-manifest" ]; then
+  if [ -f "$dir/.harness-manifest" ] ||
+     [ -f "$dir/HARNESS.md" ] ||
+     [ -f "$dir/PROVIDERS.md" ] ||
+     [ -f "$dir/rules/HARNESS.md" ] ||
+     [ -f "$dir/rules/PROVIDERS.md" ] ||
+     [ -f "$dir/skills/oneshot/SKILL.md" ] ||
+     [ -d "$dir/skills/_harness" ] ||
+     [ -f "$dir/agents/implementer.md" ] ||
+     [ -f "$dir/plugins/oneshot-harness/.harness-manifest" ]; then
     return 0
   fi
   return 1
