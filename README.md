@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Skills-12%20Pipeline%20Units-1AD1A5?style=flat-square" alt="12 Pipeline Skills" />
   <img src="https://img.shields.io/badge/Council-3%20Independent%20Families-FF6B35?style=flat-square" alt="3-Family Council" />
   <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
-  <img src="https://img.shields.io/badge/Tests-143%2F143%20Passing-2ECC71?style=flat-square" alt="143/143 Tests Passing" />
+  <img src="https://img.shields.io/badge/Tests-144%2F144%20Passing-2ECC71?style=flat-square" alt="144/144 Tests Passing" />
   <img src="https://img.shields.io/badge/Profiles-tri%20%7C%20quad%20%7C%20opencode--go%20%7C%20codex%20%7C%20antigravity%20%7C%20claude%20%7C%20--providers-8B5CF6?style=flat-square" alt="Profiles: tri, quad, opencode-go, codex, antigravity, claude, or dynamic --providers" />
 </p>
 
