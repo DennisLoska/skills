@@ -2353,5 +2353,132 @@ pass "--verify rejects dangling manifest symlinks and symlinked quota-ledger.tsv
 
 pass "--verify gates installed and uninstalled targets and --doctor accepts a valid install"
 
+# 77. --providers composes a dynamic profile from the exact provider set, records
+# the binding, verifies cleanly, and enforces official-provider boundaries and
+# the Pro-model purge. Seat C stays on muse-spark-1.3-contributor with the
+# deepseek-v4.1-flash fallback for every composition that includes opencode.
+prov_reviewer_c_row() {
+  awk -F '|' -v want="$2" '
+    $2 == " reviewer-c " && $3 == " " want " " {
+      p = $4; gsub(/^ +| +$/, "", p)
+      m = $5; gsub(/^ +| +$/, "", m)
+      print p " " m
+    }
+  ' "$1"
+}
+
+prov_opencode_violations() {
+  awk -F '|' 'NF > 7 && $4 == " opencode " && $5 ~ /(claude-|gemini-|gpt-)/ {
+    m = $5; gsub(/^ +| +$/, "", m)
+    print FILENAME ":" NR ": " m
+  }' "$1"
+}
+
+prov_purged_models() {
+  for prov_pro in deepseek-v4-pro kimi-k3.1-pro mimo-v2.6-pro minimax-m3 qwen3.8-max; do
+    grep -nF "$prov_pro" "$1" || true
+  done
+}
+
+prov_case=0
+for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode codex,opencode antigravity,opencode; do
+  prov_case=$((prov_case + 1))
+  prov_home="$TMPROOT/prov-home-$prov_case"
+  prov_md="$prov_home/.config/opencode/PROVIDERS.md"
+  rc=0
+  HOME="$prov_home" "$INSTALL" --providers "$prov_combo" >"$TMPROOT/prov-install-$prov_case.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-install-$prov_case.out" >&2; fail "--providers $prov_combo exits 0 (got $rc)"; }
+  [ -f "$prov_md" ] || fail "--providers $prov_combo installs PROVIDERS.md"
+  grep -qxF "# providers $prov_combo" "$prov_home/.config/opencode/.harness-manifest" || fail "--providers $prov_combo records '# providers $prov_combo' in .harness-manifest"
+  [ "$(prov_reviewer_c_row "$prov_md" primary)" = "opencode opencode-go/muse-spark-1.3-contributor" ] || fail "--providers $prov_combo keeps Seat C primary on muse-spark-1.3-contributor"
+  [ "$(prov_reviewer_c_row "$prov_md" fallback)" = "opencode opencode-go/deepseek-v4.1-flash" ] || fail "--providers $prov_combo keeps Seat C fallback on deepseek-v4.1-flash"
+  prov_purged_models "$prov_md" >"$TMPROOT/prov-purged-$prov_case.out"
+  if [ -s "$TMPROOT/prov-purged-$prov_case.out" ]; then
+    cat "$TMPROOT/prov-purged-$prov_case.out" >&2
+    fail "--providers $prov_combo carries no purged Pro models"
+  fi
+  prov_opencode_violations "$prov_md" >"$TMPROOT/prov-boundary-$prov_case.out"
+  if [ -s "$TMPROOT/prov-boundary-$prov_case.out" ]; then
+    cat "$TMPROOT/prov-boundary-$prov_case.out" >&2
+    fail "--providers $prov_combo routes no Claude, Gemini, or GPT model through opencode"
+  fi
+  rc=0
+  HOME="$prov_home" "$INSTALL" --verify >"$TMPROOT/prov-verify-$prov_case.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-verify-$prov_case.out" >&2; fail "--verify accepts the --providers $prov_combo install (got $rc)"; }
+  if grep -qF '[FAIL]' "$TMPROOT/prov-verify-$prov_case.out"; then
+    cat "$TMPROOT/prov-verify-$prov_case.out" >&2
+    fail "--verify reports no [FAIL] for --providers $prov_combo"
+  fi
+  pass "--providers $prov_combo composes, records, verifies, and keeps Seat C on muse-spark/deepseek"
+done
+
+# Provider order normalizes to the canonical antigravity,claude,codex,opencode
+# order, and a plain refresh reuses the recorded --providers binding.
+PROV_REFRESH_HOME="$TMPROOT/prov-refresh-home"
+rc=0
+HOME="$PROV_REFRESH_HOME" "$INSTALL" --providers opencode,codex >"$TMPROOT/prov-order.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-order.out" >&2; fail "--providers opencode,codex exits 0 (got $rc)"; }
+grep -qxF '# providers codex,opencode' "$PROV_REFRESH_HOME/.config/opencode/.harness-manifest" || fail "--providers normalizes provider order to codex,opencode"
+rc=0
+HOME="$PROV_REFRESH_HOME" "$INSTALL" --force >"$TMPROOT/prov-refresh.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-refresh.out" >&2; fail "refresh without flags reuses the --providers binding (got $rc)"; }
+grep -qxF '# providers codex,opencode' "$PROV_REFRESH_HOME/.config/opencode/.harness-manifest" || fail "refresh keeps '# providers codex,opencode'"
+rc=0
+HOME="$PROV_REFRESH_HOME" "$INSTALL" --verify >"$TMPROOT/prov-refresh-verify.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-refresh-verify.out" >&2; fail "refresh keeps the install verifiable (got $rc)"; }
+pass "--providers normalizes provider order and refresh reuses the recorded binding"
+
+# Invalid provider names exit 2 before any write, even with force and prune.
+for bad_prov in badprovider antigravity,openai; do
+  prov_bad_dest="$TMPROOT/prov-bad-$(printf '%s' "$bad_prov" | tr ',' '-')"
+  rc=0
+  OPENCODE_CONFIG="$prov_bad_dest" "$INSTALL" --force --prune --providers "$bad_prov" >"$TMPROOT/prov-bad.out" 2>"$TMPROOT/prov-bad.err" || rc=$?
+  [ "$rc" -eq 2 ] || fail "invalid --providers exits 2: $bad_prov (got $rc)"
+  grep -qF 'install.sh: unknown provider in --providers:' "$TMPROOT/prov-bad.err" || fail "invalid --providers names the offending provider: $bad_prov"
+  if [ "$bad_prov" = badprovider ]; then
+    grep -qxF 'install.sh: unknown provider in --providers: badprovider (available: antigravity codex claude opencode)' "$TMPROOT/prov-bad.err" || fail "invalid --providers prints the available provider list"
+  else
+    grep -qxF 'install.sh: unknown provider in --providers: openai (available: antigravity codex claude opencode)' "$TMPROOT/prov-bad.err" || fail "invalid --providers names the offending provider inside a list"
+  fi
+  [ ! -e "$prov_bad_dest" ] || fail "invalid --providers writes nothing: $bad_prov"
+done
+pass "invalid --providers names exit 2 and write nothing"
+
+# --providers conflicts with --profile and --profile-file in either order.
+for prov_conflict in profile profile-file profile-order; do
+  prov_conflict_dest="$TMPROOT/prov-conflict-$prov_conflict"
+  rc=0
+  case "$prov_conflict" in
+    profile)
+      OPENCODE_CONFIG="$prov_conflict_dest" "$INSTALL" --providers antigravity,codex --profile tri >"$TMPROOT/prov-conflict.out" 2>"$TMPROOT/prov-conflict.err" || rc=$?
+      ;;
+    profile-file)
+      OPENCODE_CONFIG="$prov_conflict_dest" "$INSTALL" --providers antigravity,codex --profile-file "$ROOT/providers/tri.md" >"$TMPROOT/prov-conflict.out" 2>"$TMPROOT/prov-conflict.err" || rc=$?
+      ;;
+    profile-order)
+      OPENCODE_CONFIG="$prov_conflict_dest" "$INSTALL" --profile tri --providers antigravity,codex >"$TMPROOT/prov-conflict.out" 2>"$TMPROOT/prov-conflict.err" || rc=$?
+      ;;
+  esac
+  [ "$rc" -eq 2 ] || { cat "$TMPROOT/prov-conflict.err" >&2; fail "--providers conflicts with $prov_conflict and exits 2 (got $rc)"; }
+  grep -qF 'usage: install.sh' "$TMPROOT/prov-conflict.err" || fail "conflict with $prov_conflict prints usage"
+  [ ! -e "$prov_conflict_dest" ] || fail "conflicting flags write nothing: $prov_conflict"
+done
+pass "--providers conflicts with --profile and --profile-file, exit 2, no writes"
+
+# Shipped multi-provider tables obey the same purge and boundary invariants.
+for shipped_providers in "$ROOT/providers/tri.md" "$ROOT/providers/quad.md"; do
+  prov_purged_models "$shipped_providers" >"$TMPROOT/shipped-purged.out"
+  if [ -s "$TMPROOT/shipped-purged.out" ]; then
+    cat "$TMPROOT/shipped-purged.out" >&2
+    fail "$(basename "$shipped_providers") carries no purged Pro models"
+  fi
+  prov_opencode_violations "$shipped_providers" >"$TMPROOT/shipped-boundary.out"
+  if [ -s "$TMPROOT/shipped-boundary.out" ]; then
+    cat "$TMPROOT/shipped-boundary.out" >&2
+    fail "$(basename "$shipped_providers") routes no Claude, Gemini, or GPT model through opencode"
+  fi
+done
+pass "shipped tri and quad tables carry no Pro models and no third-party models on opencode"
+
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
 
