@@ -1,21 +1,22 @@
 # Quad provider profile
 
-Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code** (Anthropic subscription, T3 Code provider instance id `claudeAgent`). Pick `quad` (`./install.sh --profile quad`) when you have a Claude subscription alongside Antigravity, Codex, and OpenCode Go: Antigravity's Claude limits are low, so `quad` moves Anthropic roles (`driver` fallback, `implementer` fallback, `implementer-deep` primary, and `reviewer-b` primary/last-resort) onto `claudeAgent` and keeps Antigravity's Claude (`claude-opus-5-5`) as fallback.
+Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code** (Anthropic subscription, T3 Code provider instance id `claudeAgent`). Pick `quad` (`./install.sh --profile quad`) when you have a Claude subscription alongside Antigravity, Codex, and OpenCode Go: Antigravity's Claude limits are low, so `quad` moves Anthropic roles (`driver` fallback, `implementer` fallback, `implementer-deep` primary, `task-reviewer` fallback, `compaction` primary, and `reviewer-b` primary/last-resort) onto `claudeAgent` and keeps Antigravity's Claude (`claude-opus-5-5`) as fallback.
 
 ## Connecting Claude Code in T3 Code
 
 - **Provider instance id:** `claudeAgent` (camelCase, exact).
 - **Connect steps:** authenticate your Claude subscription in Claude Code and enable the Claude provider instance in T3 Code settings. Before the first dispatch, the harness calls `orchestrator_capabilities`; `claudeAgent` must show as enabled there (otherwise the Dispatch Adapter treats `claudeAgent` rungs as unreachable and demotes to the next rung on the ladder).
 - **Effort option id & values:** `effort` with values `low|medium|high|xhigh|max|ultracode|ultrathink` (written `effort=high` or `effort=medium` in the profile table).
-- **Available models:** `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1`.
+- **Available models:** `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-2`, `claude-fable-5-1`.
 
 ## Role distribution
 
 - **Driver** emits little (briefs, verdicts, gate decisions) but its mistakes fan out to every child: Codex `gpt-6.1-sol` at `medium` effort, with Claude Code `claudeAgent` `claude-sonnet-5-5` (`effort=medium`) as fallback.
-- **Discovery (`scout`)** is read-heavy, write-light: high-allowance OpenCode Go flash models (`mimo-v2.6-flash`, `deepseek-v4.1-flash` at `low`) with Antigravity `gemini-3.8-flash` as last resort.
+- **Architecture & Design (`shape`, `domain-modeling`, `codebase-design`):** recommended on `claudeAgent` `claude-fable-5-2` (or `claude-fable-5-1`), leveraging its superior conceptual synthesis and trade-off evaluation during Phase 1.
+- **Discovery (`scout`)** is read-heavy, write-light: high-allowance OpenCode Go flash models (`mimo-v2.6-flash`, `deepseek-v4.1-flash` at `low`) with Antigravity `gemini-3.8-flash` as last resort, and `claude-haiku-5-5` available.
 - **Testing & script running (`tester`)** writes red-step failing tests and runs verification/CI scripts with compressed reports: high-volume OpenCode Go `deepseek-v4.1-flash` (`high`), falling back to Codex `gpt-6-luna` (`medium`) and Antigravity `gemini-3.8-flash` (`medium`).
 - **Implementation (`implementer`, `implementer-deep`, `patch`):** `implementer` runs on Antigravity `gemini-4-argon` (`high`), falling back to `claudeAgent` `claude-sonnet-5-5` (`effort=medium`) and Codex `gpt-6.1-sol` (`medium`); `implementer-deep` runs on `claudeAgent` `claude-opus-5-5` (`effort=high`), falling back to Codex `gpt-6-astra` (`reasoningEffort=high`) and Antigravity `claude-opus-5-5` (`thinking_level=high`); `patch` shares the cheap `tester` ladder for 1-2 file no-test edits.
-- **Per-task review (`task-reviewer`):** Codex `gpt-6.1-terra` (`high`), falling back to OpenCode Go `glm-5.3-flash` (`high`) and Antigravity `gemini-3.8-flash` (`high`), skipping any rung whose family authored the task.
+- **Per-task review (`task-reviewer`):** Codex `gpt-6.1-terra` (`high`), falling back to Claude Code `claudeAgent` `claude-sonnet-5-5` (`effort=high`) and Antigravity `gemini-3.8-flash` (`high`). Under Author Independence (`AGENTS.md` Author independence), when a task is implemented by Antigravity `gemini-4-argon` (`google`), primary Codex `gpt-6.1-terra` (`openai`) dispatches immediately; when code is authored by OpenAI (`gpt-6.1-sol`), the driver advances past primary to fallback Claude Code `claude-sonnet-5-5` (`anthropic`), ensuring cross-family review without self-grading.
 - **Council (`reviewer-a`, `reviewer-b`, `reviewer-c`)** keeps Argon off council review so Argon never reviews its own code: OpenAI frontier lead / tie-breaker on Seat A (`gpt-6-astra` via Codex at `high`, falling back to `gpt-6.1-sol` and `gpt-6-sol`), Anthropic frontier on Seat B (`claude-opus-5-5` via `claudeAgent`, falling back to Antigravity `claude-opus-5-5` and `claudeAgent` `claude-sonnet-5-5`), and high-budget Open-weight Pro on Seat C (`opencode-go/deepseek-v4-pro`, falling back to `opencode-go/mimo-v2.6-pro` and `opencode-go/minimax-m3`).
 - **Escalation (`reviewer-esc`)** starts on `opencode-go/mimo-v2.6-pro` (~3,250 req/5h, `xiaomi`), falling back to `opencode-go/kimi-k3.1-pro` (`variant=high`, `moonshot`) and `opencode-go/qwen3.8-max` (`-`, `alibaba`). `mimo-v2.6-pro` is disjoint from all three council primaries (`openai`, `anthropic`, `deepseek`), and if `reviewer-c` demotes onto `xiaomi`, `reviewer-esc` skips to `kimi-k3.1-pro` (`moonshot`) or `qwen3.8-max` (`alibaba`).
 
@@ -23,10 +24,11 @@ Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code
 
 No Google or OpenAI (`gpt-*`) model is routed through OpenCode Go in `quad`: all Google models come from Antigravity and all `gpt-*` models come from the Codex subscription. Antigravity, Codex, and Claude Code limits depend on the plan, with rolling 5-hour windows (check with `/status` in the provider), so the profile ranks those models relatively rather than by fixed request count.
 
-- **Claude Code (`claudeAgent`):** carries `implementer-deep` primary (`claude-opus-5-5`), `implementer` fallback (`claude-sonnet-5-5`), `reviewer-b` primary (`claude-opus-5-5`) and last-resort (`claude-sonnet-5-5`), and `driver` fallback (`claude-sonnet-5-5`), relieving Antigravity's lower Claude quota.
+- **Antigravity Separate Quota Pools:** Antigravity isolates `gemini-*` (`antigravity-gemini`) from `claude-*` (`antigravity-claude`). The `antigravity-claude` pool is soft-capped at 6 dispatches per 5-hour rolling window. Using Claude on Antigravity does **not** consume Gemini Argon quota; retaining Antigravity's `claude-opus-5-5` as fallback for `implementer-deep` and `reviewer-b` preserves this tight pool for critical backup without exhausting it during routine work.
+- **Claude Code (`claudeAgent`):** carries `implementer-deep` primary (`claude-opus-5-5`), `implementer` fallback (`claude-sonnet-5-5`), `task-reviewer` fallback (`claude-sonnet-5-5`), `reviewer-b` primary (`claude-opus-5-5`) and last-resort (`claude-sonnet-5-5`), `driver` fallback (`claude-sonnet-5-5`), and `compaction` primary (`claude-haiku-5-5`), relieving Antigravity's lower Claude quota.
 - **Antigravity:** focuses on Google models (`implementer` primary `gemini-4-argon` at `high` and `gemini-3.8-flash` last-resorts), plus `claude-opus-5-5` fallback for `implementer-deep` and `reviewer-b`.
 - **Codex:** carries `driver` (`gpt-6.1-sol`), per-task review `task-reviewer` (`gpt-6.1-terra`), council Seat A `reviewer-a` (`gpt-6-astra` -> `gpt-6.1-sol` -> `gpt-6-sol`), `implementer` last-resort (`gpt-6.1-sol`), `implementer-deep` fallback (`gpt-6-astra`), and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
-- **OpenCode Go:** carries the high-volume cheap roles (`scout`, `tester`, `patch`, `compaction`), council Seat C `reviewer-c` (`deepseek-v4-pro` -> `mimo-v2.6-pro` -> `minimax-m3`), and `reviewer-esc` (`mimo-v2.6-pro` -> `kimi-k3.1-pro` -> `qwen3.8-max`).
+- **OpenCode Go:** carries the high-volume cheap roles (`scout`, `tester`, `patch`), council Seat C `reviewer-c` (`deepseek-v4-pro` -> `mimo-v2.6-pro` -> `minimax-m3`), and `reviewer-esc` (`mimo-v2.6-pro` -> `kimi-k3.1-pro` -> `qwen3.8-max`).
 - **Council budget:** the council runs at most 3 rounds × 3 seats + 1 escalation per PR. Seat C (`deepseek-v4-pro` ~1,040 req/5h) and `reviewer-esc` (`mimo-v2.6-pro` ~3,250 req/5h -> `kimi-k3.1-pro` `variant=high` -> `qwen3.8-max` `alibaba`) have ample OpenCode Go allowance.
 
 | role | rung | provider | model | effort | family | privacy |
@@ -49,7 +51,7 @@ No Google or OpenAI (`gpt-*`) model is routed through OpenCode Go in `quad`: all
 | patch | fallback | codex | gpt-6-luna | reasoningEffort=medium | openai | ok |
 | patch | last-resort | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |
 | task-reviewer | primary | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
-| task-reviewer | fallback | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
+| task-reviewer | fallback | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
 | task-reviewer | last-resort | antigravity | gemini-3.8-flash | thinking_level=high | google | ok |
 | reviewer-a | primary | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
 | reviewer-a | fallback | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
@@ -63,7 +65,7 @@ No Google or OpenAI (`gpt-*`) model is routed through OpenCode Go in `quad`: all
 | reviewer-esc | primary | opencode | opencode-go/mimo-v2.6-pro | - | xiaomi | ok |
 | reviewer-esc | fallback | opencode | opencode-go/kimi-k3.1-pro | variant=high | moonshot | ok |
 | reviewer-esc | last-resort | opencode | opencode-go/qwen3.8-max | - | alibaba | ok |
-| compaction | primary | opencode | opencode-go/claude-haiku-5-5 | variant=low | anthropic | ok |
+| compaction | primary | claudeAgent | claude-haiku-5-5 | effort=low | anthropic | ok |
 | compaction | fallback | codex | gpt-6-luna | reasoningEffort=low | openai | ok |
 
 ## Quota pools
