@@ -19,7 +19,7 @@ Spec: [docs/specs/2026-11-10-cybernetic-quota-resilience-design.md](../specs/202
 - [x] Task 4: Test suite verification
   - Add tests in `test/install.sh` for `opencode-go` pool, dynamic profile seat family independence, and backup coverage
   - Execute `./test/install.sh` and ensure 100% pass rate
-- [/] Task 5: Live baseline council review
+- [x] Task 5: Live baseline council review
   - Run the Review Council on `feat/cybernetic-quota-resilience` with Codex and OpenCode down
   - Confirm graceful degradation and consensus PASS
 - [ ] Task 6: Merge to master, pull master, and install
