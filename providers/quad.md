@@ -90,7 +90,7 @@ No Google or OpenAI (`gpt-*`) model is routed through OpenCode Go in `quad`: all
 
 The `driver` row stays advisory; the installer validates it when present, never requires it, and never renders it. Two setups are supported:
 
-1. **Standalone host (without T3 Code):** OpenCode, Codex, Antigravity (Gemini session; Claude sessions use `--profile antigravity`), or Claude Code runs same-provider rungs natively via Dispatch Adapter Path 1/Path 3 (falling back to the matching `*` row in `## Backup ladder` when primary rungs sit on other providers; single-provider users can also bind `--profile opencode-go|codex|antigravity|claude`). Under `quad` on OpenCode, `implementer`, `implementer-deep`, `reviewer-a`, and `reviewer-b` have no `opencode` ladder rung and install unpinned (never using Path 1).
+1. **Standalone host (without T3 Code):** OpenCode, Codex, Antigravity (Gemini session; Claude sessions use `--profile antigravity`), or Claude Code runs same-provider rungs natively via Dispatch Adapter Path 2/Path 3 (falling back to the matching `*` row in `## Backup ladder` when primary rungs sit on other providers; single-provider users can also bind `--profile opencode-go|codex|antigravity|claude`). Under `quad` on OpenCode, `implementer`, `implementer-deep`, `reviewer-a`, and `reviewer-b` have no `opencode` ladder rung and install unpinned (never using Path 2).
 2. **Any T3 Code provider session:** `./install.sh --target all` populates standalone roots and any T3 Antigravity instances (`skills/_harness/`), dispatching across all connected providers via `delegate_task` with child-enforced permissions.
 
 ## Privacy
