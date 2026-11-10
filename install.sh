@@ -22,7 +22,7 @@ available_profiles() {
 
 usage() {
   cat <<'EOF'
-usage: install.sh [--force] [--prune] [--profile NAME | --profile-file PATH] [--target TARGETS]
+usage: install.sh [--force] [--prune] [--verify | --doctor] [--profile NAME | --profile-file PATH] [--target TARGETS]
 
 Installs agents/, skills/, AGENTS.md (as HARNESS.md), PROVIDERS.md, NOTICE, and LICENSE into
 the selected host target(s) (default: opencode at ${OPENCODE_CONFIG:-$HOME/.config/opencode}),
@@ -36,6 +36,9 @@ options:
                        ${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config} plus any T3 Code instances under
                        ${T3_USERDATA_DIR:-$HOME/.t3/userdata}/providers/antigravity/*/config, sharing
                        the standalone root's profile binding on refresh)
+  --verify             check installed target health (manifest, required files, instruction wiring,
+                       and shared state) without modifying the destination
+  --doctor             alias for --verify
   --force              overwrite files that already exist in the destination
   --prune              remove files recorded in a previous .harness-manifest that
                        this run no longer produces; files the installer never wrote
@@ -55,6 +58,7 @@ unknown_target() {
 
 force=0
 prune=0
+verify_mode=0
 pf_token_file=""
 sr_token_file=""
 preflight_only=0
@@ -81,6 +85,7 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --force) force=1 ;;
     --prune) prune=1 ;;
+    --verify|--doctor) verify_mode=1 ;;
     --profile)
       if [ "$#" -lt 2 ] || [ -z "$2" ]; then usage >&2; exit 2; fi
       profile_given=1
@@ -143,6 +148,43 @@ done
 if [ "$profile_given" -eq 1 ] && [ "$profile_file_given" -eq 1 ]; then
   usage >&2
   exit 2
+fi
+
+if [ "$verify_mode" -eq 1 ] && [ "$target_given" -eq 0 ]; then
+  discovered_targets=""
+  for cand in opencode codex antigravity claude; do
+    cand_has=0
+    case "$cand" in
+      opencode)    cand_dir="${OPENCODE_CONFIG-${HOME:-}/.config/opencode}" ;;
+      codex)       cand_dir="${CODEX_HOME-${HOME:-}/.codex}" ;;
+      antigravity) cand_dir="${ANTIGRAVITY_CONFIG-${HOME:-}/.gemini/config}" ;;
+      claude)      cand_dir="${CLAUDE_CONFIG_DIR-${HOME:-}/.claude}" ;;
+    esac
+    if [ -n "$cand_dir" ] && { [ -f "$cand_dir/.harness-manifest" ] || [ -f "$cand_dir/HARNESS.md" ] || [ -f "$cand_dir/skills/oneshot/SKILL.md" ]; }; then
+      cand_has=1
+    elif [ "$cand" = "antigravity" ]; then
+      cand_t3="${T3_USERDATA_DIR:-${HOME:-}/.t3/userdata}"
+      if [ -n "$cand_t3" ] && [ -d "$cand_t3/providers/antigravity" ]; then
+        for cand_inst in "$cand_t3/providers/antigravity"/[!.]*; do
+          [ -d "$cand_inst" ] || continue
+          if [ -f "$cand_inst/config/.harness-manifest" ] || [ -f "$cand_inst/config/HARNESS.md" ] || [ -f "$cand_inst/config/skills/oneshot/SKILL.md" ]; then
+            cand_has=1
+            break
+          fi
+        done
+      fi
+    fi
+    if [ "$cand_has" -eq 1 ]; then
+      if [ -n "$discovered_targets" ]; then
+        discovered_targets="$discovered_targets,$cand"
+      else
+        discovered_targets="$cand"
+      fi
+    fi
+  done
+  if [ -n "$discovered_targets" ]; then
+    target_arg="$discovered_targets"
+  fi
 fi
 
 # Parse and validate --target before touching anything.
@@ -271,6 +313,25 @@ validate_t3_userdata_dir() {
   fi
 }
 
+agy_has_artifacts() {
+  local dir="$1"
+  if [ -z "$dir" ] || [ ! -d "$dir" ]; then
+    return 1
+  fi
+  if [ -f "$dir/.harness-manifest" ] ||
+     [ -f "$dir/HARNESS.md" ] ||
+     [ -f "$dir/PROVIDERS.md" ] ||
+     [ -f "$dir/rules/HARNESS.md" ] ||
+     [ -f "$dir/rules/PROVIDERS.md" ] ||
+     [ -f "$dir/skills/oneshot/SKILL.md" ] ||
+     [ -d "$dir/skills/_harness" ] ||
+     [ -f "$dir/agents/implementer.md" ] ||
+     [ -f "$dir/plugins/oneshot-harness/.harness-manifest" ]; then
+    return 0
+  fi
+  return 1
+}
+
 agy_seen_canons=()
 agy_canon_seen() {
   local want="$1" c
@@ -293,12 +354,25 @@ for tok in "${selected_targets[@]}"; do
     continue
   fi
 
-  job_targets+=("antigravity")
-  job_override_agy+=(0)
-  job_agy_configs+=("")
+  agy_jobs_before="${#job_targets[@]}"
+  agy_primary_raw="${ANTIGRAVITY_CONFIG-${HOME:-}/.gemini/config}"
+  agy_probe_dir="$agy_primary_raw"
+  while [ "${agy_probe_dir%/}" != "$agy_probe_dir" ]; do
+    agy_probe_dir="${agy_probe_dir%/}"
+  done
+
+  # Install mode always claims the standalone root. Verify only claims it when
+  # harness artifacts already live there, so a machine with nothing but T3 Code
+  # instances does not fail on an empty standalone destination.
+  agy_standalone_added=0
+  if [ "$verify_mode" -eq 0 ] || agy_has_artifacts "$agy_probe_dir"; then
+    job_targets+=("antigravity")
+    job_override_agy+=(0)
+    job_agy_configs+=("")
+    agy_standalone_added=1
+  fi
 
   agy_seen_canons=()
-  agy_primary_raw="${ANTIGRAVITY_CONFIG-${HOME:-}/.gemini/config}"
   agy_primary_compact="${agy_primary_raw//[[:space:]]/}"
   agy_primary_compact="${agy_primary_compact//\//}"
   if [ -n "$agy_primary_compact" ]; then
@@ -377,6 +451,14 @@ for tok in "${selected_targets[@]}"; do
       fi
     fi
   fi
+
+  # No root at all was claimed: fall back to the standalone destination so the
+  # job list is never empty (verify then reports the missing install itself).
+  if [ "$agy_standalone_added" -eq 0 ] && [ "${#job_targets[@]}" -eq "$agy_jobs_before" ]; then
+    job_targets+=("antigravity")
+    job_override_agy+=(0)
+    job_agy_configs+=("")
+  fi
 done
 
 read_prev_binding() {
@@ -432,6 +514,28 @@ read_prev_binding() {
 # preflight pass runs across all jobs first so any invalid destination or
 # collision aborts before any root is mutated.
 if [ "${#job_targets[@]}" -gt 1 ]; then
+  if [ "$verify_mode" -eq 1 ]; then
+    trap 'rm -f -- ${sr_token_file:+"$sr_token_file"}' EXIT
+    sr_token_file="$(mktemp "${TMPDIR:-/tmp}/harness-sr.XXXXXXXX")"
+    chmod 0600 "$sr_token_file"
+    sr_token="$$-$(date +%s)-${RANDOM:-0}-sr"
+    printf '%s' "$sr_token" >"$sr_token_file"
+    verify_rc=0
+    for idx in "${!job_targets[@]}"; do
+      jt="${job_targets[$idx]}"
+      if [ "${job_override_agy[$idx]}" -eq 1 ]; then
+        ANTIGRAVITY_CONFIG="${job_agy_configs[$idx]}" \
+          HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+          "$SRC/install.sh" --verify --target "$jt" || verify_rc=1
+      else
+        HARNESS_AGY_SINGLE_ROOT_FILE="$sr_token_file" HARNESS_AGY_SINGLE_ROOT="$sr_token" \
+          "$SRC/install.sh" --verify --target "$jt" || verify_rc=1
+      fi
+    done
+    rm -f -- "$sr_token_file"
+    sr_token_file=""
+    exit "$verify_rc"
+  fi
   sub_args=()
   [ "$force" -eq 1 ] && sub_args+=("--force")
   [ "$prune" -eq 1 ] && sub_args+=("--prune")
@@ -611,6 +715,9 @@ if [ "${#job_targets[@]}" -gt 1 ]; then
   done
   rm -f -- "$sr_token_file"
   sr_token_file=""
+  if [ "$target_given" -eq 0 ] && { { [ -n "${T3_USERDATA_DIR:-}" ] && [ -d "$T3_USERDATA_DIR" ]; } || [ -d "${HOME:-}/.t3/userdata" ]; }; then
+    printf "tip: T3 Code detected; pass '--target all' to install across all T3-connected providers (Antigravity, Codex, OpenCode, Claude).\n"
+  fi
   exit 0
 fi
 
@@ -760,6 +867,502 @@ if [ -L "$MANIFEST" ] || { [ -e "$MANIFEST" ] && [ ! -f "$MANIFEST" ]; }; then
   printf 'install.sh: manifest path is not a regular file: %s\n' "$MANIFEST" >&2
   exit 1
 fi
+
+verify_opencode_json() {
+  JSON_FILE="$1" TARGET_DEST="$DEST" TARGET_RAW="$DEST_STRIPPED" HOME_RAW="${HOME:-}" HOME_CANON="${HOME_PHYS:-}" awk '
+    function skip_ws(    c) {
+      while (pos <= len) {
+        c = substr(data, pos, 1)
+        if (c == " " || c == "\t" || c == "\n" || c == "\r") pos++
+        else break
+      }
+    }
+    function parse_string(    c, esc, hex, s) {
+      if (substr(data, pos, 1) != "\"") return ""
+      pos++
+      s = ""
+      while (pos <= len) {
+        c = substr(data, pos, 1)
+        if (c == "\\") {
+          pos++
+          if (pos > len) { bad = 1; return "" }
+          esc = substr(data, pos, 1)
+          if (esc == "u") {
+            hex = substr(data, pos + 1, 4)
+            if (length(hex) != 4 || hex !~ /^[0-9a-fA-F]+$/) { bad = 1; return "" }
+          } else if (esc != "\"" && esc != "\\" && esc != "/" &&
+                     esc != "b" && esc != "f" && esc != "n" && esc != "r" && esc != "t") {
+            bad = 1
+            return ""
+          }
+          s = s esc
+          pos++
+        } else if (c == "\"") {
+          pos++
+          return s
+        } else if (c == "\n" || c == "\r") {
+          bad = 1
+          return ""
+        } else {
+          s = s c
+          pos++
+        }
+      }
+      bad = 1
+      return ""
+    }
+    function match_inst(s, name,    s_raw, s_canon) {
+      while (substr(s, 1, 2) == "./") s = substr(s, 3)
+      if (s == name) return 1
+      if (s == target_dest "/" name || s == target_raw "/" name) return 1
+      if (substr(s, 1, 2) == "~/") {
+        if (home_raw != "") {
+          s_raw = home_raw substr(s, 2)
+          if (s_raw == target_dest "/" name || s_raw == target_raw "/" name) return 1
+        }
+        if (home_canon != "") {
+          s_canon = home_canon substr(s, 2)
+          if (s_canon == target_dest "/" name || s_canon == target_raw "/" name) return 1
+        }
+      }
+      return 0
+    }
+    function parse_value(in_inst,    c, s, rest) {
+      skip_ws()
+      if (pos > len) { bad = 1; return }
+      c = substr(data, pos, 1)
+      if (c == "{") {
+        if (in_inst) { bad = 1; return }
+        parse_object(0)
+      } else if (c == "[") {
+        if (in_inst) { bad = 1; return }
+        parse_array(0)
+      } else if (c == "\"") {
+        s = parse_string()
+        if (in_inst) {
+          if (match_inst(s, "HARNESS.md")) has_harness = 1
+          if (match_inst(s, "PROVIDERS.md")) has_providers = 1
+        }
+      } else if (substr(data, pos, 4) == "true") {
+        if (in_inst) bad = 1
+        pos += 4
+      } else if (substr(data, pos, 5) == "false") {
+        if (in_inst) bad = 1
+        pos += 5
+      } else if (substr(data, pos, 4) == "null") {
+        if (in_inst) bad = 1
+        pos += 4
+      } else if (c ~ /[-0-9]/) {
+        rest = substr(data, pos)
+        if (in_inst || !match(rest, /^-?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?/)) {
+          bad = 1
+          return
+        }
+        pos += RLENGTH
+      } else {
+        bad = 1
+      }
+    }
+    function parse_array(in_inst,    c) {
+      pos++
+      skip_ws()
+      if (pos <= len && substr(data, pos, 1) == "]") {
+        pos++
+        return
+      }
+      while (pos <= len && !bad) {
+        parse_value(in_inst ? 1 : 0)
+        if (bad) return
+        skip_ws()
+        c = substr(data, pos, 1)
+        if (c == ",") {
+          pos++
+        } else if (c == "]") {
+          pos++
+          return
+        } else {
+          bad = 1
+          return
+        }
+      }
+      bad = 1
+    }
+    function parse_object(is_top,    c, k) {
+      pos++
+      skip_ws()
+      if (pos <= len && substr(data, pos, 1) == "}") {
+        pos++
+        return
+      }
+      while (pos <= len && !bad) {
+        skip_ws()
+        if (substr(data, pos, 1) != "\"") { bad = 1; return }
+        k = parse_string()
+        if (bad) return
+        skip_ws()
+        if (substr(data, pos, 1) != ":") { bad = 1; return }
+        pos++
+        skip_ws()
+        if (is_top && k == "instructions") {
+          if (substr(data, pos, 1) == "[") {
+            found_inst = 1
+            has_harness = 0
+            has_providers = 0
+            parse_array(1)
+          } else {
+            found_inst = 0
+            parse_value(0)
+          }
+        } else {
+          parse_value(0)
+        }
+        if (bad) return
+        skip_ws()
+        c = substr(data, pos, 1)
+        if (c == ",") {
+          pos++
+        } else if (c == "}") {
+          pos++
+          return
+        } else {
+          bad = 1
+          return
+        }
+      }
+      bad = 1
+    }
+    BEGIN {
+      jf = ENVIRON["JSON_FILE"]
+      target_dest = ENVIRON["TARGET_DEST"]
+      target_raw = ENVIRON["TARGET_RAW"]
+      home_raw = ENVIRON["HOME_RAW"]
+      home_canon = ENVIRON["HOME_CANON"]
+      sub(/\/+$/, "", home_raw)
+      sub(/\/+$/, "", home_canon)
+      data = ""
+      while ((getline line < jf) > 0) {
+        data = data line "\n"
+      }
+      close(jf)
+      pos = 1
+      len = length(data)
+      found_inst = 0
+      has_harness = 0
+      has_providers = 0
+      skip_ws()
+      if (pos > len || substr(data, pos, 1) != "{") {
+        exit 1
+      }
+      parse_object(1)
+      skip_ws()
+      if (bad || pos <= len || !found_inst || !has_harness || !has_providers) {
+        exit 1
+      }
+      exit 0
+    }
+  ' </dev/null
+}
+
+verify_combined_instructions() {
+  local doc="$1"
+  grep -qF '# Cybernetic SDLC Harness' "$doc" &&
+    grep -qF '## Dispatch Adapter' "$doc" &&
+    grep -qE '^\|[[:space:]]*implementer[[:space:]]*\|[[:space:]]*primary[[:space:]]*\|' "$doc"
+}
+
+verify_agy_rule() {
+  local rule_file="$1"
+  awk '
+    NR == 1 {
+      if ($0 != "---") exit 1
+      in_fm = 1
+      next
+    }
+    in_fm && $0 == "---" {
+      in_fm = 0
+      closed = 1
+      exit (has_trigger ? 0 : 1)
+    }
+    in_fm && /^[[:space:]]*trigger:[[:space:]]*always_on[[:space:]]*$/ {
+      has_trigger = 1
+    }
+    END {
+      if (!closed || !has_trigger) exit 1
+    }
+  ' "$rule_file"
+}
+
+REQUIRED_ROLES='scout implementer implementer-deep patch tester reviewer-a reviewer-b reviewer-c reviewer-esc task-reviewer'
+
+validate_profile() {
+  PROFILE_NAME="$2" REQUIRED_ROLES="$REQUIRED_ROLES" awk -F '|' '
+    BEGIN {
+      profile = ENVIRON["PROFILE_NAME"]
+      n = split(ENVIRON["REQUIRED_ROLES"], ordered, " ")
+      for (i = 1; i <= n; i++) {
+        known[ordered[i]] = 1
+        dispatched[ordered[i]] = 1
+      }
+      known["driver"] = known["compaction"] = 1
+      section = "roles"
+    }
+    function invalid(reason) {
+      printf "install.sh: profile %s invalid row: %s %s: %s\n", profile, $2, $3, reason > "/dev/stderr"
+      failed = 1
+      exit 1
+    }
+    function invalid_pool(reason) {
+      printf "install.sh: profile %s invalid pool row: %s: %s\n", profile, $2, reason > "/dev/stderr"
+      failed = 1
+      exit 1
+    }
+    function invalid_backup(reason) {
+      printf "install.sh: profile %s invalid backup row: %s: %s\n", profile, $2, reason > "/dev/stderr"
+      failed = 1
+      exit 1
+    }
+    /^[[:space:]]*```/ { fenced = !fenced; next }
+    fenced { next }
+    /^##[[:space:]]+Quota pools([[:space:]]|$)/ { section = "pools"; next }
+    /^##[[:space:]]+Backup ladder([[:space:]]|$)/ { section = "backups"; next }
+    /^##[[:space:]]+/ { section = "roles"; next }
+    /^[[:space:]]*[|]/ {
+      for (i = 1; i <= NF; i++) gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
+      if (section == "pools") {
+        if (NF != 8 || $NF != "") invalid_pool("expected 6 cells")
+        if ($2 == "pool" && $3 == "provider" && $4 == "models" && $5 == "window" && $6 == "soft-cap" && $7 == "reserve") next
+        if ($2 ~ /^:?-+:?$/ && $3 ~ /^:?-+:?$/ && $4 ~ /^:?-+:?$/ && $5 ~ /^:?-+:?$/ && $6 ~ /^:?-+:?$/ && $7 ~ /^:?-+:?$/) next
+        for (i = 2; i <= 7; i++) if ($i == "") invalid_pool("empty cell")
+        if ($2 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_pool("invalid pool")
+        if ($2 in seen_pool) invalid_pool("duplicate pool")
+        seen_pool[$2] = 1
+        if ($3 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid_pool("invalid provider")
+        if ($4 !~ /^[A-Za-z0-9*][A-Za-z0-9._\/*-]*$/) invalid_pool("invalid models")
+        if ($5 !~ /^[1-9][0-9]*(h|d|w|mo)$/) invalid_pool("invalid window")
+        if ($6 != "-" && $6 !~ /^[1-9][0-9]*$/) invalid_pool("invalid soft-cap")
+        if ($7 != "-") {
+          m = split($7, rlist, ",")
+          if (m < 1) invalid_pool("invalid reserve")
+          for (j = 1; j <= m; j++) {
+            if (rlist[j] == "" || !(rlist[j] in known)) invalid_pool("invalid reserve")
+          }
+        }
+        next
+      }
+      if (section == "backups") {
+        if (NF != 9 || $NF != "") invalid_backup("expected 7 cells")
+        if ($2 == "order" && $3 == "roles" && $4 == "provider" && $5 == "model" && $6 == "effort" && $7 == "family" && $8 == "privacy") next
+        if ($2 ~ /^:?-+:?$/ && $3 ~ /^:?-+:?$/ && $4 ~ /^:?-+:?$/ && $5 ~ /^:?-+:?$/ && $6 ~ /^:?-+:?$/ && $7 ~ /^:?-+:?$/ && $8 ~ /^:?-+:?$/) next
+        for (i = 2; i <= 8; i++) if ($i == "") invalid_backup("empty cell")
+        if ($2 !~ /^[1-9][0-9]*$/) invalid_backup("invalid order")
+        if ($2 in seen_order) invalid_backup("duplicate order")
+        seen_order[$2] = 1
+        if ($3 != "*") {
+          m = split($3, blist, ",")
+          if (m < 1) invalid_backup("invalid roles")
+          for (j = 1; j <= m; j++) {
+            if (blist[j] == "" || !(blist[j] in dispatched)) invalid_backup("invalid roles")
+          }
+        }
+        if ($4 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid_backup("invalid provider")
+        if ($5 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) invalid_backup("invalid model")
+        if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid_backup("invalid effort")
+        if ($7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_backup("invalid family")
+        if ($8 != "ok" && $8 != "trains") invalid_backup("invalid privacy")
+        next
+      }
+      role = $2
+      if (!(role in known)) next
+      if (NF != 9 || $NF != "") invalid("expected 7 cells")
+      for (i = 2; i <= 8; i++) if ($i == "") invalid("empty cell")
+      if ($3 != "primary" && $3 != "fallback" && $3 != "last-resort") invalid("invalid rung")
+      if ($8 != "ok" && $8 != "trains") invalid("invalid privacy")
+      advisory = (role == "driver" || role == "compaction")
+      if (!(advisory && $4 == "-") && $4 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid("invalid provider")
+      if (!(advisory && $5 == "-") && $5 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) invalid("invalid model")
+      if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid("invalid effort")
+      if (!(advisory && $7 == "-") && $7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid("invalid family")
+      key = role SUBSEP $3
+      if (key in seen) invalid("duplicate rung")
+      seen[key] = 1
+      if ($3 == "primary") primary[role] = 1
+      print $2 "|" $3 "|" $4 "|" $5 "|" $6 "|" $7 "|" $8
+    }
+    END {
+      if (failed) exit 1
+      for (i = 1; i <= n; i++) {
+        role = ordered[i]
+        if (!(role in primary)) {
+          printf "install.sh: profile %s incomplete: %s\n", profile, role > "/dev/stderr"
+          exit 1
+        }
+      }
+    }
+  ' "$1"
+}
+
+verify_target() {
+  local v_errors=0
+  local req file m_count=0 m_missing=0
+  local mline v_prof_type="" v_prof_val="" v_prof_path=""
+  printf 'verifying %s (%s):\n' "$TARGET_HOST" "$DEST"
+  if [ ! -d "$DEST" ]; then
+    printf '  [FAIL] destination directory missing: %s\n' "$DEST"
+    return 1
+  fi
+  if [ ! -f "$MANIFEST" ] || [ -L "$MANIFEST" ]; then
+    printf '  [FAIL] manifest missing: %s\n' "$MANIFEST"
+    v_errors=$((v_errors + 1))
+  else
+    printf '  [OK] manifest: %s\n' "$MANIFEST"
+    while IFS= read -r file || [ -n "$file" ]; do
+      case "$file" in
+        '# profile '*)
+          if [ -z "$v_prof_type" ]; then
+            v_prof_type="profile"
+            v_prof_val="${file#'# profile '}"
+          fi
+          continue
+          ;;
+        '# profile-file '*)
+          if [ -z "$v_prof_type" ]; then
+            v_prof_type="profile-file"
+            v_prof_val="${file#'# profile-file '}"
+          fi
+          continue
+          ;;
+        ''|'#'*) continue ;;
+      esac
+      m_count=$((m_count + 1))
+      if [ ! -f "$DEST/$file" ]; then
+        printf '  [FAIL] manifest file missing: %s\n' "$file"
+        v_errors=$((v_errors + 1))
+        m_missing=$((m_missing + 1))
+      fi
+    done <"$MANIFEST"
+    if [ "$m_missing" -eq 0 ]; then
+      printf '  [OK] manifest files: all %d files verified\n' "$m_count"
+    fi
+    if [ -z "$v_prof_type" ] && [ "$m_count" -gt 0 ]; then
+      v_prof_type="profile"
+      v_prof_val="opencode-go"
+    fi
+    if [ -z "$v_prof_type" ] || [ -z "$v_prof_val" ]; then
+      printf '  [FAIL] profile binding missing or unreadable: %s\n' "${v_prof_val:-<none>}"
+      v_errors=$((v_errors + 1))
+    else
+      if [ "$v_prof_type" = "profile" ]; then
+        case "$v_prof_val" in
+          ''|[!a-z0-9]*|*[!a-z0-9-]*)
+            v_prof_path=""
+            ;;
+          *)
+            v_prof_path="$SRC/providers/$v_prof_val.md"
+            ;;
+        esac
+      else
+        v_prof_path="$v_prof_val"
+      fi
+      if [ -z "$v_prof_path" ] || [ ! -f "$v_prof_path" ] || [ ! -r "$v_prof_path" ]; then
+        printf '  [FAIL] profile binding missing or unreadable: %s\n' "$v_prof_val"
+        v_errors=$((v_errors + 1))
+      elif ! validate_profile "$v_prof_path" "$v_prof_val" >/dev/null 2>&1; then
+        printf '  [FAIL] profile binding invalid: %s\n' "$v_prof_val"
+        v_errors=$((v_errors + 1))
+      else
+        printf '  [OK] profile binding: %s\n' "$v_prof_val"
+      fi
+    fi
+  fi
+  for req in HARNESS.md PROVIDERS.md skills/oneshot/SKILL.md skills/council/SKILL.md; do
+    if [ ! -f "$DEST/$req" ]; then
+      printf '  [FAIL] required file missing: %s\n' "$req"
+      v_errors=$((v_errors + 1))
+    else
+      printf '  [OK] required file: %s\n' "$req"
+    fi
+  done
+  case "$TARGET_HOST" in
+    opencode)
+      if [ -f "$DEST/opencode.json" ]; then
+        if verify_opencode_json "$DEST/opencode.json"; then
+          printf '  [OK] opencode.json includes HARNESS.md and PROVIDERS.md\n'
+        else
+          printf '  [WARN] opencode.json is missing HARNESS.md or PROVIDERS.md in instructions; add ["%s/HARNESS.md", "%s/PROVIDERS.md"] to instructions in %s/opencode.json\n' "$DEST" "$DEST" "$DEST"
+        fi
+      else
+        printf '  [WARN] opencode.json not found at %s/opencode.json; create it with {"instructions": ["%s/HARNESS.md", "%s/PROVIDERS.md"]} so OpenCode loads the harness\n' "$DEST" "$DEST" "$DEST"
+      fi
+      ;;
+    codex)
+      if [ ! -f "$DEST/AGENTS.md" ]; then
+        printf '  [FAIL] required instruction file missing: AGENTS.md\n'
+        v_errors=$((v_errors + 1))
+      elif ! verify_combined_instructions "$DEST/AGENTS.md"; then
+        printf '  [FAIL] instruction file missing harness or provider instructions: AGENTS.md\n'
+        v_errors=$((v_errors + 1))
+      else
+        printf '  [OK] instruction wiring: AGENTS.md\n'
+      fi
+      ;;
+    antigravity)
+      for ag_rule in rules/HARNESS.md rules/PROVIDERS.md; do
+        if [ ! -f "$DEST/$ag_rule" ]; then
+          printf '  [FAIL] required instruction rule missing: %s\n' "$ag_rule"
+          v_errors=$((v_errors + 1))
+        elif [ "$(wc -c <"$DEST/$ag_rule")" -ge 24000 ]; then
+          printf '  [FAIL] instruction rule exceeds 24000 bytes: %s\n' "$ag_rule"
+          v_errors=$((v_errors + 1))
+        elif ! verify_agy_rule "$DEST/$ag_rule"; then
+          printf '  [FAIL] instruction rule missing trigger: always_on frontmatter: %s\n' "$ag_rule"
+          v_errors=$((v_errors + 1))
+        else
+          printf '  [OK] instruction wiring: %s\n' "$ag_rule"
+        fi
+      done
+      ;;
+    claude)
+      if [ ! -f "$DEST/CLAUDE.md" ]; then
+        printf '  [FAIL] required instruction file missing: CLAUDE.md\n'
+        v_errors=$((v_errors + 1))
+      elif ! verify_combined_instructions "$DEST/CLAUDE.md"; then
+        printf '  [FAIL] instruction file missing harness or provider instructions: CLAUDE.md\n'
+        v_errors=$((v_errors + 1))
+      else
+        printf '  [OK] instruction wiring: CLAUDE.md\n'
+      fi
+      ;;
+  esac
+  if [ ! -d "$DEST/state" ]; then
+    printf '  [FAIL] shared state directory missing: %s/state\n' "$DEST"
+    v_errors=$((v_errors + 1))
+  elif [ "$TARGET_HOST" != "opencode" ] && [ "$DEST" != "$SHARED_OC_CANON" ] &&
+       { [ ! -d "$SHARED_STATE" ] || [ "$(canonical_dest "$DEST/state")" != "$(canonical_dest "$SHARED_STATE")" ]; }; then
+    printf '  [FAIL] state directory does not resolve to shared state (%s): %s/state\n' "$SHARED_STATE" "$DEST"
+    v_errors=$((v_errors + 1))
+  elif [ -L "$DEST/state/quota-ledger.tsv" ]; then
+    printf '  [FAIL] quota-ledger.tsv cannot be a symlink: %s\n' "$DEST/state/quota-ledger.tsv"
+    v_errors=$((v_errors + 1))
+  elif [ -e "$DEST/state/quota-ledger.tsv" ] && { [ ! -f "$DEST/state/quota-ledger.tsv" ] || [ ! -r "$DEST/state/quota-ledger.tsv" ]; }; then
+    printf '  [FAIL] quota-ledger.tsv is not a readable regular file: %s/state/quota-ledger.tsv\n' "$DEST"
+    v_errors=$((v_errors + 1))
+  elif [ ! -w "$DEST/state" ]; then
+    printf '  [FAIL] shared state directory is not writable for quota-ledger.tsv: %s/state\n' "$DEST"
+    v_errors=$((v_errors + 1))
+  else
+    printf '  [OK] shared state: %s/state (quota-ledger.tsv accessible)\n' "$DEST"
+  fi
+  [ "$v_errors" -eq 0 ]
+}
+
+if [ "$verify_mode" -eq 1 ]; then
+  if verify_target; then
+    exit 0
+  else
+    exit 1
+  fi
+fi
+
 LEGACY_AGY_DIR=""
 LEGACY_AGY_MANIFEST=""
 if [ "$TARGET_HOST" = "antigravity" ]; then
@@ -811,112 +1414,8 @@ else
   [ -f "$PROFILE_FILE" ] || unknown_profile
   PROFILE_LABEL="$profile"
 fi
-REQUIRED_ROLES='scout implementer implementer-deep patch tester reviewer-a reviewer-b reviewer-c reviewer-esc task-reviewer'
 # Recognized required and advisory rows are validated; fenced examples are prose.
-PROFILE_ROWS="$(PROFILE_NAME="$PROFILE_LABEL" REQUIRED_ROLES="$REQUIRED_ROLES" awk -F '|' '
-  BEGIN {
-    profile = ENVIRON["PROFILE_NAME"]
-    n = split(ENVIRON["REQUIRED_ROLES"], ordered, " ")
-    for (i = 1; i <= n; i++) {
-      known[ordered[i]] = 1
-      dispatched[ordered[i]] = 1
-    }
-    known["driver"] = known["compaction"] = 1
-    section = "roles"
-  }
-  function invalid(reason) {
-    printf "install.sh: profile %s invalid row: %s %s: %s\n", profile, $2, $3, reason > "/dev/stderr"
-    failed = 1
-    exit 1
-  }
-  function invalid_pool(reason) {
-    printf "install.sh: profile %s invalid pool row: %s: %s\n", profile, $2, reason > "/dev/stderr"
-    failed = 1
-    exit 1
-  }
-  function invalid_backup(reason) {
-    printf "install.sh: profile %s invalid backup row: %s: %s\n", profile, $2, reason > "/dev/stderr"
-    failed = 1
-    exit 1
-  }
-  /^[[:space:]]*```/ { fenced = !fenced; next }
-  fenced { next }
-  /^##[[:space:]]+Quota pools([[:space:]]|$)/ { section = "pools"; next }
-  /^##[[:space:]]+Backup ladder([[:space:]]|$)/ { section = "backups"; next }
-  /^##[[:space:]]+/ { section = "roles"; next }
-  /^[[:space:]]*[|]/ {
-    for (i = 1; i <= NF; i++) gsub(/^[[:space:]]+|[[:space:]]+$/, "", $i)
-    if (section == "pools") {
-      if (NF != 8 || $NF != "") invalid_pool("expected 6 cells")
-      if ($2 == "pool" && $3 == "provider" && $4 == "models" && $5 == "window" && $6 == "soft-cap" && $7 == "reserve") next
-      if ($2 ~ /^:?-+:?$/ && $3 ~ /^:?-+:?$/ && $4 ~ /^:?-+:?$/ && $5 ~ /^:?-+:?$/ && $6 ~ /^:?-+:?$/ && $7 ~ /^:?-+:?$/) next
-      for (i = 2; i <= 7; i++) if ($i == "") invalid_pool("empty cell")
-      if ($2 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_pool("invalid pool")
-      if ($2 in seen_pool) invalid_pool("duplicate pool")
-      seen_pool[$2] = 1
-      if ($3 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid_pool("invalid provider")
-      if ($4 !~ /^[A-Za-z0-9*][A-Za-z0-9._\/*-]*$/) invalid_pool("invalid models")
-      if ($5 !~ /^[1-9][0-9]*(h|d|w|mo)$/) invalid_pool("invalid window")
-      if ($6 != "-" && $6 !~ /^[1-9][0-9]*$/) invalid_pool("invalid soft-cap")
-      if ($7 != "-") {
-        m = split($7, rlist, ",")
-        if (m < 1) invalid_pool("invalid reserve")
-        for (j = 1; j <= m; j++) {
-          if (rlist[j] == "" || !(rlist[j] in known)) invalid_pool("invalid reserve")
-        }
-      }
-      next
-    }
-    if (section == "backups") {
-      if (NF != 9 || $NF != "") invalid_backup("expected 7 cells")
-      if ($2 == "order" && $3 == "roles" && $4 == "provider" && $5 == "model" && $6 == "effort" && $7 == "family" && $8 == "privacy") next
-      if ($2 ~ /^:?-+:?$/ && $3 ~ /^:?-+:?$/ && $4 ~ /^:?-+:?$/ && $5 ~ /^:?-+:?$/ && $6 ~ /^:?-+:?$/ && $7 ~ /^:?-+:?$/ && $8 ~ /^:?-+:?$/) next
-      for (i = 2; i <= 8; i++) if ($i == "") invalid_backup("empty cell")
-      if ($2 !~ /^[1-9][0-9]*$/) invalid_backup("invalid order")
-      if ($2 in seen_order) invalid_backup("duplicate order")
-      seen_order[$2] = 1
-      if ($3 != "*") {
-        m = split($3, blist, ",")
-        if (m < 1) invalid_backup("invalid roles")
-        for (j = 1; j <= m; j++) {
-          if (blist[j] == "" || !(blist[j] in dispatched)) invalid_backup("invalid roles")
-        }
-      }
-      if ($4 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid_backup("invalid provider")
-      if ($5 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) invalid_backup("invalid model")
-      if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid_backup("invalid effort")
-      if ($7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_backup("invalid family")
-      if ($8 != "ok" && $8 != "trains") invalid_backup("invalid privacy")
-      next
-    }
-    role = $2
-    if (!(role in known)) next
-    if (NF != 9 || $NF != "") invalid("expected 7 cells")
-    for (i = 2; i <= 8; i++) if ($i == "") invalid("empty cell")
-    if ($3 != "primary" && $3 != "fallback" && $3 != "last-resort") invalid("invalid rung")
-    if ($8 != "ok" && $8 != "trains") invalid("invalid privacy")
-    advisory = (role == "driver" || role == "compaction")
-    if (!(advisory && $4 == "-") && $4 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid("invalid provider")
-    if (!(advisory && $5 == "-") && $5 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) invalid("invalid model")
-    if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid("invalid effort")
-    if (!(advisory && $7 == "-") && $7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid("invalid family")
-    key = role SUBSEP $3
-    if (key in seen) invalid("duplicate rung")
-    seen[key] = 1
-    if ($3 == "primary") primary[role] = 1
-    print $2 "|" $3 "|" $4 "|" $5 "|" $6 "|" $7 "|" $8
-  }
-  END {
-    if (failed) exit 1
-    for (i = 1; i <= n; i++) {
-      role = ordered[i]
-      if (!(role in primary)) {
-        printf "install.sh: profile %s incomplete: %s\n", profile, role > "/dev/stderr"
-        exit 1
-      }
-    }
-  }
-' "$PROFILE_FILE")" || exit 1
+PROFILE_ROWS="$(validate_profile "$PROFILE_FILE" "$PROFILE_LABEL")" || exit 1
 
 # Select by ladder order, even if the table rows were written out of order.
 native_pin() {
@@ -1871,3 +2370,6 @@ if { [ "$profile_given" -eq 1 ] || [ "$profile_file_given" -eq 1 ]; } &&
 fi
 
 printf 'installed %d files into %s (harness instructions at %s)\n' "$installed" "$DEST" "$DEST/HARNESS.md"
+if [ "$target_given" -eq 0 ] && { { [ -n "${T3_USERDATA_DIR:-}" ] && [ -d "$T3_USERDATA_DIR" ]; } || [ -d "${HOME:-}/.t3/userdata" ]; }; then
+  printf "tip: T3 Code detected; pass '--target all' to install across all T3-connected providers (Antigravity, Codex, OpenCode, Claude).\n"
+fi
