@@ -2206,6 +2206,15 @@ grep -qF '[OK] opencode.json includes HARNESS.md and PROVIDERS.md' "$TMPROOT/ver
   fail "--verify accepts tilde-prefixed target paths in opencode.json"
 }
 
+printf '{"instructions": ["%s/HARNESS.md", "%s/PROVIDERS.md"], "instructions": []}\n' "$VERIFY_DEST" "$VERIFY_DEST" >"$VERIFY_DEST/opencode.json"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-dup-inst.out" 2>&1 || rc=$?
+if grep -qF '[OK] opencode.json' "$TMPROOT/verify-dup-inst.out"; then
+  cat "$TMPROOT/verify-dup-inst.out" >&2
+  fail "--verify does not report [OK] when last duplicate top-level instructions key omits harness files"
+fi
+grep -qF '[WARN] opencode.json' "$TMPROOT/verify-dup-inst.out" || fail "--verify warns when last duplicate top-level instructions key omits harness files"
+
 GENERIC_SKILLS_HOME="$TMPROOT/generic-skills-home"
 HOME="$GENERIC_SKILLS_HOME" "$INSTALL" --target opencode >"$TMPROOT/generic-skills-install.out" 2>&1
 mkdir -p "$GENERIC_SKILLS_HOME/.codex/skills/unrelated-skill" "$GENERIC_SKILLS_HOME/.claude/skills"

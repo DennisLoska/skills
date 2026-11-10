@@ -954,6 +954,8 @@ verify_opencode_json() {
         if (is_top && k == "instructions") {
           if (substr(data, pos, 1) != "[") { bad = 1; return }
           found_inst = 1
+          has_harness = 0
+          has_providers = 0
           parse_array(1)
         } else {
           parse_value(0)
