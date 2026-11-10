@@ -22,7 +22,7 @@ available_profiles() {
 
 usage() {
   cat <<'EOF'
-usage: install.sh [--force] [--prune] [--verify | --doctor] [--profile NAME | --profile-file PATH] [--target TARGETS]
+usage: install.sh [--force] [--prune] [--verify | --doctor] [--profile NAME | --profile-file PATH | --providers LIST] [--target TARGETS]
 
 Installs agents/, skills/, AGENTS.md (as HARNESS.md), PROVIDERS.md, NOTICE, and LICENSE into
 the selected host target(s) (default: opencode at ${OPENCODE_CONFIG:-$HOME/.config/opencode}),
@@ -30,7 +30,9 @@ and records every installed path in <dest>/.harness-manifest.
 
 options:
   --profile NAME       bind providers/NAME.md (also --profile=NAME; default: previous binding, else tri)
-  --profile-file PATH  bind an external profile file (also --profile-file=PATH; mutually exclusive with --profile)
+  --profile-file PATH  bind an external profile file (also --profile-file=PATH; mutually exclusive with --profile and --providers)
+  --providers LIST     dynamically compose a profile from comma-separated providers: antigravity, codex, claude, opencode
+                       (also --providers=LIST; claudeAgent is accepted as an alias for claude; mutually exclusive with --profile and --profile-file)
   --target TARGETS     comma-separated host targets: opencode, codex, antigravity, claude, or all
                        (also --target=TARGETS; default: opencode; antigravity installs standalone
                        ${ANTIGRAVITY_CONFIG:-$HOME/.gemini/config} plus any T3 Code instances under
@@ -56,6 +58,56 @@ unknown_target() {
   exit 2
 }
 
+unknown_provider() {
+  printf 'install.sh: unknown provider in --providers: %s (available: antigravity codex claude opencode)\n' "$1" >&2
+  exit 2
+}
+
+parse_providers_list() {
+  local raw="$1"
+  local tok p
+  local has_agy=0 has_cdx=0 has_cld=0 has_oc=0
+  local out=""
+  case "$raw" in
+    ''|,*|*,|*,,*) return 1 ;;
+  esac
+  local OLD_IFS="$IFS"
+  IFS=','
+  set -f
+  for tok in $raw; do
+    case "$tok" in
+      antigravity) has_agy=1 ;;
+      codex)       has_cdx=1 ;;
+      claude|claudeAgent) has_cld=1 ;;
+      opencode)    has_oc=1 ;;
+      *)
+        IFS="$OLD_IFS"
+        set +f
+        PARSED_BAD_PROVIDER="$tok"
+        return 1
+        ;;
+    esac
+  done
+  IFS="$OLD_IFS"
+  set +f
+  for p in antigravity claude codex opencode; do
+    case "$p" in
+      antigravity) [ "$has_agy" -eq 1 ] || continue ;;
+      claude)      [ "$has_cld" -eq 1 ] || continue ;;
+      codex)       [ "$has_cdx" -eq 1 ] || continue ;;
+      opencode)    [ "$has_oc" -eq 1 ] || continue ;;
+    esac
+    if [ -n "$out" ]; then
+      out="$out,$p"
+    else
+      out="$p"
+    fi
+  done
+  [ -n "$out" ] || return 1
+  PARSED_PROVIDERS="$out"
+  return 0
+}
+
 force=0
 prune=0
 verify_mode=0
@@ -79,6 +131,8 @@ profile=tri
 profile_given=0
 profile_file_arg=""
 profile_file_given=0
+providers_arg=""
+providers_given=0
 target_arg="opencode"
 target_given=0
 while [ "$#" -gt 0 ]; do
@@ -107,6 +161,31 @@ while [ "$#" -gt 0 ]; do
       profile_file_arg="${1#--profile-file=}"
       [ -n "$profile_file_arg" ] || { usage >&2; exit 2; }
       profile_file_given=1
+      ;;
+    --providers)
+      if [ "$#" -lt 2 ] || [ -z "$2" ]; then unknown_provider ""; fi
+      case "$2" in
+        ''|,*|*,|*,,*) unknown_provider "$2" ;;
+      esac
+      if [ "$providers_given" -eq 1 ]; then
+        providers_arg="$providers_arg,$2"
+      else
+        providers_arg="$2"
+      fi
+      providers_given=1
+      shift
+      ;;
+    --providers=*)
+      p_val="${1#--providers=}"
+      case "$p_val" in
+        ''|,*|*,|*,,*) unknown_provider "$p_val" ;;
+      esac
+      if [ "$providers_given" -eq 1 ]; then
+        providers_arg="$providers_arg,$p_val"
+      else
+        providers_arg="$p_val"
+      fi
+      providers_given=1
       ;;
     --target)
       if [ "$#" -lt 2 ] || [ -z "$2" ]; then unknown_target ""; fi
@@ -145,9 +224,18 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-if [ "$profile_given" -eq 1 ] && [ "$profile_file_given" -eq 1 ]; then
+if [ $((profile_given + profile_file_given + providers_given)) -gt 1 ]; then
   usage >&2
   exit 2
+fi
+
+if [ "$providers_given" -eq 1 ]; then
+  PARSED_BAD_PROVIDER=""
+  PARSED_PROVIDERS=""
+  if ! parse_providers_list "$providers_arg"; then
+    unknown_provider "${PARSED_BAD_PROVIDER:-$providers_arg}"
+  fi
+  providers_arg="$PARSED_PROVIDERS"
 fi
 
 if [ "$verify_mode" -eq 1 ] && [ "$target_given" -eq 0 ]; then
@@ -473,6 +561,8 @@ read_prev_binding() {
   prev_profile_present=0
   prev_profile_file=""
   prev_profile_file_present=0
+  prev_providers=""
+  prev_providers_present=0
   prev_entry_present=0
   prev_profile_legacy=0
   if [ -L "$manifest_path" ] || { [ -e "$manifest_path" ] && [ ! -f "$manifest_path" ]; }; then
@@ -492,6 +582,7 @@ read_prev_binding() {
       case "$mline" in
         '# profile '*) prev_profile="${mline#'# profile '}"; prev_profile_present=1; break ;;
         '# profile-file '*) prev_profile_file="${mline#'# profile-file '}"; prev_profile_file_present=1; break ;;
+        '# providers '*) prev_providers="${mline#'# providers '}"; prev_providers_present=1; break ;;
         *)
           entry="${mline#"${mline%%[![:space:]]*}"}"
           case "$entry" in ''|\#*) ;; *) prev_entry_present=1 ;; esac
@@ -499,7 +590,7 @@ read_prev_binding() {
       esac
     done <"$PREV_MANIFEST_SOURCE"
   fi
-  if [ "$prev_profile_present" -eq 0 ] && [ "$prev_profile_file_present" -eq 0 ] &&
+  if [ "$prev_profile_present" -eq 0 ] && [ "$prev_profile_file_present" -eq 0 ] && [ "$prev_providers_present" -eq 0 ] &&
      { [ "$prev_entry_present" -eq 1 ] || { [ -z "$PREV_MANIFEST_SOURCE" ] && [ -f "$dest_canon/HARNESS.md" ]; }; }; then
     prev_profile=opencode-go
     prev_profile_present=1
@@ -543,6 +634,8 @@ if [ "${#job_targets[@]}" -gt 1 ]; then
     sub_args+=("--profile" "$profile")
   elif [ "$profile_file_given" -eq 1 ]; then
     sub_args+=("--profile-file" "$profile_file_arg")
+  elif [ "$providers_given" -eq 1 ]; then
+    sub_args+=("--providers" "$providers_arg")
   fi
   agy_standalone_args=()
   agy_t3_args=()
@@ -557,7 +650,7 @@ if [ "${#job_targets[@]}" -gt 1 ]; then
       break
     fi
   done
-  if [ "$has_agy_override" -eq 1 ] && [ "$profile_given" -eq 0 ] && [ "$profile_file_given" -eq 0 ]; then
+  if [ "$has_agy_override" -eq 1 ] && [ "$profile_given" -eq 0 ] && [ "$profile_file_given" -eq 0 ] && [ "$providers_given" -eq 0 ]; then
     agy_standalone_bad=0
     agy_standalone_bound=0
     agy_primary_raw="${ANTIGRAVITY_CONFIG-${HOME:-}/.gemini/config}"
@@ -600,10 +693,13 @@ if [ "${#job_targets[@]}" -gt 1 ]; then
               elif [ "$prev_profile_file_present" -eq 1 ] && [ -n "$prev_profile_file" ]; then
                 agy_t3_args+=("--profile-file" "$prev_profile_file")
                 agy_standalone_bound=1
+              elif [ "$prev_providers_present" -eq 1 ] && [ -n "$prev_providers" ]; then
+                agy_t3_args+=("--providers" "$prev_providers")
+                agy_standalone_bound=1
               elif [ "$prev_profile_present" -eq 1 ] && [ -n "$prev_profile" ]; then
                 agy_t3_args+=("--profile" "$prev_profile")
                 agy_standalone_bound=1
-              elif [ "$prev_profile_file_present" -eq 1 ] || [ "$prev_profile_present" -eq 1 ]; then
+              elif [ "$prev_profile_file_present" -eq 1 ] || [ "$prev_providers_present" -eq 1 ] || [ "$prev_profile_present" -eq 1 ]; then
                 agy_standalone_bound=1
               fi
             fi
@@ -625,11 +721,15 @@ if [ "${#job_targets[@]}" -gt 1 ]; then
           agy_standalone_args+=("--profile-file" "$prev_profile_file")
           agy_t3_args+=("--profile-file" "$prev_profile_file")
           break
+        elif [ "$prev_providers_present" -eq 1 ] && [ -n "$prev_providers" ]; then
+          agy_standalone_args+=("--providers" "$prev_providers")
+          agy_t3_args+=("--providers" "$prev_providers")
+          break
         elif [ "$prev_profile_present" -eq 1 ] && [ -n "$prev_profile" ]; then
           agy_standalone_args+=("--profile" "$prev_profile")
           agy_t3_args+=("--profile" "$prev_profile")
           break
-        elif [ "$prev_profile_file_present" -eq 1 ] || [ "$prev_profile_present" -eq 1 ]; then
+        elif [ "$prev_profile_file_present" -eq 1 ] || [ "$prev_providers_present" -eq 1 ] || [ "$prev_profile_present" -eq 1 ]; then
           break
         fi
       done
@@ -1201,6 +1301,337 @@ validate_profile() {
   ' "$1"
 }
 
+generate_dynamic_profile() {
+  local prov_list="$1"
+  local has_agy=0 has_cdx=0 has_cld=0 has_oc=0
+  local tok
+  local OLD_IFS="$IFS"
+  IFS=','
+  set -f
+  for tok in $prov_list; do
+    case "$tok" in
+      antigravity) has_agy=1 ;;
+      codex)       has_cdx=1 ;;
+      claude|claudeAgent) has_cld=1 ;;
+      opencode)    has_oc=1 ;;
+    esac
+  done
+  IFS="$OLD_IFS"
+  set +f
+
+  case "$prov_list" in
+    antigravity)
+      cat "$SRC/providers/antigravity.md"
+      return 0
+      ;;
+    claude)
+      cat "$SRC/providers/claude.md"
+      return 0
+      ;;
+    codex)
+      cat "$SRC/providers/codex.md"
+      return 0
+      ;;
+    opencode)
+      cat "$SRC/providers/opencode-go.md"
+      return 0
+      ;;
+    antigravity,codex,opencode)
+      cat "$SRC/providers/tri.md"
+      return 0
+      ;;
+    antigravity,claude,codex,opencode)
+      cat "$SRC/providers/quad.md"
+      return 0
+      ;;
+  esac
+
+  printf '# Composable provider profile (%s)\n\n' "$prov_list"
+  printf 'Dynamically composed profile for enabled providers: `%s`.\n\n' "$prov_list"
+  printf 'Enforces cross-provider fallback ordering across disjoint quota pools, official providers for Anthropic (`antigravity` primary, `claudeAgent` fallback), Google (`antigravity`), and OpenAI (`codex`), and high-allowance open-weight flash/spark models on OpenCode Go.\n\n'
+  printf '| role | rung | provider | model | effort | family | privacy |\n'
+  printf '| --- | --- | --- | --- | --- | --- | --- |\n'
+
+  COMPOSE_AGY="$has_agy" COMPOSE_CDX="$has_cdx" COMPOSE_CLD="$has_cld" COMPOSE_OC="$has_oc" awk '
+    function enabled(prov) {
+      if (prov == "antigravity") return has_agy
+      if (prov == "codex") return has_cdx
+      if (prov == "claudeAgent") return has_cld
+      if (prov == "opencode") return has_oc
+      return 0
+    }
+    function pool_of(prov, model) {
+      if (prov == "antigravity") {
+        if (model ~ /^claude-/) return "antigravity-claude"
+        return "antigravity-gemini"
+      }
+      if (prov == "codex") return "codex"
+      if (prov == "claudeAgent") return "claude-code"
+      return "opencode:" model
+    }
+    function add_cand(prov, model, effort, fam, priv) {
+      if (!enabled(prov)) return
+      c_n++
+      c_prov[c_n] = prov
+      c_model[c_n] = model
+      c_effort[c_n] = effort
+      c_fam[c_n] = fam
+      c_priv[c_n] = priv
+      c_pool[c_n] = pool_of(prov, model)
+      c_used[c_n] = 0
+    }
+    function emit_role(role, max_rungs, allow_same_pool_fb,    r, i, pick, rung_name, p1_pool) {
+      rnames[1] = "primary"
+      rnames[2] = "fallback"
+      rnames[3] = "last-resort"
+      p1_pool = ""
+      for (r = 1; r <= max_rungs; r++) {
+        pick = 0
+        if (r == 2 && !allow_same_pool_fb) {
+          for (i = 1; i <= c_n; i++) {
+            if (!c_used[i] && c_pool[i] != p1_pool) {
+              pick = i
+              break
+            }
+          }
+        }
+        if (pick == 0) {
+          for (i = 1; i <= c_n; i++) {
+            if (!c_used[i]) {
+              pick = i
+              break
+            }
+          }
+        }
+        if (pick == 0) break
+        c_used[pick] = 1
+        if (r == 1) p1_pool = c_pool[pick]
+        rung_name = rnames[r]
+        printf "| %s | %s | %s | %s | %s | %s | %s |\n", role, rung_name, c_prov[pick], c_model[pick], c_effort[pick], c_fam[pick], c_priv[pick]
+      }
+      c_n = 0
+    }
+    BEGIN {
+      has_agy = ENVIRON["COMPOSE_AGY"] + 0
+      has_cdx = ENVIRON["COMPOSE_CDX"] + 0
+      has_cld = ENVIRON["COMPOSE_CLD"] + 0
+      has_oc  = ENVIRON["COMPOSE_OC"] + 0
+      c_n = 0
+
+      # driver (2 rungs)
+      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=medium", "openai", "ok")
+      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=medium", "anthropic", "ok")
+      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=medium", "anthropic", "ok")
+      add_cand("codex", "gpt-6-astra", "reasoningEffort=medium", "openai", "ok")
+      add_cand("claudeAgent", "claude-opus-5-5", "effort=medium", "anthropic", "ok")
+      if (c_n > 0) {
+        emit_role("driver", 2, 0)
+      } else {
+        print "| driver | primary | - | host-default | - | - | ok |"
+      }
+
+      # scout (3 rungs)
+      add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
+      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=low", "deepseek", "ok")
+      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=low", "google", "ok")
+      add_cand("codex", "gpt-6-luna", "reasoningEffort=low", "openai", "ok")
+      add_cand("claudeAgent", "claude-haiku-5-5", "effort=low", "anthropic", "ok")
+      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=low", "zhipu", "ok")
+      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=low", "anthropic", "ok")
+      add_cand("codex", "gpt-6.1-terra", "reasoningEffort=low", "openai", "ok")
+      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=low", "anthropic", "ok")
+      add_cand("antigravity", "gemini-4-argon", "thinking_level=low", "google", "ok")
+      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=low", "openai", "ok")
+      add_cand("claudeAgent", "claude-fable-5-1", "effort=low", "anthropic", "ok")
+      emit_role("scout", 3, 0)
+
+      # implementer (3 rungs)
+      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
+      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=medium", "openai", "ok")
+      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
+      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=medium", "anthropic", "ok")
+      add_cand("opencode", "opencode-go/muse-spark-1.3-contributor", "variant=medium", "meta", "trains")
+      add_cand("codex", "gpt-6-astra", "reasoningEffort=medium", "openai", "ok")
+      add_cand("claudeAgent", "claude-opus-5-5", "effort=medium", "anthropic", "ok")
+      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
+      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
+      add_cand("codex", "gpt-6.1-terra", "reasoningEffort=high", "openai", "ok")
+      add_cand("claudeAgent", "claude-haiku-5-5", "effort=high", "anthropic", "ok")
+      emit_role("implementer", 3, 0)
+
+      # implementer-deep (3 rungs)
+      add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
+      add_cand("antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
+      add_cand("codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
+      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=max", "deepseek", "ok")
+      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
+      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
+      add_cand("opencode", "opencode-go/muse-spark-1.3-contributor", "variant=high", "meta", "trains")
+      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=high", "anthropic", "ok")
+      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
+      add_cand("codex", "gpt-6-sol", "reasoningEffort=high", "openai", "ok")
+      add_cand("claudeAgent", "claude-fable-5-1", "effort=high", "anthropic", "ok")
+      emit_role("implementer-deep", 3, 0)
+
+      # tester (3 rungs)
+      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
+      add_cand("codex", "gpt-6-luna", "reasoningEffort=medium", "openai", "ok")
+      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=medium", "google", "ok")
+      add_cand("claudeAgent", "claude-haiku-5-5", "effort=medium", "anthropic", "ok")
+      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
+      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=low", "anthropic", "ok")
+      add_cand("codex", "gpt-6.1-terra", "reasoningEffort=medium", "openai", "ok")
+      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=medium", "anthropic", "ok")
+      add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
+      add_cand("antigravity", "gemini-4-argon", "thinking_level=medium", "google", "ok")
+      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=low", "openai", "ok")
+      add_cand("claudeAgent", "claude-fable-5-1", "effort=medium", "anthropic", "ok")
+      emit_role("tester", 3, 0)
+
+      # patch (3 rungs)
+      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
+      add_cand("codex", "gpt-6-luna", "reasoningEffort=medium", "openai", "ok")
+      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=medium", "google", "ok")
+      add_cand("claudeAgent", "claude-haiku-5-5", "effort=medium", "anthropic", "ok")
+      add_cand("opencode", "opencode-go/muse-spark-1.3-contributor", "variant=medium", "meta", "trains")
+      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=low", "anthropic", "ok")
+      add_cand("codex", "gpt-6.1-terra", "reasoningEffort=medium", "openai", "ok")
+      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=medium", "anthropic", "ok")
+      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
+      add_cand("antigravity", "gemini-4-argon", "thinking_level=medium", "google", "ok")
+      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=low", "openai", "ok")
+      add_cand("claudeAgent", "claude-fable-5-1", "effort=medium", "anthropic", "ok")
+      emit_role("patch", 3, 0)
+
+      # task-reviewer (3 rungs)
+      add_cand("codex", "gpt-6.1-terra", "reasoningEffort=high", "openai", "ok")
+      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
+      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
+      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
+      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=high", "anthropic", "ok")
+      add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
+      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
+      add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
+      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
+      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_cand("codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
+      add_cand("claudeAgent", "claude-haiku-5-5", "effort=high", "anthropic", "ok")
+      emit_role("task-reviewer", 3, 0)
+
+      # reviewer-a (3 rungs)
+      add_cand("codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
+      add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
+      add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
+      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
+      add_cand("antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
+      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
+      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
+      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
+      add_cand("codex", "gpt-6-sol", "reasoningEffort=high", "openai", "ok")
+      add_cand("claudeAgent", "claude-haiku-5-5", "effort=high", "anthropic", "ok")
+      emit_role("reviewer-a", 3, 0)
+
+      # reviewer-b (3 rungs: Claude defaults to antigravity, fallback to claudeAgent)
+      add_cand("antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
+      add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
+      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
+      add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
+      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
+      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
+      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
+      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=max", "deepseek", "ok")
+      add_cand("codex", "gpt-6.1-terra", "reasoningEffort=high", "openai", "ok")
+      add_cand("claudeAgent", "claude-fable-5-1", "effort=high", "anthropic", "ok")
+      emit_role("reviewer-b", 3, 0)
+
+      # reviewer-c (3 rungs: muse-spark-1.3-contributor primary, deepseek-v4.1-flash fallback when opencode enabled)
+      add_cand("opencode", "opencode-go/muse-spark-1.3-contributor", "variant=xhigh", "meta", "trains")
+      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
+      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
+      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
+      add_cand("codex", "gpt-6.1-terra", "reasoningEffort=high", "openai", "ok")
+      add_cand("claudeAgent", "claude-fable-5-1", "effort=high", "anthropic", "ok")
+      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=high", "anthropic", "ok")
+      add_cand("codex", "gpt-6-sol", "reasoningEffort=high", "openai", "ok")
+      add_cand("claudeAgent", "claude-haiku-5-5", "effort=high", "anthropic", "ok")
+      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_cand("codex", "gpt-6-luna", "reasoningEffort=high", "openai", "ok")
+      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=medium", "anthropic", "ok")
+      emit_role("reviewer-c", 3, 1)
+
+      # reviewer-esc (3 rungs)
+      add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
+      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
+      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
+      add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
+      add_cand("antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
+      add_cand("codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
+      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
+      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
+      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
+      add_cand("codex", "gpt-6-sol", "reasoningEffort=high", "openai", "ok")
+      add_cand("claudeAgent", "claude-fable-5-1", "effort=high", "anthropic", "ok")
+      emit_role("reviewer-esc", 3, 0)
+
+      # compaction (2 rungs)
+      add_cand("claudeAgent", "claude-haiku-5-5", "effort=low", "anthropic", "ok")
+      add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
+      add_cand("codex", "gpt-6-luna", "reasoningEffort=low", "openai", "ok")
+      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=low", "google", "ok")
+      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=low", "zhipu", "ok")
+      emit_role("compaction", 2, 0)
+    }
+  ' </dev/null
+
+  printf '\n## Quota pools\n\n'
+  printf '| pool | provider | models | window | soft-cap | reserve |\n'
+  printf '| --- | --- | --- | --- | --- | --- |\n'
+  if [ "$has_cld" -eq 1 ]; then
+    printf '| claude-code | claudeAgent | * | 5h | - | - |\n'
+  fi
+  if [ "$has_agy" -eq 1 ]; then
+    printf '| antigravity-claude | antigravity | claude-* | 5h | 6 | reviewer-b |\n'
+    printf '| antigravity-gemini | antigravity | gemini-* | 5h | - | - |\n'
+  fi
+  if [ "$has_cdx" -eq 1 ]; then
+    printf '| codex | codex | * | 5h | - | - |\n'
+  fi
+  if [ "$has_oc" -eq 1 ]; then
+    printf '| opencode-go | opencode | opencode-go/* | 5h | - | - |\n'
+  fi
+
+  printf '\n## Backup ladder\n\n'
+  printf '| order | roles | provider | model | effort | family | privacy |\n'
+  printf '| --- | --- | --- | --- | --- | --- | --- |\n'
+  local b_order=0
+  if [ "$has_oc" -eq 1 ]; then
+    b_order=$((b_order + 1))
+    printf '| %d | implementer,implementer-deep,tester,patch | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |\n' "$b_order"
+    b_order=$((b_order + 1))
+    printf '| %d | reviewer-a,reviewer-b,reviewer-c,task-reviewer | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |\n' "$b_order"
+    b_order=$((b_order + 1))
+    printf '| %d | * | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |\n' "$b_order"
+  fi
+  if [ "$has_cdx" -eq 1 ]; then
+    b_order=$((b_order + 1))
+    printf '| %d | * | codex | gpt-6.1-sol | reasoningEffort=medium | openai | ok |\n' "$b_order"
+  fi
+  if [ "$has_agy" -eq 1 ]; then
+    b_order=$((b_order + 1))
+    printf '| %d | * | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |\n' "$b_order"
+  fi
+  if [ "$has_cld" -eq 1 ]; then
+    b_order=$((b_order + 1))
+    printf '| %d | * | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |\n' "$b_order"
+  fi
+}
+
 verify_target() {
   local v_errors=0
   local req file m_count=0 m_missing=0
@@ -1231,6 +1662,13 @@ verify_target() {
           fi
           continue
           ;;
+        '# providers '*)
+          if [ -z "$v_prof_type" ]; then
+            v_prof_type="providers"
+            v_prof_val="${file#'# providers '}"
+          fi
+          continue
+          ;;
         ''|'#'*) continue ;;
       esac
       m_count=$((m_count + 1))
@@ -1250,6 +1688,19 @@ verify_target() {
     if [ -z "$v_prof_type" ] || [ -z "$v_prof_val" ]; then
       printf '  [FAIL] profile binding missing or unreadable: %s\n' "${v_prof_val:-<none>}"
       v_errors=$((v_errors + 1))
+    elif [ "$v_prof_type" = "providers" ]; then
+      PARSED_BAD_PROVIDER=""
+      PARSED_PROVIDERS=""
+      if ! parse_providers_list "$v_prof_val"; then
+        printf '  [FAIL] profile binding invalid: %s\n' "$v_prof_val"
+        v_errors=$((v_errors + 1))
+      elif [ ! -f "$DEST/PROVIDERS.md" ] || [ ! -r "$DEST/PROVIDERS.md" ] ||
+           ! validate_profile "$DEST/PROVIDERS.md" "providers:$PARSED_PROVIDERS" >/dev/null 2>&1; then
+        printf '  [FAIL] profile binding invalid: %s\n' "$v_prof_val"
+        v_errors=$((v_errors + 1))
+      else
+        printf '  [OK] profile binding: providers %s\n' "$v_prof_val"
+      fi
     else
       if [ "$v_prof_type" = "profile" ]; then
         case "$v_prof_val" in
@@ -1371,23 +1822,84 @@ if [ "$TARGET_HOST" = "antigravity" ]; then
 fi
 read_prev_binding "$DEST" "$TARGET_HOST"
 use_profile_file=0
+use_providers=0
 if [ "$profile_file_given" -eq 1 ]; then
   use_profile_file=1
+elif [ "$providers_given" -eq 1 ]; then
+  use_providers=1
 elif [ "$profile_given" -eq 0 ]; then
   if [ "$prev_profile_file_present" -eq 1 ]; then
     use_profile_file=1
     profile_file_arg="$prev_profile_file"
+  elif [ "$prev_providers_present" -eq 1 ]; then
+    use_providers=1
+    providers_arg="$prev_providers"
   elif [ "$prev_profile_present" -eq 1 ]; then
     profile="$prev_profile"
   fi
 fi
 
-# Validate the binding before creating anything, including temporary files.
+TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
+staged_profile=""
+dynamic_profile_tmp=""
+ledger_tmp=""
+state_migrating=""
+state_migrating_orig=""
+rendered_files=()
+owned_locks=()
+cleanup() {
+  local lk
+  rm -f -- "$TMP_MANIFEST" ${pf_token_file:+"$pf_token_file"} ${sr_token_file:+"$sr_token_file"} ${staged_profile:+"$staged_profile"} ${dynamic_profile_tmp:+"$dynamic_profile_tmp"} ${ledger_tmp:+"$ledger_tmp"}
+  if [ "${#rendered_files[@]}" -gt 0 ]; then
+    rm -f -- "${rendered_files[@]}"
+  fi
+  if [ -n "$state_migrating" ] && [ -d "$state_migrating" ] && [ ! -L "$state_migrating" ]; then
+    if [ -n "$state_migrating_orig" ] && [ ! -e "$state_migrating_orig" ] && [ ! -L "$state_migrating_orig" ]; then
+      mv -- "$state_migrating" "$state_migrating_orig" 2>/dev/null || true
+    elif [ -n "$state_migrating_orig" ] && [ -L "$state_migrating_orig" ] &&
+         { [ -e "$state_migrating/quota-ledger.tsv" ] || [ -L "$state_migrating/quota-ledger.tsv" ]; }; then
+      rm -f -- "$state_migrating_orig" 2>/dev/null || true
+      mv -- "$state_migrating" "$state_migrating_orig" 2>/dev/null || true
+    fi
+  fi
+  if [ "${#owned_locks[@]}" -gt 0 ]; then
+    for lk in "${owned_locks[@]}"; do
+      if [ -n "$lk" ] && [ -d "$lk" ] && [ ! -L "$lk" ]; then
+        rmdir "$lk" 2>/dev/null || true
+      fi
+    done
+  fi
+  if [ -n "$state_migrating_orig" ] && [ ! -L "$state_migrating_orig" ] &&
+     [ -d "$state_migrating_orig/quota-ledger.lock" ] && [ ! -L "$state_migrating_orig/quota-ledger.lock" ]; then
+    rmdir "$state_migrating_orig/quota-ledger.lock" 2>/dev/null || true
+  fi
+  if [ -n "$state_migrating" ] && [ -d "$state_migrating" ] && [ ! -L "$state_migrating" ]; then
+    if [ -d "$state_migrating/quota-ledger.lock" ] && [ ! -L "$state_migrating/quota-ledger.lock" ]; then
+      rmdir "$state_migrating/quota-ledger.lock" 2>/dev/null || true
+    fi
+    rmdir "$state_migrating" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT
+
+# Validate the binding before creating anything in DEST.
 unknown_profile() {
   printf 'install.sh: unknown profile: %s (available: %s)\n' "$profile" "$(available_profiles)" >&2
   exit 2
 }
-if [ "$use_profile_file" -eq 1 ]; then
+if [ "$use_providers" -eq 1 ]; then
+  PARSED_BAD_PROVIDER=""
+  PARSED_PROVIDERS=""
+  if ! parse_providers_list "$providers_arg"; then
+    unknown_provider "${PARSED_BAD_PROVIDER:-$providers_arg}"
+  fi
+  providers_arg="$PARSED_PROVIDERS"
+  dynamic_profile_tmp="$(mktemp "${TMPDIR:-/tmp}/harness-dyn-profile.XXXXXXXX")"
+  chmod 0644 "$dynamic_profile_tmp"
+  generate_dynamic_profile "$providers_arg" >"$dynamic_profile_tmp"
+  PROFILE_FILE="$dynamic_profile_tmp"
+  PROFILE_LABEL="providers:$providers_arg"
+elif [ "$use_profile_file" -eq 1 ]; then
   case "$profile_file_arg" in
     *[[:cntrl:]]*)
       printf 'install.sh: invalid profile file path: %s\n' "$profile_file_arg" >&2
@@ -1431,48 +1943,6 @@ native_pin() {
     END { if (best) print pin }
   ' <<<"$PROFILE_ROWS"
 }
-
-TMP_MANIFEST="$DEST/.harness-manifest.$$.tmp"
-staged_profile=""
-ledger_tmp=""
-state_migrating=""
-state_migrating_orig=""
-rendered_files=()
-owned_locks=()
-cleanup() {
-  local lk
-  rm -f -- "$TMP_MANIFEST" ${pf_token_file:+"$pf_token_file"} ${sr_token_file:+"$sr_token_file"} ${staged_profile:+"$staged_profile"} ${ledger_tmp:+"$ledger_tmp"}
-  if [ "${#rendered_files[@]}" -gt 0 ]; then
-    rm -f -- "${rendered_files[@]}"
-  fi
-  if [ -n "$state_migrating" ] && [ -d "$state_migrating" ] && [ ! -L "$state_migrating" ]; then
-    if [ -n "$state_migrating_orig" ] && [ ! -e "$state_migrating_orig" ] && [ ! -L "$state_migrating_orig" ]; then
-      mv -- "$state_migrating" "$state_migrating_orig" 2>/dev/null || true
-    elif [ -n "$state_migrating_orig" ] && [ -L "$state_migrating_orig" ] &&
-         { [ -e "$state_migrating/quota-ledger.tsv" ] || [ -L "$state_migrating/quota-ledger.tsv" ]; }; then
-      rm -f -- "$state_migrating_orig" 2>/dev/null || true
-      mv -- "$state_migrating" "$state_migrating_orig" 2>/dev/null || true
-    fi
-  fi
-  if [ "${#owned_locks[@]}" -gt 0 ]; then
-    for lk in "${owned_locks[@]}"; do
-      if [ -n "$lk" ] && [ -d "$lk" ] && [ ! -L "$lk" ]; then
-        rmdir "$lk" 2>/dev/null || true
-      fi
-    done
-  fi
-  if [ -n "$state_migrating_orig" ] && [ ! -L "$state_migrating_orig" ] &&
-     [ -d "$state_migrating_orig/quota-ledger.lock" ] && [ ! -L "$state_migrating_orig/quota-ledger.lock" ]; then
-    rmdir "$state_migrating_orig/quota-ledger.lock" 2>/dev/null || true
-  fi
-  if [ -n "$state_migrating" ] && [ -d "$state_migrating" ] && [ ! -L "$state_migrating" ]; then
-    if [ -d "$state_migrating/quota-ledger.lock" ] && [ ! -L "$state_migrating/quota-ledger.lock" ]; then
-      rmdir "$state_migrating/quota-ledger.lock" 2>/dev/null || true
-    fi
-    rmdir "$state_migrating" 2>/dev/null || true
-  fi
-}
-trap cleanup EXIT
 
 lock_age_seconds() {
   local d="$1" mtime="" now
@@ -2340,7 +2810,9 @@ fi
 
 : >"$TMP_MANIFEST"
 printf '# harness %s\n' "$harness_sha" >>"$TMP_MANIFEST"
-if [ "$use_profile_file" -eq 1 ]; then
+if [ "$use_providers" -eq 1 ]; then
+  printf '# providers %s\n' "$providers_arg" >>"$TMP_MANIFEST"
+elif [ "$use_profile_file" -eq 1 ]; then
   printf '# profile-file %s\n' "$PROFILE_FILE" >>"$TMP_MANIFEST"
 else
   printf '# profile %s\n' "$profile" >>"$TMP_MANIFEST"
@@ -2354,17 +2826,25 @@ if [ "$prev_manifest_present" -eq 1 ] && [ "$prev_sha" != "$harness_sha" ]; then
   printf 'harness updated: %s -> %s\n' "$prev_sha" "$harness_sha"
 fi
 
-if [ "$profile_given" -eq 0 ] && [ "$profile_file_given" -eq 0 ] && [ "$prev_profile_legacy" -eq 1 ]; then
+if [ "$profile_given" -eq 0 ] && [ "$profile_file_given" -eq 0 ] && [ "$providers_given" -eq 0 ] && [ "$prev_profile_legacy" -eq 1 ]; then
   printf 'profile: opencode-go (previous install predates profiles)\n'
 fi
 
-prev_binding="${prev_profile:-$prev_profile_file}"
-if [ "$use_profile_file" -eq 1 ]; then
+if [ "$prev_providers_present" -eq 1 ]; then
+  prev_binding="providers:$prev_providers"
+elif [ "$prev_profile_file_present" -eq 1 ]; then
+  prev_binding="$prev_profile_file"
+else
+  prev_binding="$prev_profile"
+fi
+if [ "$use_providers" -eq 1 ]; then
+  cur_binding="providers:$providers_arg"
+elif [ "$use_profile_file" -eq 1 ]; then
   cur_binding="$PROFILE_FILE"
 else
   cur_binding="$profile"
 fi
-if { [ "$profile_given" -eq 1 ] || [ "$profile_file_given" -eq 1 ]; } &&
+if { [ "$profile_given" -eq 1 ] || [ "$profile_file_given" -eq 1 ] || [ "$providers_given" -eq 1 ]; } &&
    [ -n "$prev_binding" ] && [ "$prev_binding" != "$cur_binding" ]; then
   printf 'profile changed: %s -> %s\n' "$prev_binding" "$cur_binding"
 fi
