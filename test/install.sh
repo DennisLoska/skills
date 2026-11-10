@@ -50,10 +50,10 @@ implementer -
 implementer-deep -
 patch opencode-go/deepseek-v4.1-flash#high
 tester opencode-go/deepseek-v4.1-flash#high
-reviewer-a -
-reviewer-b opencode-go/claude-haiku-5-5#high
-reviewer-c opencode-go/deepseek-v4-pro
-reviewer-esc opencode-go/kimi-k3.1-pro#high
+reviewer-a opencode-go/mimo-v2.6-flash
+reviewer-b opencode-go/glm-5.3-flash#high
+reviewer-c opencode-go/muse-spark-1.3-contributor#xhigh
+reviewer-esc opencode-go/mimo-v2.6-flash
 PINS
 
 # 1. clean install into an empty HOME
@@ -616,10 +616,11 @@ grep -qx 'PROVIDERS.md' "$MANIFEST" || fail "manifest owns PROVIDERS.md"
 grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$DEST/agents/scout.md" || fail "tri scout pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$DEST/agents/tester.md" || fail "tri tester pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$DEST/agents/patch.md" || fail "tri patch pin"
-grep -qxF 'model: opencode-go/claude-haiku-5-5#high' "$DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
-grep -qxF 'model: opencode-go/deepseek-v4-pro' "$DEST/agents/reviewer-c.md" || fail "tri reviewer-c pin"
-grep -qxF 'model: opencode-go/kimi-k3.1-pro#high' "$DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
-for seat in implementer implementer-deep reviewer-a; do
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$DEST/agents/reviewer-a.md" || fail "tri reviewer-a pin"
+grep -qxF 'model: opencode-go/glm-5.3-flash#high' "$DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
+grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$DEST/agents/reviewer-c.md" || fail "tri reviewer-c pin"
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
+for seat in implementer implementer-deep; do
   if grep -q '^model:' "$DEST/agents/$seat.md"; then
     fail "tri $seat has no native pin"
   fi
@@ -939,10 +940,11 @@ OPENCODE_CONFIG="$PINS_DEST" "$INSTALL" >"$TMPROOT/pins.out" 2>&1 || rc=$?
 grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$PINS_DEST/agents/scout.md" || fail "tri scout pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$PINS_DEST/agents/tester.md" || fail "tri tester pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$PINS_DEST/agents/patch.md" || fail "tri patch pin"
-grep -qxF 'model: opencode-go/claude-haiku-5-5#high' "$PINS_DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
-grep -qxF 'model: opencode-go/deepseek-v4-pro' "$PINS_DEST/agents/reviewer-c.md" || fail "tri reviewer-c pin"
-grep -qxF 'model: opencode-go/kimi-k3.1-pro#high' "$PINS_DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
-for seat in implementer implementer-deep reviewer-a; do
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$PINS_DEST/agents/reviewer-a.md" || fail "tri reviewer-a pin"
+grep -qxF 'model: opencode-go/glm-5.3-flash#high' "$PINS_DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
+grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$PINS_DEST/agents/reviewer-c.md" || fail "tri reviewer-c pin"
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$PINS_DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
+for seat in implementer implementer-deep; do
   if grep -q '^model:' "$PINS_DEST/agents/$seat.md"; then
     fail "tri $seat has no native pin"
   fi
