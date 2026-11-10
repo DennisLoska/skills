@@ -965,9 +965,9 @@ for seat in implementer implementer-deep reviewer-a reviewer-b; do
   fi
   grep -qxF "note: $seat has no opencode rung; dispatch it through delegate_task only" "$TMPROOT/quad.out" || fail "quad reports the $seat delegate-only seat"
 done
-if grep -nE 'opencode-go/(kimi|qwen3.8-max)' "$ROOT/providers/quad.md" >"$TMPROOT/quad-expensive.out" 2>&1; then
+if grep -nE '^\| .* \| opencode \| opencode-go/(kimi|qwen3.8-max|deepseek-v4-pro|mimo-v2.6-pro|minimax-m3)' "$ROOT/providers/quad.md" >"$TMPROOT/quad-expensive.out" 2>&1; then
   cat "$TMPROOT/quad-expensive.out" >&2
-  fail "quad profile contains no expensive kimi or qwen3.8-max models"
+  fail "quad profile contains no expensive or purged opencode models in ladder"
 fi
 grep -qF '| task-reviewer | fallback | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |' "$QUAD_DEST/PROVIDERS.md" || fail "quad task-reviewer fallback is claudeAgent sonnet"
 pass "quad installs cleanly and leaves its delegate-only seats unpinned"
