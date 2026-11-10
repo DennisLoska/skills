@@ -1289,7 +1289,7 @@ validate_profile() {
         primary[role] = 1
         primary_fam[role] = $7
       }
-      fams[$7] = 1
+      if ($7 != "" && $7 != "-") fams[$7] = 1
       print $2 "|" $3 "|" $4 "|" $5 "|" $6 "|" $7 "|" $8
     }
     END {
@@ -1410,6 +1410,7 @@ generate_dynamic_profile() {
       if (seat == "reviewer-a" && (fam == seat_b_fam || fam == seat_c_fam)) return
       if (seat == "reviewer-b" && (fam == seat_a_fam || fam == seat_c_fam)) return
       if (seat == "reviewer-c" && (fam == seat_a_fam || fam == seat_b_fam)) return
+      if (seat == "reviewer-esc" && has_unused_esc_fam && (fam == seat_a_fam || fam == seat_b_fam || fam == seat_c_fam)) return
       add_cand(prov, model, effort, fam, priv)
     }
     function emit_role(role, max_rungs, allow_same_pool_fb,    r, i, pick, rung_name, role_pools) {
@@ -1467,6 +1468,7 @@ generate_dynamic_profile() {
       } else {
         seat_c_fam = "none"
       }
+      has_unused_esc_fam = (tot_fams > ((seat_c_fam != "none") ? 3 : 2))
 
       # driver (2 rungs)
       add_cand("codex", "gpt-6.1-sol", "reasoningEffort=medium", "openai", "ok")
@@ -1618,18 +1620,18 @@ generate_dynamic_profile() {
       }
 
       # reviewer-esc (3 rungs)
-      add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
-      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
-      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
-      add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
-      add_cand("antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
-      add_cand("codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
-      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
-      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
-      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
-      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
-      add_cand("codex", "gpt-6-sol", "reasoningEffort=high", "openai", "ok")
-      add_cand("claudeAgent", "claude-fable-5-1", "effort=high", "anthropic", "ok")
+      add_reviewer_cand("reviewer-esc", "opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
+      add_reviewer_cand("reviewer-esc", "opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
+      add_reviewer_cand("reviewer-esc", "opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
+      add_reviewer_cand("reviewer-esc", "claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
+      add_reviewer_cand("reviewer-esc", "antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
+      add_reviewer_cand("reviewer-esc", "codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
+      add_reviewer_cand("reviewer-esc", "antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_reviewer_cand("reviewer-esc", "claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
+      add_reviewer_cand("reviewer-esc", "codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
+      add_reviewer_cand("reviewer-esc", "antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
+      add_reviewer_cand("reviewer-esc", "codex", "gpt-6-sol", "reasoningEffort=high", "openai", "ok")
+      add_reviewer_cand("reviewer-esc", "claudeAgent", "claude-fable-5-1", "effort=high", "anthropic", "ok")
       emit_role("reviewer-esc", 3, 0)
 
       # compaction (2 rungs)

@@ -2654,6 +2654,11 @@ oc_seat_c="$(awk -F '|' '$2 ~ /reviewer-c/ && $3 ~ /primary/ { fam=$7; gsub(/^ +
 [ "$oc_seat_a" != "$oc_seat_b" ] || fail "claude,opencode seat A and seat B share primary family"
 [ "$oc_seat_a" != "$oc_seat_c" ] || fail "claude,opencode seat A and seat C share primary family"
 [ "$oc_seat_b" != "$oc_seat_c" ] || fail "claude,opencode seat B and seat C share primary family"
+oc_seat_esc="$(awk -F '|' '$2 ~ /reviewer-esc/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$oc_md")"
+[ -n "$oc_seat_esc" ] || fail "claude,opencode reviewer-esc primary exists"
+[ "$oc_seat_esc" != "$oc_seat_a" ] || fail "claude,opencode reviewer-esc shares primary family with seat A"
+[ "$oc_seat_esc" != "$oc_seat_b" ] || fail "claude,opencode reviewer-esc shares primary family with seat B"
+[ "$oc_seat_esc" != "$oc_seat_c" ] || fail "claude,opencode reviewer-esc shares primary family with seat C"
 
 awk -F '|' '
   /^[|] (driver|scout|implementer|implementer-deep|tester|patch|task-reviewer|reviewer-a|reviewer-b|reviewer-esc|compaction) [|]/ {
@@ -2671,7 +2676,7 @@ awk -F '|' '
 awk '/^## Backup ladder/,0' "$oc_md" | grep -qF '| opencode |' || fail "dynamic backup ladder carries opencode"
 awk '/^## Backup ladder/,0' "$oc_md" | grep -qF '| claudeAgent |' || fail "dynamic backup ladder carries claudeAgent"
 
-grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$TMPROOT/prov-home-1/.config/opencode/PROVIDERS.md" || fail "dynamic profile with opencode carries opencode-go pool row"
+grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$prov_oc_home/.config/opencode/PROVIDERS.md" || fail "dynamic profile with opencode carries opencode-go pool row"
 pass "cybernetic quota resilience: opencode-go pools, backup diversity, and dual-provider seat independence"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
