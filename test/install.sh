@@ -2054,20 +2054,28 @@ rc=0
 HOME="$VERIFY_HOME" "$INSTALL" >"$TMPROOT/verify-install.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/verify-install.out" >&2; fail "--verify fixture install exits 0 (got $rc)"; }
 
+find "$VERIFY_DEST" -type f -exec cksum {} + | sort >"$TMPROOT/verify-before.snap"
 rc=0
 HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-ok.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/verify-ok.out" >&2; fail "--verify exits 0 on a freshly installed opencode target (got $rc)"; }
+find "$VERIFY_DEST" -type f -exec cksum {} + | sort >"$TMPROOT/verify-after.snap"
+cmp -s "$TMPROOT/verify-before.snap" "$TMPROOT/verify-after.snap" || fail "--verify is 100% non-destructive on an existing install"
 grep -qF 'opencode.json' "$TMPROOT/verify-ok.out" || fail "--verify warns with opencode.json remediation when opencode.json is absent"
 
 printf '{"instructions": ["%s/HARNESS.md", "%s/PROVIDERS.md"]}\n' "$VERIFY_DEST" "$VERIFY_DEST" >"$VERIFY_DEST/opencode.json"
+find "$VERIFY_DEST" -type f -exec cksum {} + | sort >"$TMPROOT/verify-wired-before.snap"
 rc=0
 HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-wired.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/verify-wired.out" >&2; fail "--verify exits 0 when opencode.json wires HARNESS.md and PROVIDERS.md (got $rc)"; }
+find "$VERIFY_DEST" -type f -exec cksum {} + | sort >"$TMPROOT/verify-wired-after.snap"
+cmp -s "$TMPROOT/verify-wired-before.snap" "$TMPROOT/verify-wired-after.snap" || fail "--verify is 100% non-destructive when opencode.json is wired"
 grep -qF '[OK] opencode.json includes HARNESS.md and PROVIDERS.md' "$TMPROOT/verify-wired.out" || fail "--verify reports [OK] when opencode.json includes HARNESS.md and PROVIDERS.md"
 
 rc=0
 HOME="$VERIFY_HOME" "$INSTALL" --doctor >"$TMPROOT/doctor-ok.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/doctor-ok.out" >&2; fail "--doctor exits 0 on a valid install (got $rc)"; }
+find "$VERIFY_DEST" -type f -exec cksum {} + | sort >"$TMPROOT/doctor-after.snap"
+cmp -s "$TMPROOT/verify-wired-before.snap" "$TMPROOT/doctor-after.snap" || fail "--doctor is 100% non-destructive on an existing install"
 
 rc=0
 HOME="$TMPROOT/verify-empty-home" "$INSTALL" --verify >"$TMPROOT/verify-uninstalled.out" 2>&1 || rc=$?
@@ -2329,7 +2337,8 @@ ln -s "$TMPROOT/real-ledger.tsv" "$t_dir/state/quota-ledger.tsv"
 rc=0
 HOME="$VERIFY_HOME" "$INSTALL" --verify --target opencode >"$TMPROOT/verify-76g-ledger-sym.out" 2>&1 || rc=$?
 [ "$rc" -eq 1 ] || { cat "$TMPROOT/verify-76g-ledger-sym.out" >&2; fail "76g: --verify exits 1 when quota-ledger.tsv is a symlink (got $rc)"; }
-grep -qF "[FAIL] quota-ledger.tsv cannot be a symlink: $t_dir/state/quota-ledger.tsv" "$TMPROOT/verify-76g-ledger-sym.out" || {
+can_ledger="$(cd "$t_dir/state" && pwd -P)/quota-ledger.tsv"
+grep -qF "[FAIL] quota-ledger.tsv cannot be a symlink: $can_ledger" "$TMPROOT/verify-76g-ledger-sym.out" || {
   cat "$TMPROOT/verify-76g-ledger-sym.out" >&2
   fail "76g: --verify reports [FAIL] quota-ledger.tsv cannot be a symlink"
 }
