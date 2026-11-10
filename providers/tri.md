@@ -2,33 +2,40 @@
 
 Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI models), OpenCode Go Plus ($40/mo, open-weight flash and spark workhorses with large 5-hour allowances). Distribution principle: spend frontier output tokens where judgment matters most, switch provider quota pools on fallbacks so a single 429 never deadlocks a role, and keep OpenCode Go strictly on high-allowance open-weight models.
 
-- **Driver** emits little (briefs, verdicts, gate decisions) but its mistakes fan out to every child: Codex `gpt-6.1-sol` at `medium` effort, with Antigravity `claude-sonnet-5-5` at `medium` as fallback, keeping Antigravity Gemini quota free for implementation.
-- **Discovery (`scout`)** is read-heavy, write-light: OpenCode Go flash models (`mimo-v2.6-flash`, `deepseek-v4.1-flash` at `low`) with Antigravity `gemini-3.8-flash` as last resort.
-- **Testing & script running (`tester`)** writes red-step failing tests and runs verification/CI scripts: OpenCode Go `deepseek-v4.1-flash` (`high`), falling back to Codex `gpt-6-luna` (`medium`) and Antigravity `gemini-3.8-flash` (`medium`).
-- **Implementation (`implementer`, `implementer-deep`, `patch`)** produces the bulk of output tokens: `implementer` runs on Antigravity `gemini-4-argon` (`high`), falling back to Antigravity `claude-sonnet-5-5` (`medium`) and Codex `gpt-6.1-sol` (`medium`); `implementer-deep` handles complex architecture and hard root-cause bugs on Antigravity `claude-opus-5-5` (`high`), falling back to Codex `gpt-6-astra` (`high`) and OpenCode Go `opencode-go/deepseek-v4.1-flash` (`max`); `patch` shares the `tester` ladder for 1-2 file no-test edits.
-- **Per-task review (`task-reviewer`)** checks spec compliance and quality on a single task diff: Codex `gpt-6.1-terra` (`high`), falling back to OpenCode Go `glm-5.3-flash` (`high`, ~19,000 req/5h) and Antigravity `gemini-3.8-flash` (`high`), skipping any rung whose family authored the task.
-- **Council (`reviewer-a`, `reviewer-b`, `reviewer-c`)** keeps Argon off council review so Argon never reviews its own code: OpenAI frontier on Seat A (`gpt-6-astra` via Codex at `high`, falling back cross-provider to OpenCode Go `opencode-go/mimo-v2.6-flash` and `opencode-go/glm-5.3-flash`), Anthropic frontier on Seat B (`claude-opus-5-5` at `high` via Antigravity, falling back cross-provider to OpenCode Go `opencode-go/glm-5.3-flash` and `opencode-go/mimo-v2.6-flash`), and Meta frontier on Seat C (`opencode-go/muse-spark-1.3-contributor` at `variant=xhigh`, ~90,600 req/5h, falling back to `opencode-go/deepseek-v4.1-flash` at ~86,700 req/5h and `opencode-go/glm-5.3-flash` at ~19,000 req/5h). While Argon (Google) authors the code, all three council seats (`openai`, `anthropic`, `meta`/`deepseek`/`zhipu`) are non-author families.
-- **Escalation (`reviewer-esc`)** runs on high-allowance OpenCode Go flash models: `opencode-go/mimo-v2.6-flash` (~60,200 req/5h, `xiaomi`), falling back to `opencode-go/glm-5.3-flash` (`variant=high`, ~19,000 req/5h, `zhipu`) and `opencode-go/deepseek-v4.1-flash` (`variant=high`, ~86,700 req/5h, `deepseek`). `mimo-v2.6-flash` (`xiaomi`) is disjoint from all three council primaries (`openai`, `anthropic`, `meta`).
+- **Driver:** Codex `gpt-6.1-sol` (`medium`), Antigravity `claude-sonnet-5-5` (`medium`) fallback.
+- **Discovery (`scout`):** OpenCode Go `mimo-v2.6-flash`, `deepseek-v4.1-flash` (`low`), Antigravity `gemini-3.8-flash`.
+- **Testing & script running (`tester`):** OpenCode Go `deepseek-v4.1-flash` (`high`), Codex `gpt-6-luna` (`medium`), Antigravity `gemini-3.8-flash`.
+- **Implementation (`implementer`, `implementer-deep`, `patch`):** `implementer` runs on Antigravity `gemini-4-argon` (`high`), falling back to `claude-sonnet-5-5` (`medium`) and Codex `gpt-6.1-sol` (`medium`); `implementer-deep` runs on Antigravity `claude-opus-5-5` (`high`), falling back to Codex `gpt-6-astra` (`high`) and OpenCode Go `deepseek-v4.1-flash` (`max`); `patch` shares the `tester` ladder for 1-2 file edits.
+- **Per-task review (`task-reviewer`):** Codex `gpt-6.1-terra` (`high`), OpenCode Go `glm-5.3-flash` (`high`), Antigravity `gemini-3.8-flash` (`high`), skipping author families.
+- **Council (`reviewer-a`, `reviewer-b`, `reviewer-c`):** OpenAI frontier on Seat A (`gpt-6-astra` via Codex, fallback `mimo-v2.6-flash`), Anthropic frontier on Seat B (`claude-opus-5-5` via Antigravity, fallback `glm-5.3-flash`), and Meta frontier on Seat C (`opencode-go/muse-spark-1.3-contributor`, fallback `deepseek-v4.1-flash`). Three non-author families whenever Argon authors code.
+- **Escalation (`reviewer-esc`):** OpenCode Go flash models: `mimo-v2.6-flash` (`xiaomi`), falling back to `glm-5.3-flash` (`zhipu`) and `deepseek-v4.1-flash` (`deepseek`).
 
 ## Budget facts and provider load split
 
-No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model is routed through OpenCode Go in `tri`: all Google and Claude models in `tri` come from Antigravity and all `gpt-*` models come from Codex. Antigravity and Codex limits use rolling 5-hour windows (check with `/status`).
+From the local Codex catalog (`~/.codex/models_cache.json`):
 
-OpenCode Go (`opencode.ai/docs/go`): each model has a monthly dollar limit with a 20% 5-hour cap and a 50% weekly cap. Estimated requests per 5h on the **Go Plus ($40/mo)** tier for the high-allowance open-weight models used in this profile:
+| Model | Codex description |
+| --- | --- |
+| `gpt-6-astra` | frontier intelligence for the most demanding work |
+| `gpt-6.1-sol` | latest workhorse for coding and everyday work |
+| `gpt-6.1-terra` | balanced, for straightforward work (5.6-terra wording) |
+| `gpt-6-luna` | fast and affordable, for easier tasks |
+
+No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model routes through OpenCode Go in `tri`. Limits use rolling 5-hour windows. OpenCode Go estimates on **Go Plus ($40/mo)**:
 
 | Model | est. req/5h | Model | est. req/5h |
 | --- | --- | --- | --- |
 | muse-spark-1.3-contributor | ~90,600 | mimo-v2.6-flash | ~60,200 |
 | deepseek-v4.1-flash | ~86,700 | glm-5.3-flash | ~19,000 |
 
-Expensive low-allowance Pro models are excluded from `tri` so OpenCode Go credits stay in the 19,000-90,600 req/5h flash and spark tiers and never bottleneck multi-round council reviews or test loops.
+Expensive low-allowance Pro models are excluded from `tri`.
 
 Provider load split and council budget notes:
 
-- **Antigravity:** carries `implementer` primary (`gemini-4-argon` at `high`) and fallback (`claude-sonnet-5-5` at `medium`), `implementer-deep` primary (`claude-opus-5-5` at `high`), and `reviewer-b` primary (`claude-opus-5-5`). `antigravity-claude` is soft-capped at 6 dispatches and reserved for `reviewer-b`. With a Claude Code subscription, use [`providers/quad.md`](./quad.md) (`--profile quad`).
-- **Codex:** carries `driver` (`gpt-6.1-sol`), `task-reviewer` (`gpt-6.1-terra`), council Seat A `reviewer-a` primary (`gpt-6-astra`), `implementer` last-resort (`gpt-6.1-sol`), `implementer-deep` fallback (`gpt-6-astra`), and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
-- **OpenCode Go Plus:** carries `scout`, `tester`, `patch`, `compaction` primary (`mimo-v2.6-flash`), `implementer-deep` last-resort (`deepseek-v4.1-flash` at `max`), council Seat C `reviewer-c` (`muse-spark-1.3-contributor` -> `deepseek-v4.1-flash` -> `glm-5.3-flash`), cross-provider fallbacks/last-resorts for `reviewer-a` (`mimo-v2.6-flash` -> `glm-5.3-flash`), `reviewer-b` (`glm-5.3-flash` -> `mimo-v2.6-flash`), and `task-reviewer` (`glm-5.3-flash`), and `reviewer-esc` (`mimo-v2.6-flash` -> `glm-5.3-flash` -> `deepseek-v4.1-flash`).
-- **Council budget:** at most 3 rounds × 3 seats + 1 escalation per PR. Seat A (`gpt-6-astra`), Seat B (`claude-opus-5-5`), and Seat C (`muse-spark-1.3-contributor` ~90,600 req/5h -> `deepseek-v4.1-flash` ~86,700 req/5h -> `glm-5.3-flash` ~19,000 req/5h) give three non-author families whenever Argon authors the code, and `reviewer-esc` starts on `mimo-v2.6-flash` (~60,200 req/5h) -> `glm-5.3-flash` (~19,000 req/5h) -> `deepseek-v4.1-flash` (~86,700 req/5h).
+- **Antigravity:** carries `implementer` (`gemini-4-argon`), fallback `claude-sonnet-5-5`, `implementer-deep` (`claude-opus-5-5`), and `reviewer-b` (`claude-opus-5-5`). `antigravity-claude` is soft-capped at 6 dispatches and reserved for `reviewer-b`. For Claude Code subscriptions, use [`providers/quad.md`](./quad.md).
+- **Codex:** carries `driver` (`gpt-6.1-sol`), `task-reviewer` (`gpt-6.1-terra`), council Seat A (`gpt-6-astra`), `implementer` last-resort, `implementer-deep` fallback, and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
+- **OpenCode Go Plus:** carries `scout`, `tester`, `patch`, `compaction` primary (`mimo-v2.6-flash`), `implementer-deep` last-resort, Seat C `reviewer-c`, cross-provider fallbacks for `reviewer-a`, `reviewer-b`, `task-reviewer`, and `reviewer-esc`.
+- **Council budget:** at most 3 rounds × 3 seats + 1 escalation per PR. Seat A (`gpt-6-astra`), Seat B (`claude-opus-5-5`), and Seat C (`muse-spark-1.3-contributor`) give three non-author families when Argon authors code; `reviewer-esc` starts on `mimo-v2.6-flash`.
 
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |

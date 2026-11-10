@@ -1285,15 +1285,40 @@ validate_profile() {
       key = role SUBSEP $3
       if (key in seen) invalid("duplicate rung")
       seen[key] = 1
-      if ($3 == "primary") primary[role] = 1
+      if ($3 == "primary") {
+        primary[role] = 1
+        primary_fam[role] = $7
+      }
+      fams[$7] = 1
       print $2 "|" $3 "|" $4 "|" $5 "|" $6 "|" $7 "|" $8
     }
     END {
       if (failed) exit 1
+      num_fams = 0
+      for (f in fams) num_fams++
       for (i = 1; i <= n; i++) {
         role = ordered[i]
+        if (role == "reviewer-c" && num_fams < 3) continue
         if (!(role in primary)) {
           printf "install.sh: profile %s incomplete: %s\n", profile, role > "/dev/stderr"
+          exit 1
+        }
+      }
+      if (num_fams >= 2 && ("reviewer-a" in primary_fam) && ("reviewer-b" in primary_fam)) {
+        if (primary_fam["reviewer-a"] == primary_fam["reviewer-b"]) {
+          printf "install.sh: profile %s invariant violated: reviewer-a and reviewer-b share primary family %s\n", profile, primary_fam["reviewer-a"] > "/dev/stderr"
+          exit 1
+        }
+      }
+      if (num_fams >= 3 && ("reviewer-a" in primary_fam) && ("reviewer-c" in primary_fam)) {
+        if (primary_fam["reviewer-a"] == primary_fam["reviewer-c"]) {
+          printf "install.sh: profile %s invariant violated: reviewer-a and reviewer-c share primary family %s\n", profile, primary_fam["reviewer-a"] > "/dev/stderr"
+          exit 1
+        }
+      }
+      if (num_fams >= 3 && ("reviewer-b" in primary_fam) && ("reviewer-c" in primary_fam)) {
+        if (primary_fam["reviewer-b"] == primary_fam["reviewer-c"]) {
+          printf "install.sh: profile %s invariant violated: reviewer-b and reviewer-c share primary family %s\n", profile, primary_fam["reviewer-b"] > "/dev/stderr"
           exit 1
         }
       }
@@ -1367,7 +1392,7 @@ generate_dynamic_profile() {
       }
       if (prov == "codex") return "codex"
       if (prov == "claudeAgent") return "claude-code"
-      return "opencode:" model
+      return "opencode-go"
     }
     function add_cand(prov, model, effort, fam, priv) {
       if (!enabled(prov)) return
@@ -1380,6 +1405,13 @@ generate_dynamic_profile() {
       c_pool[c_n] = pool_of(prov, model)
       c_used[c_n] = 0
     }
+    function add_reviewer_cand(seat, prov, model, effort, fam, priv) {
+      if (!enabled(prov)) return
+      if (seat == "reviewer-a" && (fam == seat_b_fam || fam == seat_c_fam)) return
+      if (seat == "reviewer-b" && (fam == seat_a_fam || fam == seat_c_fam)) return
+      if (seat == "reviewer-c" && (fam == seat_a_fam || fam == seat_b_fam)) return
+      add_cand(prov, model, effort, fam, priv)
+    }
     function emit_role(role, max_rungs, allow_same_pool_fb,    r, i, pick, rung_name, role_pools) {
       rnames[1] = "primary"
       rnames[2] = "fallback"
@@ -1387,17 +1419,9 @@ generate_dynamic_profile() {
       split("", role_pools)
       for (r = 1; r <= max_rungs; r++) {
         pick = 0
-        if (r > 1 && !(r == 2 && allow_same_pool_fb)) {
-          for (i = 1; i <= c_n; i++) {
-            if (!c_used[i] && !(c_pool[i] in role_pools)) {
-              pick = i
-              break
-            }
-          }
-        }
-        if (pick == 0) {
-          for (i = 1; i <= c_n; i++) {
-            if (!c_used[i]) {
+        for (i = 1; i <= c_n; i++) {
+          if (!c_used[i]) {
+            if (r == 1 || (r == 2 && allow_same_pool_fb && c_priv[1] == "trains") || !(c_pool[i] in role_pools)) {
               pick = i
               break
             }
@@ -1417,6 +1441,32 @@ generate_dynamic_profile() {
       has_cld = ENVIRON["COMPOSE_CLD"] + 0
       has_oc  = ENVIRON["COMPOSE_OC"] + 0
       c_n = 0
+
+      tot_fams = 0
+      if (has_agy) tot_fams++
+      if (has_agy || has_cld) tot_fams++
+      if (has_cdx) tot_fams++
+      if (has_oc) tot_fams += 4
+
+      if (has_cdx) seat_a_fam = "openai"
+      else if (has_agy) seat_a_fam = "google"
+      else if (has_oc) seat_a_fam = "xiaomi"
+      else seat_a_fam = "anthropic"
+
+      if ((has_agy || has_cld) && seat_a_fam != "anthropic") seat_b_fam = "anthropic"
+      else if (has_oc) seat_b_fam = "zhipu"
+      else if (has_cdx && seat_a_fam != "openai") seat_b_fam = "openai"
+      else seat_b_fam = "google"
+
+      if (tot_fams >= 3) {
+        if (has_oc) seat_c_fam = "meta"
+        else if (has_agy && seat_a_fam != "google" && seat_b_fam != "google") seat_c_fam = "google"
+        else if (has_cdx && seat_a_fam != "openai" && seat_b_fam != "openai") seat_c_fam = "openai"
+        else if ((has_agy || has_cld) && seat_a_fam != "anthropic" && seat_b_fam != "anthropic") seat_c_fam = "anthropic"
+        else seat_c_fam = "none"
+      } else {
+        seat_c_fam = "none"
+      }
 
       # driver (2 rungs)
       add_cand("codex", "gpt-6.1-sol", "reasoningEffort=medium", "openai", "ok")
@@ -1523,47 +1573,49 @@ generate_dynamic_profile() {
       emit_role("task-reviewer", 3, 0)
 
       # reviewer-a (3 rungs)
-      add_cand("codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
-      add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
-      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
-      add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
-      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
-      add_cand("antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
-      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
-      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
-      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
-      add_cand("codex", "gpt-6-sol", "reasoningEffort=high", "openai", "ok")
-      add_cand("claudeAgent", "claude-haiku-5-5", "effort=high", "anthropic", "ok")
+      add_reviewer_cand("reviewer-a", "codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
+      add_reviewer_cand("reviewer-a", "opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
+      add_reviewer_cand("reviewer-a", "antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_reviewer_cand("reviewer-a", "claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
+      add_reviewer_cand("reviewer-a", "opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
+      add_reviewer_cand("reviewer-a", "antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
+      add_reviewer_cand("reviewer-a", "claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
+      add_reviewer_cand("reviewer-a", "codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
+      add_reviewer_cand("reviewer-a", "antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
+      add_reviewer_cand("reviewer-a", "codex", "gpt-6-sol", "reasoningEffort=high", "openai", "ok")
+      add_reviewer_cand("reviewer-a", "claudeAgent", "claude-haiku-5-5", "effort=high", "anthropic", "ok")
       emit_role("reviewer-a", 3, 0)
 
       # reviewer-b (3 rungs: Claude defaults to antigravity, fallback to claudeAgent)
-      add_cand("antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
-      add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
-      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
-      add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
-      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
-      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
-      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
-      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
-      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=max", "deepseek", "ok")
-      add_cand("codex", "gpt-6.1-terra", "reasoningEffort=high", "openai", "ok")
-      add_cand("claudeAgent", "claude-fable-5-1", "effort=high", "anthropic", "ok")
+      add_reviewer_cand("reviewer-b", "antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
+      add_reviewer_cand("reviewer-b", "claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
+      add_reviewer_cand("reviewer-b", "opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
+      add_reviewer_cand("reviewer-b", "opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
+      add_reviewer_cand("reviewer-b", "codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
+      add_reviewer_cand("reviewer-b", "antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_reviewer_cand("reviewer-b", "claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
+      add_reviewer_cand("reviewer-b", "antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
+      add_reviewer_cand("reviewer-b", "opencode", "opencode-go/deepseek-v4.1-flash", "variant=max", "deepseek", "ok")
+      add_reviewer_cand("reviewer-b", "codex", "gpt-6.1-terra", "reasoningEffort=high", "openai", "ok")
+      add_reviewer_cand("reviewer-b", "claudeAgent", "claude-fable-5-1", "effort=high", "anthropic", "ok")
       emit_role("reviewer-b", 3, 0)
 
-      # reviewer-c (3 rungs: muse-spark-1.3-contributor primary, deepseek-v4.1-flash fallback when opencode enabled)
-      add_cand("opencode", "opencode-go/muse-spark-1.3-contributor", "variant=xhigh", "meta", "trains")
-      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
-      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
-      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
-      add_cand("codex", "gpt-6.1-terra", "reasoningEffort=high", "openai", "ok")
-      add_cand("claudeAgent", "claude-fable-5-1", "effort=high", "anthropic", "ok")
-      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=high", "anthropic", "ok")
-      add_cand("codex", "gpt-6-sol", "reasoningEffort=high", "openai", "ok")
-      add_cand("claudeAgent", "claude-haiku-5-5", "effort=high", "anthropic", "ok")
-      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
-      add_cand("codex", "gpt-6-luna", "reasoningEffort=high", "openai", "ok")
-      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=medium", "anthropic", "ok")
-      emit_role("reviewer-c", 3, 1)
+      # reviewer-c (only emitted when >= 3 families exist)
+      if (seat_c_fam != "none") {
+        add_reviewer_cand("reviewer-c", "opencode", "opencode-go/muse-spark-1.3-contributor", "variant=xhigh", "meta", "trains")
+        add_reviewer_cand("reviewer-c", "opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
+        add_reviewer_cand("reviewer-c", "opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
+        add_reviewer_cand("reviewer-c", "antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
+        add_reviewer_cand("reviewer-c", "codex", "gpt-6.1-terra", "reasoningEffort=high", "openai", "ok")
+        add_reviewer_cand("reviewer-c", "claudeAgent", "claude-fable-5-1", "effort=high", "anthropic", "ok")
+        add_reviewer_cand("reviewer-c", "antigravity", "claude-sonnet-5-5", "thinking_level=high", "anthropic", "ok")
+        add_reviewer_cand("reviewer-c", "codex", "gpt-6-sol", "reasoningEffort=high", "openai", "ok")
+        add_reviewer_cand("reviewer-c", "claudeAgent", "claude-haiku-5-5", "effort=high", "anthropic", "ok")
+        add_reviewer_cand("reviewer-c", "antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+        add_reviewer_cand("reviewer-c", "codex", "gpt-6-luna", "reasoningEffort=high", "openai", "ok")
+        add_reviewer_cand("reviewer-c", "claudeAgent", "claude-sonnet-5-5", "effort=medium", "anthropic", "ok")
+        emit_role("reviewer-c", 3, 1)
+      }
 
       # reviewer-esc (3 rungs)
       add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
