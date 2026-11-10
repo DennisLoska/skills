@@ -160,14 +160,14 @@ if [ "$verify_mode" -eq 1 ] && [ "$target_given" -eq 0 ]; then
       antigravity) cand_dir="${ANTIGRAVITY_CONFIG-${HOME:-}/.gemini/config}" ;;
       claude)      cand_dir="${CLAUDE_CONFIG_DIR-${HOME:-}/.claude}" ;;
     esac
-    if [ -n "$cand_dir" ] && { [ -f "$cand_dir/.harness-manifest" ] || [ -f "$cand_dir/HARNESS.md" ] || [ -d "$cand_dir/skills" ]; }; then
+    if [ -n "$cand_dir" ] && { [ -f "$cand_dir/.harness-manifest" ] || [ -f "$cand_dir/HARNESS.md" ] || [ -f "$cand_dir/skills/oneshot/SKILL.md" ]; }; then
       cand_has=1
     elif [ "$cand" = "antigravity" ]; then
       cand_t3="${T3_USERDATA_DIR:-${HOME:-}/.t3/userdata}"
       if [ -n "$cand_t3" ] && [ -d "$cand_t3/providers/antigravity" ]; then
         for cand_inst in "$cand_t3/providers/antigravity"/[!.]*; do
           [ -d "$cand_inst" ] || continue
-          if [ -f "$cand_inst/config/.harness-manifest" ] || [ -f "$cand_inst/config/HARNESS.md" ] || [ -d "$cand_inst/config/skills" ]; then
+          if [ -f "$cand_inst/config/.harness-manifest" ] || [ -f "$cand_inst/config/HARNESS.md" ] || [ -f "$cand_inst/config/skills/oneshot/SKILL.md" ]; then
             cand_has=1
             break
           fi
@@ -829,7 +829,7 @@ if [ -L "$MANIFEST" ] || { [ -e "$MANIFEST" ] && [ ! -f "$MANIFEST" ]; }; then
 fi
 
 verify_opencode_json() {
-  JSON_FILE="$1" awk '
+  JSON_FILE="$1" TARGET_DEST="$DEST" TARGET_RAW="$DEST_STRIPPED" HOME_RAW="${HOME:-}" HOME_CANON="${HOME_PHYS:-}" awk '
     function skip_ws(    c) {
       while (pos <= len) {
         c = substr(data, pos, 1)
@@ -863,19 +863,37 @@ verify_opencode_json() {
       bad = 1
       return ""
     }
+    function match_inst(s, name,    s_raw, s_canon) {
+      while (substr(s, 1, 2) == "./") s = substr(s, 3)
+      if (s == name) return 1
+      if (s == target_dest "/" name || s == target_raw "/" name) return 1
+      if (substr(s, 1, 2) == "~/") {
+        if (home_raw != "") {
+          s_raw = home_raw substr(s, 2)
+          if (s_raw == target_dest "/" name || s_raw == target_raw "/" name) return 1
+        }
+        if (home_canon != "") {
+          s_canon = home_canon substr(s, 2)
+          if (s_canon == target_dest "/" name || s_canon == target_raw "/" name) return 1
+        }
+      }
+      return 0
+    }
     function parse_value(in_inst,    c, s) {
       skip_ws()
       if (pos > len) { bad = 1; return }
       c = substr(data, pos, 1)
       if (c == "{") {
-        parse_object()
+        if (in_inst) { bad = 1; return }
+        parse_object(0)
       } else if (c == "[") {
-        parse_array(in_inst)
+        if (in_inst) { bad = 1; return }
+        parse_array(0)
       } else if (c == "\"") {
         s = parse_string()
         if (in_inst) {
-          if (s == "HARNESS.md" || substr(s, length(s) - 10) == "/HARNESS.md") has_harness = 1
-          if (s == "PROVIDERS.md" || substr(s, length(s) - 12) == "/PROVIDERS.md") has_providers = 1
+          if (match_inst(s, "HARNESS.md")) has_harness = 1
+          if (match_inst(s, "PROVIDERS.md")) has_providers = 1
         }
       } else if (substr(data, pos, 4) == "true") {
         if (in_inst) bad = 1
@@ -917,7 +935,7 @@ verify_opencode_json() {
       }
       bad = 1
     }
-    function parse_object(    c, k) {
+    function parse_object(is_top,    c, k) {
       pos++
       skip_ws()
       if (pos <= len && substr(data, pos, 1) == "}") {
@@ -933,7 +951,7 @@ verify_opencode_json() {
         if (substr(data, pos, 1) != ":") { bad = 1; return }
         pos++
         skip_ws()
-        if (k == "instructions") {
+        if (is_top && k == "instructions") {
           if (substr(data, pos, 1) != "[") { bad = 1; return }
           found_inst = 1
           parse_array(1)
@@ -957,6 +975,12 @@ verify_opencode_json() {
     }
     BEGIN {
       jf = ENVIRON["JSON_FILE"]
+      target_dest = ENVIRON["TARGET_DEST"]
+      target_raw = ENVIRON["TARGET_RAW"]
+      home_raw = ENVIRON["HOME_RAW"]
+      home_canon = ENVIRON["HOME_CANON"]
+      sub(/\/+$/, "", home_raw)
+      sub(/\/+$/, "", home_canon)
       data = ""
       while ((getline line < jf) > 0) {
         data = data line "\n"
@@ -971,7 +995,7 @@ verify_opencode_json() {
       if (pos > len || substr(data, pos, 1) != "{") {
         exit 1
       }
-      parse_object()
+      parse_object(1)
       skip_ws()
       if (bad || pos <= len || !found_inst || !has_harness || !has_providers) {
         exit 1

@@ -2178,6 +2178,45 @@ if grep -qF "tip: T3 Code detected" "$TMPROOT/no-t3-tip.out"; then
   fail "non-existent T3_USERDATA_DIR does not trigger T3 Code detected tip"
 fi
 
+# 76c. Spec compliance: exact target path matching in opencode.json, top-level instructions key only,
+# and harness-specific artifact discovery (ignoring generic skills/ directories).
+printf '{"instructions": ["/some/other/dir/HARNESS.md", "/some/other/dir/PROVIDERS.md"]}\n' >"$VERIFY_DEST/opencode.json"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-wrong-path.out" 2>&1 || rc=$?
+if grep -qF '[OK] opencode.json' "$TMPROOT/verify-wrong-path.out"; then
+  cat "$TMPROOT/verify-wrong-path.out" >&2
+  fail "--verify does not report [OK] when opencode.json points to HARNESS.md/PROVIDERS.md in another directory"
+fi
+grep -qF '[WARN] opencode.json' "$TMPROOT/verify-wrong-path.out" || fail "--verify warns when opencode.json points to wrong directory"
+
+printf '{"nested": {"instructions": ["%s/HARNESS.md", "%s/PROVIDERS.md"]}}\n' "$VERIFY_DEST" "$VERIFY_DEST" >"$VERIFY_DEST/opencode.json"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-nested-inst.out" 2>&1 || rc=$?
+if grep -qF '[OK] opencode.json' "$TMPROOT/verify-nested-inst.out"; then
+  cat "$TMPROOT/verify-nested-inst.out" >&2
+  fail "--verify does not report [OK] when instructions key is nested inside another object"
+fi
+grep -qF '[WARN] opencode.json' "$TMPROOT/verify-nested-inst.out" || fail "--verify warns when top-level instructions key is missing"
+
+printf '{"instructions": ["~/.config/opencode/HARNESS.md", "~/.config/opencode/PROVIDERS.md"]}\n' >"$VERIFY_DEST/opencode.json"
+rc=0
+HOME="$VERIFY_HOME" "$INSTALL" --verify >"$TMPROOT/verify-tilde-inst.out" 2>&1 || rc=$?
+grep -qF '[OK] opencode.json includes HARNESS.md and PROVIDERS.md' "$TMPROOT/verify-tilde-inst.out" || {
+  cat "$TMPROOT/verify-tilde-inst.out" >&2
+  fail "--verify accepts tilde-prefixed target paths in opencode.json"
+}
+
+GENERIC_SKILLS_HOME="$TMPROOT/generic-skills-home"
+HOME="$GENERIC_SKILLS_HOME" "$INSTALL" --target opencode >"$TMPROOT/generic-skills-install.out" 2>&1
+mkdir -p "$GENERIC_SKILLS_HOME/.codex/skills/unrelated-skill" "$GENERIC_SKILLS_HOME/.claude/skills"
+rc=0
+HOME="$GENERIC_SKILLS_HOME" "$INSTALL" --verify >"$TMPROOT/generic-skills-verify.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/generic-skills-verify.out" >&2; fail "--verify ignores targets that only have a generic skills/ directory (got $rc)"; }
+if grep -qE 'verifying (codex|claude)' "$TMPROOT/generic-skills-verify.out"; then
+  cat "$TMPROOT/generic-skills-verify.out" >&2
+  fail "--verify does not auto-discover targets with only generic skills/ directories"
+fi
+
 pass "--verify gates installed and uninstalled targets and --doctor accepts a valid install"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
