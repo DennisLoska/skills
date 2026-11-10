@@ -15,13 +15,13 @@
   <img src="https://img.shields.io/badge/Skills-12%20Pipeline%20Units-1AD1A5?style=flat-square" alt="12 Pipeline Skills" />
   <img src="https://img.shields.io/badge/Council-3%20Independent%20Families-FF6B35?style=flat-square" alt="3-Family Council" />
   <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
-  <img src="https://img.shields.io/badge/Tests-130%2F130%20Passing-2ECC71?style=flat-square" alt="130/130 Tests Passing" />
-  <img src="https://img.shields.io/badge/Profiles-tri%20%7C%20quad%20%7C%20opencode--go%20%7C%20codex%20%7C%20antigravity%20%7C%20claude-8B5CF6?style=flat-square" alt="Profiles: tri, quad, opencode-go, codex, antigravity, claude" />
+  <img src="https://img.shields.io/badge/Tests-138%2F138%20Passing-2ECC71?style=flat-square" alt="138/138 Tests Passing" />
+  <img src="https://img.shields.io/badge/Profiles-tri%20%7C%20quad%20%7C%20opencode--go%20%7C%20codex%20%7C%20antigravity%20%7C%20claude%20%7C%20--providers-8B5CF6?style=flat-square" alt="Profiles: tri, quad, opencode-go, codex, antigravity, claude, or dynamic --providers" />
 </p>
 
 Autonomous software delivery for **T3 Code** and standalone **OpenCode V2**, **Codex**, **Antigravity**, and **Claude Code**. Orchestrates **12 composable pipeline skills** and **9 role-contract subagent seats** across four closed feedback loops (**L1 Task**, **L2 Branch Council**, **L3 CI**, **L4 Meta**).
 
-The harness is provider-neutral: which provider, model, and effort runs each role comes from a swappable provider profile (default `tri`, `quad` with Claude Code, standalone single-provider `opencode-go`, `codex`, `antigravity`, `claude`, or any custom file via `--profile-file`). Every dispatch names an explicit rung so subagents never inherit the main session model. Every seat enforces last-match-wins permission guardrails so subagents never leak secrets.
+The harness is provider-neutral: which provider, model, and effort runs each role comes from a swappable provider profile (default `tri`, `quad` with Claude Code, standalone single-provider `opencode-go`, `codex`, `antigravity`, `claude`, dynamic composition via `--providers <list>`, or any custom file via `--profile-file`). Every dispatch names an explicit rung so subagents never inherit the main session model. Every seat enforces last-match-wins permission guardrails so subagents never leak secrets.
 
 ---
 
@@ -32,7 +32,7 @@ The harness is provider-neutral: which provider, model, and effort runs each rol
 Every track is complete on its own. Run from inside the cloned repository (`git clone https://github.com/DennisLoska/skills.git && cd skills`). Every track ends with `./install.sh --verify` (alias `--doctor`), which checks installation health non-destructively (exit code 0 on success).
 
 #### Track 1: T3 Code (Multi-Provider: Antigravity + Codex + OpenCode [+ Claude Code])
-- **Install:** `./install.sh --target all` (default `tri` profile) or `./install.sh --profile quad --target all` (with Claude Code).
+- **Install:** `./install.sh --target all` (default `tri` profile), `./install.sh --profile quad --target all` (with Claude Code), or compose your exact provider stack dynamically with `./install.sh --providers antigravity,codex,claude,opencode --target all`.
 - **Configure (OpenCode threads):** Add `~/.config/opencode/HARNESS.md` and `~/.config/opencode/PROVIDERS.md` to `instructions` in `~/.config/opencode/opencode.json`. Antigravity, Codex, and Claude Code threads load instructions automatically.
 - **Verify:** `./install.sh --verify`
 - **Run:** In T3 Code, prompt `oneshot <task>`.
@@ -71,6 +71,7 @@ Every track is complete on its own. Run from inside the cloned repository (`git 
 | --- | --- |
 | `--target <targets>` | Comma-separated host targets: `opencode`, `codex`, `antigravity`, `claude`, or `all` (default `opencode`). |
 | `--profile <name>` | Bind to a shipped profile: `tri` (default), `quad`, `opencode-go`, `codex`, `antigravity`, `claude`. |
+| `--providers <list>` | Dynamically compose a profile from enabled providers: `antigravity`, `codex`, `claude`, `opencode`. Eliminates same-provider fallback traps and generates custom cross-provider routing. |
 | `--profile-file <path>` | Bind to a custom external profile file. Recorded in manifest and reused on refresh. |
 | `--verify`, `--doctor` | Non-destructive health check. Verifies manifest, core files, host wiring, and shared state. |
 | `--force` | Overwrite existing destination files and repair symlinked parent directories. |
@@ -252,8 +253,8 @@ The harness separates concerns into three decoupled layers:
 | Layer | Owns | Files |
 | --- | --- | --- |
 | **Harness (provider-neutral)** | Pipeline, feedback loops, caps, gates, council rules, permission policies, role contracts, and the Dispatch Adapter | `skills/**`, `agents/*.md` (no `model:` line), [`AGENTS.md`](./AGENTS.md) |
-| **Provider (swappable)** | Role rungs (`primary` &rarr; `fallback` &rarr; `last-resort`), model families, effort, privacy tags, and quota pools | `providers/<profile>.md` or external file |
-| **Install (binding)** | Binds active profile to selected host targets (`opencode`, `codex`, `antigravity`, `claude`, or `all`) | `install.sh --profile <name>` |
+| **Provider (swappable)** | Role rungs (`primary` &rarr; `fallback` &rarr; `last-resort`), model families, effort, privacy tags, and quota pools | `providers/<profile>.md`, dynamic `--providers <list>`, or external file |
+| **Install (binding)** | Binds active profile to selected host targets (`opencode`, `codex`, `antigravity`, `claude`, or `all`) | `install.sh --profile <name>` or `install.sh --providers <list>` |
 
 ### Which profile do I pick?
 
@@ -265,13 +266,13 @@ The harness separates concerns into three decoupled layers:
 | **Only Codex / ChatGPT** | `codex` | `./install.sh --profile codex --target codex` |
 | **Only Antigravity** | `antigravity` | `./install.sh --profile antigravity --target antigravity` |
 | **Only Claude Code** | `claude` | `./install.sh --profile claude --target claude` |
-| **Any other mix** (e.g., Codex + Claude) | Custom profile file | Copy a profile, edit rows, and run `./install.sh --profile-file <path>` |
+| **Any other mix** (e.g., Codex + Claude, Antigravity + OpenCode) | Dynamic composition (or custom file) | `./install.sh --providers <list>` (e.g., `./install.sh --providers codex,claude --target all`) or `./install.sh --profile-file <path>` |
 
 ### Provider Setup Overview
 
 | Provider | Instance ID | Effort Option ID & Values | Example Model IDs | Limit Inspection |
 | --- | --- | --- | --- | --- |
-| **OpenCode Go** | `opencode` | `variant` (`low\|medium\|high\|xhigh\|max`, or `-`) | `deepseek-v4.1-flash`, `mimo-v2.6-flash`, `deepseek-v4-pro`, `kimi-k3.1-pro` | `opencode.ai/docs/go` console (monthly $ allowance + 5h rolling cap) |
+| **OpenCode Go** | `opencode` | `variant` (`low\|medium\|high\|xhigh\|max`, or `-`) | `muse-spark-1.3-contributor`, `deepseek-v4.1-flash`, `mimo-v2.6-flash`, `glm-5.3-flash` | `opencode.ai/docs/go` console (monthly $ allowance + 5h rolling cap) |
 | **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-argon`, `gemini-3.8-flash`, `claude-opus-5-5`, `claude-sonnet-5-5` | `/status` in Antigravity (rolling 5-hour window) |
 | **Codex** | `codex` | `reasoningEffort` (`low\|medium\|high\|xhigh`) | `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-luna`, `gpt-6-sol` | `/status` in Codex (rolling 5-hour window) |
 | **Claude Code** | `claudeAgent` | `effort` (`low\|medium\|high\|xhigh\|max\|...`) | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` | `/status` in Claude Code (rolling 5-hour window) |
@@ -325,12 +326,12 @@ cp providers/tri.md ~/.config/oneshot/my-profile.md
 ./install.sh --force --profile-file ~/.config/oneshot/my-profile.md
 ```
 
-**One-row override example** (swapping `reviewer-esc` primary to `qwen3.8-max`):
+**One-row override example** (swapping `reviewer-esc` primary to `glm-5.3-flash`):
 
 ```text
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
-| reviewer-esc | primary | opencode | opencode-go/qwen3.8-max | - | alibaba | ok |
+| reviewer-esc | primary | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
 ```
 
 - Each profile must define a `primary` row for all ten dispatched roles (`scout`, `tester`, `implementer`, `implementer-deep`, `patch`, `task-reviewer`, `reviewer-a`, `reviewer-b`, `reviewer-c`, `reviewer-esc`).
@@ -378,7 +379,7 @@ providers/        swappable provider profiles: tri (default), quad (tri + Claude
                                                opencode-go, codex, antigravity, claude
 docs/             design specs and plans:      docs/specs/, docs/plans/
 docs/assets/      vector visuals:              logo.svg, architecture.svg
-test/install.sh   130-assertion contract suite (runs in throwaway HOME on Bash >=3.2)
+test/install.sh   138-assertion contract suite (runs in throwaway HOME on Bash >=3.2)
 AGENTS.md         harness routing instructions (installed as <dest>/HARNESS.md)
 install.sh        multi-host installer         (opencode, codex, antigravity, claude, all)
 NOTICE            upstream MIT attribution     (mattpocock/skills)
@@ -389,7 +390,7 @@ LICENSE           MIT license
 
 ## 🧪 Testing
 
-Run the 130-assertion installer contract suite (hermetic throwaway `HOME` under `$TMPDIR`):
+Run the 138-assertion installer contract suite (hermetic throwaway `HOME` under `$TMPDIR`):
 
 ```sh
 bash -n install.sh && bash -n test/install.sh
