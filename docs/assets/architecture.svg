@@ -68,29 +68,27 @@
     <text class="sans chip" x="1200" y="177" text-anchor="middle">codebase-design</text>
   </g>
 
-  <text class="sans sub" x="84" y="220">9 role-contract seats</text>
+  <text class="sans sub" x="84" y="218">9 role-contract seats</text>
 
   <g>
-    <rect x="84" y="230" width="113" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono seat" x="140.5" y="248" text-anchor="middle">scout</text>
-    <rect x="206" y="230" width="113" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono seat" x="262.5" y="248" text-anchor="middle">tester</text>
-    <rect x="328" y="230" width="113" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono seat" x="384.5" y="248" text-anchor="middle">implementer</text>
-    <rect x="450" y="230" width="113" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono seat" x="506.5" y="248" text-anchor="middle">impl-deep</text>
-    <rect x="572" y="230" width="113" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono seat" x="628.5" y="248" text-anchor="middle">patch</text>
-    <rect x="694" y="230" width="113" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono seat" x="750.5" y="248" text-anchor="middle">task-reviewer</text>
-    <rect x="816" y="230" width="113" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
-    <text class="mono seat" x="872.5" y="248" text-anchor="middle">reviewer-a</text>
-    <rect x="938" y="230" width="113" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
-    <text class="mono seat" x="994.5" y="248" text-anchor="middle">reviewer-b</text>
-    <rect x="1060" y="230" width="113" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
-    <text class="mono seat" x="1116.5" y="248" text-anchor="middle">reviewer-c</text>
-    <rect x="1182" y="230" width="113" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
-    <text class="mono seat" x="1238.5" y="248" text-anchor="middle">reviewer-esc</text>
+    <rect x="84" y="228" width="122" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono seat" x="145" y="246" text-anchor="middle">scout</text>
+    <rect x="220" y="228" width="122" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono seat" x="281" y="246" text-anchor="middle">tester</text>
+    <rect x="356" y="228" width="122" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono seat" x="417" y="246" text-anchor="middle">implementer</text>
+    <rect x="492" y="228" width="122" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono seat" x="553" y="246" text-anchor="middle">impl-deep</text>
+    <rect x="628" y="228" width="122" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono seat" x="689" y="246" text-anchor="middle">patch</text>
+    <rect x="764" y="228" width="122" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
+    <text class="mono seat" x="825" y="246" text-anchor="middle">reviewer-a</text>
+    <rect x="900" y="228" width="122" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
+    <text class="mono seat" x="961" y="246" text-anchor="middle">reviewer-b</text>
+    <rect x="1036" y="228" width="122" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
+    <text class="mono seat" x="1097" y="246" text-anchor="middle">reviewer-c</text>
+    <rect x="1172" y="228" width="122" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
+    <text class="mono seat" x="1233" y="246" text-anchor="middle">reviewer-esc</text>
   </g>
 
   <!-- dispatch arrow -->
@@ -103,37 +101,37 @@
   <text class="sans sub" x="266" y="354">PROVIDERS.md · primary → fallback → last-resort per role · validated before install writes</text>
 
   <text class="sans col" x="84" y="382">ROLE</text>
-  <text class="sans col" x="222" y="382">PRIMARY</text>
-  <text class="sans col" x="622" y="382">FALLBACK</text>
-  <text class="sans col" x="1002" y="382">LAST RESORT</text>
+  <text class="sans col" x="224" y="382">PRIMARY</text>
+  <text class="sans col" x="600" y="382">FALLBACK</text>
+  <text class="sans col" x="960" y="382">LAST RESORT</text>
   <line x1="84" y1="390" x2="1296" y2="390" stroke="#243450" stroke-width="1"/>
 
   <g class="mono">
     <text class="cell" x="84" y="412">implementer</text>
-    <text class="cell" x="222" y="412">antigravity / gemini-4-argon · high</text>
-    <text class="cellMuted" x="622" y="412">antigravity / claude-sonnet-5-5 · medium</text>
-    <text class="cellMuted" x="1002" y="412">codex / gpt-6.1-sol · medium</text>
+    <text class="cell" x="224" y="412">antigravity / gemini-4-argon · high</text>
+    <text class="cellMuted" x="600" y="412">antigravity / claude-sonnet-5-5 · medium</text>
+    <text class="cellMuted" x="960" y="412">codex / gpt-6.1-sol · medium</text>
 
     <text class="cell" x="84" y="440">tester</text>
-    <text class="cell" x="222" y="440">opencode / deepseek-v4.1-flash · high</text>
-    <text class="cellMuted" x="622" y="440">codex / gpt-6-luna · medium</text>
-    <text class="cellMuted" x="1002" y="440">antigravity / gemini-3.8-flash</text>
+    <text class="cell" x="224" y="440">opencode / deepseek-v4.1-flash · high</text>
+    <text class="cellMuted" x="600" y="440">codex / gpt-6-luna · medium</text>
+    <text class="cellMuted" x="960" y="440">antigravity / gemini-3.8-flash</text>
 
     <text class="cell" x="84" y="468">reviewer-esc</text>
-    <text class="cell" x="222" y="468">opencode / kimi-k3.1-pro · high</text>
-    <text class="cellMuted" x="622" y="468">opencode / mimo-v2.6-pro</text>
-    <text class="cellMuted" x="1002" y="468">opencode / qwen3.8-max</text>
+    <text class="cell" x="224" y="468">opencode / kimi-k3.1-pro · high</text>
+    <text class="cellMuted" x="600" y="468">opencode / mimo-v2.6-pro</text>
+    <text class="cellMuted" x="960" y="468">opencode / qwen3.8-max</text>
   </g>
 
   <g>
-    <rect x="84" y="482" width="196" height="24" rx="6" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono sub" x="96" y="498">## Quota pools</text>
-    <rect x="292" y="482" width="206" height="24" rx="6" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono sub" x="304" y="498">## Backup ladder</text>
-    <rect x="510" y="482" width="262" height="24" rx="6" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono sub" x="522" y="498">state/quota-ledger.tsv</text>
+    <rect x="84" y="482" width="120" height="24" rx="6" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono sub" x="144" y="498" text-anchor="middle">## Quota pools</text>
+    <rect x="214" y="482" width="130" height="24" rx="6" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono sub" x="279" y="498" text-anchor="middle">## Backup ladder</text>
+    <rect x="354" y="482" width="180" height="24" rx="6" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono sub" x="444" y="498" text-anchor="middle">state/quota-ledger.tsv</text>
   </g>
-  <text class="sans sub" x="790" y="498">shared buckets + soft caps + reserves, profile-wide safety net, machine-local exhaustion ledger</text>
+  <text class="sans sub" x="550" y="498">shared buckets + soft caps · profile backup safety net · machine-local ledger</text>
 
   <!-- delegate arrow -->
   <line x1="690" y1="520" x2="690" y2="550" stroke="#94A3B8" stroke-width="1.75" marker-end="url(#arrow)"/>
@@ -145,37 +143,37 @@
   <text class="sans sub" x="306" y="590">one profile slot resolves to one provider instance, model and effort</text>
 
   <g>
-    <rect x="84" y="604" width="294" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
+    <rect x="84" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
     <text class="sans pname" x="104" y="632">Antigravity</text>
     <text class="sans pmeta" x="104" y="652">google · anthropic · thinking_level</text>
     <text class="mono pmodels" x="104" y="674">gemini-4-argon (high)</text>
     <text class="mono pmodels" x="104" y="691">claude-opus-5-5 (high)</text>
 
-    <rect x="394" y="604" width="294" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="sans pname" x="414" y="632">Codex</text>
-    <text class="sans pmeta" x="414" y="652">openai · reasoningEffort</text>
-    <text class="mono pmodels" x="414" y="674">gpt-6-astra (high)</text>
-    <text class="mono pmodels" x="414" y="691">gpt-6.1-sol (medium)</text>
+    <rect x="391" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="sans pname" x="411" y="632">Codex</text>
+    <text class="sans pmeta" x="411" y="652">openai · reasoningEffort</text>
+    <text class="mono pmodels" x="411" y="674">gpt-6-astra (high)</text>
+    <text class="mono pmodels" x="411" y="691">gpt-6.1-sol (medium)</text>
 
-    <rect x="704" y="604" width="294" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="sans pname" x="724" y="632">OpenCode Go Plus</text>
-    <text class="sans pmeta" x="724" y="652">deepseek · xiaomi · minimax · moonshot</text>
-    <text class="mono pmodels" x="724" y="674">flash workhorses (high)</text>
-    <text class="mono pmodels" x="724" y="691">pro council + escalation</text>
+    <rect x="698" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="sans pname" x="718" y="632">OpenCode Go Plus</text>
+    <text class="sans pmeta" x="718" y="652">deepseek · xiaomi · minimax · moonshot</text>
+    <text class="mono pmodels" x="718" y="674">flash workhorses (high)</text>
+    <text class="mono pmodels" x="718" y="691">pro council + escalation</text>
 
-    <rect x="1014" y="604" width="294" height="100" rx="12" fill="#0E1A2A" stroke="#3B4A63" stroke-dasharray="6 5"/>
-    <text class="sans pname" x="1034" y="632">Claude Code</text>
-    <text class="sans pmeta" x="1034" y="652">quad profile only · claudeAgent</text>
-    <text class="mono pmodels" x="1034" y="674">claude-opus-5-5 (high)</text>
-    <text class="mono pmodels" x="1034" y="691">claude-sonnet-5-5 (medium)</text>
+    <rect x="1005" y="604" width="290" height="100" rx="12" fill="#0E1A2A" stroke="#3B4A63" stroke-dasharray="6 5"/>
+    <text class="sans pname" x="1025" y="632">Claude Code</text>
+    <text class="sans pmeta" x="1025" y="652">quad profile only · claudeAgent</text>
+    <text class="mono pmodels" x="1025" y="674">claude-opus-5-5 (high)</text>
+    <text class="mono pmodels" x="1025" y="691">claude-sonnet-5-5 (medium)</text>
   </g>
 
   <!-- ============ FEEDBACK LOOP CHANNEL ============ -->
-  <path d="M 1322 700 L 1394 700 L 1394 176 L 1330 176"
+  <path d="M 1320 700 L 1380 700 L 1380 176 L 1320 176"
         fill="none" stroke="#38BDF8" stroke-width="1.75" stroke-dasharray="7 6"
         opacity="0.8" marker-end="url(#arrowLoop)"/>
-  <text class="sans sub" transform="translate(1438 438) rotate(-90)" text-anchor="middle" fill="#38BDF8">L1 Task · L2 Council · L3 CI · L4 Meta</text>
+  <text class="sans sub" transform="translate(1415 438) rotate(-90)" text-anchor="middle" fill="#38BDF8">L1 Task · L2 Council · L3 CI · L4 Meta</text>
 
-  <text class="sans foot" x="84" y="768">Hosts: OpenCode V2 · T3 Code</text>
-  <text class="sans foot" x="330" y="768">Fallback: exhausted or soft-capped rung → next rung → backup ladder → budget stop</text>
+  <text class="sans foot" x="84" y="768">Hosts: OpenCode V2 · T3 Code · Codex · Antigravity · Claude Code</text>
+  <text class="sans foot" x="650" y="768">Fallback: exhausted or soft-capped rung → next rung → backup ladder → budget stop</text>
 </svg>
