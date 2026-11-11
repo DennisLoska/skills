@@ -1,6 +1,6 @@
 # Quad provider profile
 
-Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code** (Anthropic subscription, T3 Code provider instance id `claudeAgent`). Pick `quad` (`./install.sh --profile quad`) when you have a Claude subscription alongside Antigravity, Codex, and OpenCode Go: Antigravity's Claude limits are low, so `quad` moves high-volume Anthropic roles (`driver` fallback, `implementer` fallback, `implementer-deep` primary, `task-reviewer` fallback, `compaction` primary, and `reviewer-b` fallback) onto `claudeAgent` while keeping Antigravity's Claude (`claude-opus-5-5`) as `reviewer-b` primary and `implementer-deep` last-resort. OpenCode Go roles use only high-allowance flash and spark models (`muse-spark-1.3-contributor` ~90k req/5h, `deepseek-v4.1-flash` ~86k req/5h, `mimo-v2.6-flash` ~60k req/5h, `glm-5.3-flash` ~19k req/5h).
+Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code** (Anthropic subscription, T3 Code provider instance id `claudeAgent`). Pick `quad` (`./install.sh --profile quad`) when you have a Claude subscription alongside Antigravity, Codex, and OpenCode Go: Antigravity's Claude limits are low, so `quad` moves high-volume Anthropic roles (`driver` fallback, `implementer` fallback, `implementer-deep` fallback, `task-reviewer` fallback, `compaction` primary, `reviewer-b` fallback, and `reviewer-esc` primary) onto `claudeAgent` while keeping Antigravity's Claude (`claude-opus-5-5` for `reviewer-b` primary and `claude-sonnet-5-5` for `reviewer-esc` fallback). OpenCode Go roles prioritize high-allowance `muse-spark-1.3-contributor` (~90k req/5h) and `deepseek-v4.1-flash` (~86k req/5h), with `mimo-v2.6-flash` (~60k req/5h) on `scout`.
 
 ## Connecting Claude Code in T3 Code
 
@@ -15,21 +15,18 @@ Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code
 - **Architecture & Design (`shape`, `domain-modeling`, `codebase-design`):** advisory recommendation for `claudeAgent` `claude-fable-5-2` (or `claude-fable-5-1`) in Phase 1 sessions.
 - **Discovery (`scout`):** OpenCode Go flash models (`mimo-v2.6-flash`, `deepseek-v4.1-flash` at `low`) with Antigravity `gemini-3.8-flash` as last resort.
 - **Testing & script running (`tester`):** OpenCode Go `deepseek-v4.1-flash` (`high`), falling back to Codex `gpt-6-luna` (`medium`) and Antigravity `gemini-3.8-flash` (`medium`).
-- **Implementation (`implementer`, `implementer-deep`, `patch`):** `implementer` runs on Antigravity `gemini-4-carbon` (`high`), falling back to `claudeAgent` `claude-sonnet-5-5` (`effort=medium`) and Codex `gpt-6.1-sol` (`medium`); `implementer-deep` runs on Antigravity `gemini-4-carbon` (`high`), falling back to `claudeAgent` `claude-opus-5-5` (`effort=high`) and Codex `gpt-6-astra` (`reasoningEffort=high`); `patch` shares the `tester` ladder.
+- **Implementation (`implementer`, `implementer-deep`, `patch`):** `implementer` runs on Antigravity `gemini-4-argon` (`high`), falling back to `claudeAgent` `claude-sonnet-5-5` (`effort=medium`) and Codex `gpt-6.1-sol` (`medium`); `implementer-deep` runs on Antigravity `gemini-4-argon` (`high`), falling back to `claudeAgent` `claude-opus-5-5` (`effort=high`) and Codex `gpt-6-astra` (`reasoningEffort=high`); `patch` shares the `tester` ladder.
 - **Per-task review (`task-reviewer`):** Codex `gpt-6.1-terra` (`high`), falling back to `claudeAgent` `claude-sonnet-5-5` (`effort=high`) and Antigravity `gemini-3.8-flash` (`high`), skipping any rung whose family authored the task.
-- **Council (`reviewer-a`, `reviewer-b`, `reviewer-c`):** OpenAI frontier on Seat A (`gpt-6-astra` via Codex at `high`, falling back cross-provider to OpenCode Go `opencode-go/mimo-v2.6-flash` and `opencode-go/glm-5.3-flash`), Anthropic frontier on Seat B (`claude-opus-5-5` via Antigravity, falling back cross-provider to `claudeAgent` `claude-opus-5-5` and OpenCode Go `opencode-go/glm-5.3-flash`), and Meta on Seat C (`opencode-go/muse-spark-1.3-contributor` at ~90,600 req/5h, falling back to `opencode-go/deepseek-v4.1-flash` and `opencode-go/glm-5.3-flash`).
-- **Escalation (`reviewer-esc`):** high-volume OpenCode flash rungs (`opencode-go/mimo-v2.6-flash` ~60,200 req/5h -> `opencode-go/glm-5.3-flash` ~19,000 req/5h -> `opencode-go/deepseek-v4.1-flash` ~86,670 req/5h), advancing past any family held by a council seat.
+- **Council (`reviewer-a`, `reviewer-b`, `reviewer-c`):** OpenAI frontier on Seat A (`gpt-6-astra` via Codex at `high`, falling back cross-provider to Antigravity `gemini-4-carbon` and OpenCode Go `opencode-go/deepseek-v4.1-flash`), Anthropic frontier on Seat B (`claude-opus-5-5` via Antigravity, falling back cross-provider to `claudeAgent` `claude-opus-5-5` and OpenCode Go `opencode-go/deepseek-v4.1-flash`), and Meta on Seat C (`opencode-go/muse-spark-1.3-contributor` at ~90,600 req/5h, falling back to `opencode-go/deepseek-v4.1-flash` at `high` and `max`).
+- **Escalation (`reviewer-esc`):** `claudeAgent` `claude-sonnet-5-5` (`effort=high`), falling back to Antigravity `claude-sonnet-5-5` (`thinking_level=high`) and OpenCode Go `opencode-go/deepseek-v4.1-flash` (`variant=high` ~86,670 req/5h), advancing past any model held by a council seat or author.
 
 ## Budget facts and provider load split
 
-No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model is routed through OpenCode Go in `quad`: all Google models come from Antigravity, all Claude models come from Antigravity or `claudeAgent`, and all `gpt-*` models come from Codex.
-
-- **Antigravity Separate Quota Pools:** Antigravity isolates `gemini-*` (`antigravity-gemini`) from `claude-*` (`antigravity-claude`, soft-capped at 6 dispatches per run and reserved for `reviewer-b`).
-- **Claude Code (`claudeAgent`):** carries `implementer-deep` fallback (`claude-opus-5-5`), `implementer` fallback (`claude-sonnet-5-5`), `task-reviewer` fallback (`claude-sonnet-5-5`), `reviewer-b` fallback (`claude-opus-5-5`), `driver` fallback (`claude-sonnet-5-5`), and `compaction` primary (`claude-haiku-5-5`).
-- **Antigravity:** focuses on Google models (`implementer` and `implementer-deep` primary `gemini-4-carbon` at `high` and `gemini-3.8-flash` last-resorts), plus `claude-opus-5-5` for `reviewer-b` primary.
-- **Codex:** carries `driver` (`gpt-6.1-sol`), `task-reviewer` (`gpt-6.1-terra`), council Seat A `reviewer-a` primary (`gpt-6-astra`), `implementer` last-resort (`gpt-6.1-sol`), `implementer-deep` last-resort (`gpt-6-astra`), and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
-- **OpenCode Go:** carries high-allowance roles (`scout`, `tester`, `patch`), council Seat C `reviewer-c` (`muse-spark-1.3-contributor` -> `deepseek-v4.1-flash` -> `glm-5.3-flash`), cross-provider fallbacks/last-resorts for `reviewer-a` (`mimo-v2.6-flash` -> `glm-5.3-flash`) and `reviewer-b` (`glm-5.3-flash`), and `reviewer-esc` (`mimo-v2.6-flash` -> `glm-5.3-flash` -> `deepseek-v4.1-flash`).
-- **Council budget:** Seat C (`muse-spark-1.3-contributor` ~90,600 req/5h -> `deepseek-v4.1-flash` ~86,670 req/5h) and `reviewer-esc` (`mimo-v2.6-flash` ~60,200 req/5h) have vast OpenCode Go allowances.
+No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model routes through OpenCode Go in `quad`.
+- **Antigravity:** isolates `gemini-*` (`antigravity-gemini`) from `claude-*` (`antigravity-claude`, soft-capped at 6 dispatches and reserved for `reviewer-b`).
+- **Claude Code (`claudeAgent`):** offloads high-volume Claude roles (`implementer*` fallbacks, `task-reviewer` fallback, `reviewer-esc` primary, and `compaction`).
+- **Codex:** carries `driver`, `task-reviewer`, council Seat A primary (`gpt-6-astra`), and workhorse fallbacks.
+- **OpenCode Go:** carries `scout`, `tester`, `patch`, Seat C `reviewer-c`, and cross-provider last-resorts (`deepseek-v4.1-flash`).
 
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -38,10 +35,10 @@ No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model is rou
 | scout | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
 | scout | fallback | opencode | opencode-go/deepseek-v4.1-flash | variant=low | deepseek | ok |
 | scout | last-resort | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |
-| implementer | primary | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| implementer | primary | antigravity | gemini-4-argon | thinking_level=high | google | ok |
 | implementer | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |
 | implementer | last-resort | codex | gpt-6.1-sol | reasoningEffort=medium | openai | ok |
-| implementer-deep | primary | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| implementer-deep | primary | antigravity | gemini-4-argon | thinking_level=high | google | ok |
 | implementer-deep | fallback | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |
 | implementer-deep | last-resort | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
 | tester | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
@@ -54,16 +51,16 @@ No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model is rou
 | task-reviewer | fallback | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
 | task-reviewer | last-resort | antigravity | gemini-3.8-flash | thinking_level=high | google | ok |
 | reviewer-a | primary | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
-| reviewer-a | fallback | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
-| reviewer-a | last-resort | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
+| reviewer-a | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| reviewer-a | last-resort | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | reviewer-b | primary | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
 | reviewer-b | fallback | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |
-| reviewer-b | last-resort | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
+| reviewer-b | last-resort | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | reviewer-c | primary | opencode | opencode-go/muse-spark-1.3-contributor | variant=xhigh | meta | trains |
 | reviewer-c | fallback | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | reviewer-c | last-resort | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
-| reviewer-esc | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
-| reviewer-esc | fallback | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
+| reviewer-esc | primary | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
+| reviewer-esc | fallback | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic | ok |
 | reviewer-esc | last-resort | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | compaction | primary | claudeAgent | claude-haiku-5-5 | effort=low | anthropic | ok |
 | compaction | fallback | codex | gpt-6-luna | reasoningEffort=low | openai | ok |
@@ -83,8 +80,8 @@ No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model is rou
 | order | roles | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
 | 1 | implementer,implementer-deep,tester,patch | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
-| 2 | reviewer-a,reviewer-b,reviewer-c,task-reviewer | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
-| 3 | * | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
+| 2 | reviewer-a,reviewer-b,reviewer-c,task-reviewer | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
+| 3 | * | opencode | opencode-go/deepseek-v4.1-flash | variant=max | deepseek | ok |
 | 4 | * | codex | gpt-6.1-sol | reasoningEffort=medium | openai | ok |
 | 5 | * | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |
 | 6 | * | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |

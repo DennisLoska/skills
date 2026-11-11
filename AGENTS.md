@@ -1,13 +1,13 @@
 # Cybernetic SDLC Harness
 
-Instructions for the `oneshot` cybernetic control system. Skills and ad-hoc dispatches never hardcode model IDs, providers, or effort values; `PROVIDERS.md` owns which model runs each role, and this file owns routing rules, dispatch adapter, and contracts.
+Instructions for `oneshot`. Skills and ad-hoc dispatches never hardcode model IDs, providers, or effort values; `PROVIDERS.md` owns which model runs each role, and this file owns routing rules, dispatch adapter, and contracts.
 
 ## Context Hygiene and Subagent Routing
 
-- Code searches touching >1 file or 50+ lines go to `scout` (read-only locator returning compressed `path:line` tables), never inline main-session search loops.
-- Failing-test authoring (TDD red step) and verification/CI script runs go to `tester` (writes uncommitted failing tests without production code; runs suites/scripts/CI logs and returns compressed pass/fail excerpts).
-- The main session orchestrates and never writes implementation code inline; dispatch a fresh subagent per task (`tester` first when testable behaviour changes, then `implementer` or `implementer-deep`) via `dispatch`.
-- `patch` handles 1-2 file edits needing no test run. Council/CI fixers running tests use implementation seats (`implementer`, or `implementer-deep` for hard clusters).
+- Searches touching >1 file or 50+ lines go to `scout` (read-only locator returning compressed `path:line` tables), never inline search loops.
+- Failing-test authoring (TDD red step) and CI runs go to `tester` (writes uncommitted failing tests without production code; runs suites/scripts/CI logs and returns compressed excerpts).
+- Main session orchestrates and never writes implementation code inline; dispatch a fresh subagent per task (`tester` first when tests change, then `implementer` or `implementer-deep`) via `dispatch`.
+- `patch` handles 1-2 file edits needing no test run. Council/CI fixers running tests use implementation seats (`implementer`, or `implementer-deep`).
 
 ## Provider Profiles
 
@@ -55,7 +55,7 @@ Walk each role's rungs in ladder order (`primary -> fallback -> last-resort`, th
     earliest resume: <timestamp>  -> rerun `oneshot` to resume from state
   ```
   Record `earliest_resume` and `soft_cap_counts` in `oneshot-state.md`. On resume, re-read `quota-ledger.tsv` without reopening closed rounds. Include a **Budget** summary block in the PR body and final report.
-- **Degraded council (dual-family regime):** when a seat is lost and 2 independent families remain, continue with 2 active seats. PASS requires unanimous 2/2 healthy PASS, 0 confirmed red findings, and green tests. If both healthy families are authors, accept dual-family model-level independence (distinct models, recording `degraded council author vote: dual-family model-level independence (<model1>, <model2>)`); if < 2 families remain healthy, stop with `yellow: degraded council (< 2 independent families)`.
+- **Degraded council (dual-family & model regime):** when a seat is lost or families overlap, council shall not block if >= 2 distinct members can review and differ from the implementer model. As long as >= 2 distinct reviewer models differ from `author_models`, continue with active seats (recording `degraded council author vote: model-level independence (<model1>, <model2>)`). PASS requires unanimous 2/2 healthy PASS, 0 confirmed red findings, and green tests; if < 2 distinct non-author reviewer models remain healthy, stop with `yellow: degraded council (< 2 independent review models)`.
 - **Rounds:** max 3 council rounds per PR.
 - **Action-name aliases:** agent files carry both `bash`/`task` and `shell`/`subagent` spellings so denies never go inert.
 
@@ -84,8 +84,8 @@ Walk each role's rungs in ladder order (`primary -> fallback -> last-resort`, th
 - One line per finding: `path:line: emoji severity: problem. fix.`
 - Severity only: red bug, yellow risk, blue nit (nits only on request).
 - No praise, no scope creep, no "looks good".
-- PASS modes: `mode=nominal` (>= 2/3 PASS), `mode=degraded` (unanimous 2/2 PASS), or post-round-3 `mode=escalation` (`round=esc`, single `reviewer-esc` seat PASS on a non-author, unused-council family); all require zero unresolved confirmed red findings and green tests (or the `mode=nominal` `no-tests` exception under Review contracts).
-- PASS in `mode=nominal`/`mode=degraded` also requires >= 1 PASS vote from a non-author family (or dual-family model-level independence under degraded council when both healthy families are authors). Author families (`author_families`) and models (`author_models`) are implementation, `tester` (if tests committed), and fixer rungs (`implementer*`, `tester`, `patch`, CI/council fixers) producing branch commits recorded in state. If every nominal seat's family is an author family, `reviewer-esc` supplies the non-author vote; in degraded mode where both healthy families are authors, require model-level independence (each reviewer model distinct from `author_models`) and record `degraded council author vote: dual-family model-level independence (<model1>, <model2>)`; else stop with `yellow: degraded council`.
+- PASS modes: `mode=nominal` (>= 2/3 PASS), `mode=degraded` (unanimous 2/2 PASS), or post-round-3 `mode=escalation` (`round=esc`, single `reviewer-esc` seat PASS on a non-author model distinct from active council seats); all require zero unresolved confirmed red findings and green tests (or the `mode=nominal` `no-tests` exception under Review contracts).
+- Council non-blocking rule & author vote: Council shall not block if >= 2 distinct members can review and differ from the implementer model. PASS in `mode=nominal`/`mode=degraded` requires >= 1 PASS vote from a non-author family or model-level independence (distinct models differing from `author_models`). Author families (`author_families`) and models (`author_models`) are implementation, `tester` (if tests committed), and fixer rungs (`implementer*`, `tester`, `patch`, CI/council fixers) producing branch commits recorded in state. If all active seats share an author family, model-level independence satisfies the author vote (recording `degraded council author vote: model-level independence (<model1>, <model2>)`) and council proceeds without blocking.
 - Reviewer never fixes, fixer never reviews. No council seat may review code authored by the identical model.
 - Receiving-side rigor: verify each finding against real code before acting; no performative agreement with hostile-but-wrong findings.
 

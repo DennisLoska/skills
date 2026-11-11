@@ -962,10 +962,10 @@ rc=0
 OPENCODE_CONFIG="$QUAD_DEST" "$INSTALL" --profile quad >"$TMPROOT/quad.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/quad.out" >&2; fail "quad install exits 0 (claudeAgent provider id accepted)"; }
 cmp -s "$ROOT/providers/quad.md" "$QUAD_DEST/PROVIDERS.md" || fail "quad PROVIDERS.md is a byte copy of providers/quad.md"
-grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$QUAD_DEST/agents/reviewer-a.md" || fail "quad reviewer-a pin"
-grep -qxF 'model: opencode-go/glm-5.3-flash#high' "$QUAD_DEST/agents/reviewer-b.md" || fail "quad reviewer-b pin"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$QUAD_DEST/agents/reviewer-a.md" || fail "quad reviewer-a pin"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$QUAD_DEST/agents/reviewer-b.md" || fail "quad reviewer-b pin"
 grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$QUAD_DEST/agents/reviewer-c.md" || fail "quad reviewer-c pin"
-grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$QUAD_DEST/agents/reviewer-esc.md" || fail "quad reviewer-esc pin"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$QUAD_DEST/agents/reviewer-esc.md" || fail "quad reviewer-esc pin"
 for seat in implementer implementer-deep; do
   if grep -q '^model:' "$QUAD_DEST/agents/$seat.md"; then
     fail "quad $seat has no native pin"
@@ -2673,7 +2673,13 @@ for test_esc_provs in "claude,opencode" "antigravity,opencode" "antigravity,clau
   [ -n "$esc_seat_a" ] || fail "--providers $test_esc_provs reviewer-a primary exists"
   [ -n "$esc_seat_b" ] || fail "--providers $test_esc_provs reviewer-b primary exists"
   [ "$esc_seat_esc" != "$esc_seat_a" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat A ($esc_seat_a)"
-  [ "$esc_seat_esc" != "$esc_seat_b" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat B ($esc_seat_b)"
+  if [ "$test_esc_provs" = "antigravity,claude,codex,opencode" ]; then
+    esc_mod_esc="$(awk -F '|' '$2 ~ /reviewer-esc/ && $3 ~ /primary/ { mod=$5; gsub(/^ +| +$/, "", mod); print mod }' "$esc_md")"
+    esc_mod_b="$(awk -F '|' '$2 ~ /reviewer-b/ && $3 ~ /primary/ { mod=$5; gsub(/^ +| +$/, "", mod); print mod }' "$esc_md")"
+    [ "$esc_mod_esc" != "$esc_mod_b" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_mod_esc) shares model with seat B ($esc_mod_b)"
+  else
+    [ "$esc_seat_esc" != "$esc_seat_b" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat B ($esc_seat_b)"
+  fi
   [ -z "$esc_seat_c" ] || [ "$esc_seat_esc" != "$esc_seat_c" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat C ($esc_seat_c)"
 done
 
