@@ -68,27 +68,29 @@
     <text class="sans chip" x="1200" y="177" text-anchor="middle">codebase-design</text>
   </g>
 
-  <text class="sans sub" x="84" y="218">9 role-contract seats</text>
+  <text class="sans sub" x="84" y="218">10 dispatched roles (9 role-contract seats + task-reviewer)</text>
 
   <g>
-    <rect x="84" y="228" width="122" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono seat" x="145" y="246" text-anchor="middle">scout</text>
-    <rect x="220" y="228" width="122" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono seat" x="281" y="246" text-anchor="middle">tester</text>
-    <rect x="356" y="228" width="122" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono seat" x="417" y="246" text-anchor="middle">implementer</text>
-    <rect x="492" y="228" width="122" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono seat" x="553" y="246" text-anchor="middle">impl-deep</text>
-    <rect x="628" y="228" width="122" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono seat" x="689" y="246" text-anchor="middle">patch</text>
-    <rect x="764" y="228" width="122" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
-    <text class="mono seat" x="825" y="246" text-anchor="middle">reviewer-a</text>
-    <rect x="900" y="228" width="122" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
-    <text class="mono seat" x="961" y="246" text-anchor="middle">reviewer-b</text>
-    <rect x="1036" y="228" width="122" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
-    <text class="mono seat" x="1097" y="246" text-anchor="middle">reviewer-c</text>
-    <rect x="1172" y="228" width="122" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
-    <text class="mono seat" x="1233" y="246" text-anchor="middle">reviewer-esc</text>
+    <rect x="84" y="228" width="114" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono seat" x="141" y="246" text-anchor="middle">scout</text>
+    <rect x="206" y="228" width="114" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono seat" x="263" y="246" text-anchor="middle">tester</text>
+    <rect x="328" y="228" width="114" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono seat" x="385" y="246" text-anchor="middle">implementer</text>
+    <rect x="450" y="228" width="114" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono seat" x="507" y="246" text-anchor="middle">impl-deep</text>
+    <rect x="572" y="228" width="114" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono seat" x="629" y="246" text-anchor="middle">patch</text>
+    <rect x="694" y="228" width="114" height="28" rx="7" fill="#142838" stroke="#25556E"/>
+    <text class="mono seat" x="751" y="246" text-anchor="middle">task-rev</text>
+    <rect x="816" y="228" width="114" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
+    <text class="mono seat" x="873" y="246" text-anchor="middle">reviewer-a</text>
+    <rect x="938" y="228" width="114" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
+    <text class="mono seat" x="995" y="246" text-anchor="middle">reviewer-b</text>
+    <rect x="1060" y="228" width="114" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
+    <text class="mono seat" x="1117" y="246" text-anchor="middle">reviewer-c</text>
+    <rect x="1182" y="228" width="114" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
+    <text class="mono seat" x="1239" y="246" text-anchor="middle">reviewer-esc</text>
   </g>
 
   <!-- dispatch arrow -->
@@ -108,19 +110,19 @@
 
   <g class="mono">
     <text class="cell" x="84" y="412">implementer</text>
-    <text class="cell" x="224" y="412">antigravity / gemini-4-argon · high</text>
+    <text class="cell" x="224" y="412">antigravity / gemini-4-carbon · high</text>
     <text class="cellMuted" x="600" y="412">antigravity / claude-sonnet-5-5 · medium</text>
     <text class="cellMuted" x="960" y="412">codex / gpt-6.1-sol · medium</text>
 
     <text class="cell" x="84" y="440">tester</text>
     <text class="cell" x="224" y="440">opencode / deepseek-v4.1-flash · high</text>
     <text class="cellMuted" x="600" y="440">codex / gpt-6-luna · medium</text>
-    <text class="cellMuted" x="960" y="440">antigravity / gemini-3.8-flash</text>
+    <text class="cellMuted" x="960" y="440">antigravity / gemini-3.8-flash · medium</text>
 
     <text class="cell" x="84" y="468">reviewer-esc</text>
-    <text class="cell" x="224" y="468">opencode / kimi-k3.1-pro · high</text>
-    <text class="cellMuted" x="600" y="468">opencode / mimo-v2.6-pro</text>
-    <text class="cellMuted" x="960" y="468">opencode / qwen3.8-max</text>
+    <text class="cell" x="224" y="468">opencode / mimo-v2.6-flash (or claudeAgent)</text>
+    <text class="cellMuted" x="600" y="468">opencode / glm-5.3-flash · high</text>
+    <text class="cellMuted" x="960" y="468">opencode / deepseek-v4.1-flash · high</text>
   </g>
 
   <g>
@@ -144,28 +146,28 @@
 
   <g>
     <rect x="84" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="sans pname" x="104" y="632">Antigravity</text>
-    <text class="sans pmeta" x="104" y="652">google · anthropic · thinking_level</text>
-    <text class="mono pmodels" x="104" y="674">gemini-4-argon (high)</text>
-    <text class="mono pmodels" x="104" y="691">claude-opus-5-5 (high)</text>
+    <text class="sans pname" x="104" y="630">Antigravity</text>
+    <text class="sans pmeta" x="104" y="648">google · anthropic · thinking_level</text>
+    <text class="mono pmodels" x="104" y="668">gemini-4-carbon · argon (high)</text>
+    <text class="mono pmodels" x="104" y="686">claude-opus-5-5 · sonnet-5-5</text>
 
     <rect x="391" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="sans pname" x="411" y="632">Codex</text>
-    <text class="sans pmeta" x="411" y="652">openai · reasoningEffort</text>
-    <text class="mono pmodels" x="411" y="674">gpt-6-astra (high)</text>
-    <text class="mono pmodels" x="411" y="691">gpt-6.1-sol (medium)</text>
+    <text class="sans pname" x="411" y="630">Codex</text>
+    <text class="sans pmeta" x="411" y="648">openai · reasoningEffort</text>
+    <text class="mono pmodels" x="411" y="668">gpt-6-astra (high) · gpt-6.1-sol</text>
+    <text class="mono pmodels" x="411" y="686">gpt-6.1-terra · gpt-6-luna</text>
 
     <rect x="698" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="sans pname" x="718" y="632">OpenCode Go Plus</text>
-    <text class="sans pmeta" x="718" y="652">deepseek · xiaomi · minimax · moonshot</text>
-    <text class="mono pmodels" x="718" y="674">flash workhorses (high)</text>
-    <text class="mono pmodels" x="718" y="691">pro council + escalation</text>
+    <text class="sans pname" x="718" y="630">OpenCode Go Plus</text>
+    <text class="sans pmeta" x="718" y="648">deepseek · xiaomi · meta · zhipu</text>
+    <text class="mono pmodels" x="718" y="668">muse-spark-1.3 · deepseek-v4.1</text>
+    <text class="mono pmodels" x="718" y="686">mimo-v2.6-flash · glm-5.3-flash</text>
 
     <rect x="1005" y="604" width="290" height="100" rx="12" fill="#0E1A2A" stroke="#3B4A63" stroke-dasharray="6 5"/>
-    <text class="sans pname" x="1025" y="632">Claude Code</text>
-    <text class="sans pmeta" x="1025" y="652">quad profile only · claudeAgent</text>
-    <text class="mono pmodels" x="1025" y="674">claude-opus-5-5 (high)</text>
-    <text class="mono pmodels" x="1025" y="691">claude-sonnet-5-5 (medium)</text>
+    <text class="sans pname" x="1025" y="630">Claude Code</text>
+    <text class="sans pmeta" x="1025" y="648">quad profile only · claudeAgent</text>
+    <text class="mono pmodels" x="1025" y="668">claude-opus-5-5 (effort=high)</text>
+    <text class="mono pmodels" x="1025" y="686">claude-sonnet-5-5 · haiku-5-5</text>
   </g>
 
   <!-- ============ FEEDBACK LOOP CHANNEL ============ -->

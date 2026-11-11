@@ -27,66 +27,81 @@ The harness is provider-neutral: which provider, model, and effort runs each rol
 
 ## 🛠️ Installation & Setup
 
-### Quickstart Tracks (Pick One)
-
-Every track is complete on its own. Run from inside the cloned repository (`git clone https://github.com/DennisLoska/skills.git && cd skills`). Every track ends with `./install.sh --verify` (alias `--doctor`), which checks installation health non-destructively (exit code 0 on success).
-
-#### Track 1: T3 Code (Multi-Provider: Antigravity + Codex + OpenCode [+ Claude Code])
-- **Install:** `./install.sh --target all` (default `tri` profile), `./install.sh --profile quad --target all` (with Claude Code), or compose your exact provider stack dynamically with `./install.sh --providers antigravity,codex,claude,opencode --target all`.
-- **Configure (OpenCode threads):** Add `~/.config/opencode/HARNESS.md` and `~/.config/opencode/PROVIDERS.md` to `instructions` in `~/.config/opencode/opencode.json`. Antigravity, Codex, and Claude Code threads load instructions automatically.
-- **Verify:** `./install.sh --verify`
-- **Run:** In T3 Code, prompt `oneshot <task>`.
-
-#### Track 2: OpenCode V2 Standalone
-- **Install:** `./install.sh --profile opencode-go`
-- **Configure:** Add `~/.config/opencode/HARNESS.md` and `~/.config/opencode/PROVIDERS.md` to `instructions` in `~/.config/opencode/opencode.json`.
-- **Verify:** `./install.sh --verify --target opencode`
-- **Run:** In OpenCode V2, prompt `oneshot <task>`.
-
-#### Track 3: Codex Standalone
-- **Install:** `./install.sh --profile codex --target codex`
-- **Verify:** `./install.sh --verify --target codex`
-- **Run:** In Codex CLI/app, prompt `oneshot <task>` (loads `$CODEX_HOME/AGENTS.md` automatically).
-
-#### Track 4: Antigravity Standalone
-- **Install:** `./install.sh --profile antigravity --target antigravity`
-- **Verify:** `./install.sh --verify --target antigravity`
-- **Run:** In Antigravity, prompt `oneshot <task>` (loads `rules/HARNESS.md` and `rules/PROVIDERS.md` automatically).
-
-#### Track 5: Claude Code Standalone
-- **Install:** `./install.sh --profile claude --target claude`
-- **Verify:** `./install.sh --verify --target claude`
-- **Run:** In Claude Code, prompt `oneshot <task>` (loads `CLAUDE.md` automatically).
+### Prerequisites
+- **Shell**: Bash >= 3.2 (default on macOS, Linux, and WSL).
+- **Supported Hosts**: T3 Code (multi-provider orchestrator), OpenCode V2, Codex CLI/Desktop, Antigravity, and Claude Code.
 
 ---
 
-### Installer Reference
+### Step-by-Step Quickstart
 
+#### Step 1: Clone the repository
 ```sh
-./install.sh                  # default: installs into OpenCode (${OPENCODE_CONFIG:-$HOME/.config/opencode})
-./install.sh --target all     # installs into OpenCode, Codex, Antigravity (+ T3 instances), and Claude Code
+git clone https://github.com/DennisLoska/skills.git
+cd skills
 ```
 
-| Flag | Effect |
-| --- | --- |
-| `--target <targets>` | Comma-separated host targets: `opencode`, `codex`, `antigravity`, `claude`, or `all` (default `opencode`). |
-| `--profile <name>` | Bind to a shipped profile: `tri` (default), `quad`, `opencode-go`, `codex`, `antigravity`, `claude`. |
-| `--providers <list>` | Dynamically compose a profile from enabled providers: `antigravity`, `codex`, `claude`, `opencode`. Eliminates same-provider fallback traps and generates custom cross-provider routing. |
-| `--profile-file <path>` | Bind to a custom external profile file. Recorded in manifest and reused on refresh. |
-| `--verify`, `--doctor` | Non-destructive health check. Verifies manifest, core files, host wiring, and shared state. |
-| `--force` | Overwrite existing destination files and repair symlinked parent directories. |
-| `--prune` | Remove files recorded in previous manifest that this run no longer produces. Preserves unowned files. |
-| `-h`, `--help` | Print usage and exit 0. |
+#### Step 2: Choose your profile & run the installer
+Select the command matching your environment and available AI subscriptions:
 
-**OpenCode instruction registration (`~/.config/opencode/opencode.json`):**
-```jsonc
-{
-  "$schema": "https://opencode.ai/config.json",
-  "instructions": [
-    "~/.config/opencode/HARNESS.md",
-    "~/.config/opencode/PROVIDERS.md"
-  ]
-}
+| Environment & Available Subscriptions | Profile | Install Command | What Gets Wired |
+| --- | --- | --- | --- |
+| **T3 Code: Antigravity + Codex + OpenCode Go** *(Recommended)* | `tri` (default) | `./install.sh --target all` | Multi-provider orchestration across all hosts |
+| **T3 Code: Antigravity + Codex + OpenCode Go + Claude Code** | `quad` | `./install.sh --profile quad --target all` | Offloads Anthropic fallbacks to dedicated Claude Code |
+| **T3 Code: Custom Provider Stack** | Dynamic | `./install.sh --providers <list> --target all` | e.g. `--providers antigravity,codex` |
+| **OpenCode V2 Standalone** | `opencode-go` | `./install.sh --profile opencode-go` | Standard `~/.config/opencode` |
+| **Codex CLI/Desktop Standalone** | `codex` | `./install.sh --profile codex --target codex` | Standard `~/.codex` (`$CODEX_HOME`) |
+| **Antigravity Standalone** | `antigravity` | `./install.sh --profile antigravity --target antigravity` | Standard `~/.antigravity` rules & skills |
+| **Claude Code Standalone** | `claude` | `./install.sh --profile claude --target claude` | Standard `~/.claude` (`CLAUDE.md`) |
+
+> [!TIP]
+> **Running T3 Code?** Always pass `--target all`. This installs skills and contracts across all host locations so T3 Code's `delegate_task` can seamlessly dispatch subagents to any connected provider.
+
+#### Step 3: Register instructions (OpenCode only)
+- **Codex, Antigravity, and Claude Code**: **Zero configuration needed!** The installer writes to standard host locations (`AGENTS.md`, `rules/`, `CLAUDE.md`) which are auto-loaded by these platforms.
+- **OpenCode V2**: OpenCode requires registering instructions in `~/.config/opencode/opencode.json`:
+  ```jsonc
+  {
+    "$schema": "https://opencode.ai/config.json",
+    "instructions": [
+      "~/.config/opencode/HARNESS.md",
+      "~/.config/opencode/PROVIDERS.md"
+    ]
+  }
+  ```
+
+#### Step 4: Verify installation health
+Run the non-destructive verification tool (alias `--doctor`) to check manifest integrity, permissions, and host wiring:
+```sh
+./install.sh --verify
+```
+Exit code `0` confirms a complete, healthy installation.
+
+---
+
+### Installer Options & Maintenance
+
+```sh
+./install.sh [flags]
+```
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--target <targets>` | Comma-separated host targets: `opencode`, `codex`, `antigravity`, `claude`, or `all`. | `opencode` |
+| `--profile <name>` | Shipped profile: `tri` (default), `quad`, `opencode-go`, `codex`, `antigravity`, `claude`. | `tri` |
+| `--providers <list>` | Dynamically generate profile from active providers: `antigravity`, `codex`, `claude`, `opencode`. | None |
+| `--profile-file <path>` | Bind to a custom external profile file. Recorded in manifest and preserved on updates. | None |
+| `--verify`, `--doctor` | Non-destructive health check (checks manifests, files, symlinks, state). | - |
+| `--force` | Overwrite existing destination files and repair symlinked directories. | `false` |
+| `--prune` | Remove obsolete files recorded in earlier manifests while preserving user state. | `false` |
+| `-h`, `--help` | Print usage summary and exit. | - |
+
+**Updating to latest version:**
+Pull upstream updates and refresh your installed targets while keeping your machine-local quota ledger intact:
+```sh
+git pull
+./install.sh --force --prune
+./install.sh --verify
 ```
 
 ---
@@ -246,7 +261,7 @@ Every skill and agent seat can also run independently outside `oneshot`:
 
 ---
 
-## 🧠 Provider Layer
+## 🧠 Provider Layer & Core Concepts
 
 The harness separates concerns into three decoupled layers:
 
@@ -255,6 +270,46 @@ The harness separates concerns into three decoupled layers:
 | **Harness (provider-neutral)** | Pipeline, feedback loops, caps, gates, council rules, permission policies, role contracts, and the Dispatch Adapter | `skills/**`, `agents/*.md` (no `model:` line), [`AGENTS.md`](./AGENTS.md) |
 | **Provider (swappable)** | Role rungs (`primary` &rarr; `fallback` &rarr; `last-resort`), model families, effort, privacy tags, and quota pools | `providers/<profile>.md`, dynamic `--providers <list>`, or external file |
 | **Install (binding)** | Binds active profile to selected host targets (`opencode`, `codex`, `antigravity`, `claude`, or `all`) | `install.sh --profile <name>` or `install.sh --providers <list>` |
+
+---
+
+### 💡 High-Level Concepts: Tri vs Quad, Council, and Fallbacks
+
+#### 1. `tri` vs `quad` Profiles: The Multi-Subscription Strategy
+
+- **`tri` (The 3-Subscription Foundation: Antigravity + Codex + OpenCode Go Plus)**:
+  - **Philosophy**: Allocates expensive frontier reasoning tokens where human judgment matters most, while running high-volume pipeline phases on high-allowance open-weight models.
+  - **Workload Split**:
+    - **Antigravity**: Carries Google Gemini frontier reasoning (`gemini-4-carbon`, `gemini-4-argon`) for primary implementation (`implementer`, `implementer-deep`), plus Anthropic Claude (`claude-opus-5-5`, `claude-sonnet-5-5`).
+    - **Codex**: Carries OpenAI frontier reasoning (`gpt-6-astra`) for Council Seat A, `gpt-6.1-sol` for the pipeline driver, `gpt-6.1-terra` for task reviews, and `gpt-6-luna` for fast testing/compaction.
+    - **OpenCode Go Plus**: Carries open-weight models with massive 5-hour rolling allowances (~60,000&ndash;90,000 req/5h) for `scout` (`mimo-v2.6-flash`), `tester` & `patch` (`deepseek-v4.1-flash`), Council Seat C (`muse-spark-1.3-contributor`), and escalation (`mimo-v2.6-flash` / `glm-5.3-flash`).
+- **`quad` (The 4-Subscription Powerhouse: `tri` + Dedicated Claude Code)**:
+  - **The Problem in `tri`**: In Antigravity, Anthropic Claude quota is subject to tight 5-hour rolling caps. If workhorse fallbacks (`implementer` fallback, `driver` fallback, `task-reviewer` fallback, or compaction) consume Anthropic tokens in Antigravity, they can exhaust the quota needed for Council Seat B (`claude-opus-5-5`) before Phase 6 review even begins!
+  - **The Quad Solution**: Connects your standalone Claude Code subscription (via T3 Code provider instance `claudeAgent`). `quad` offloads all high-volume Anthropic tasks to `claudeAgent`, shielding Antigravity's Claude pool strictly for Council Seat B (`reviewer-b`).
+
+#### 2. The Council: Adversarial Multi-Family Review (Phase 6)
+
+- **Why Multi-Family?** Single-model reviews suffer from self-confirmation bias, hallucinated validations, and identical architectural blind spots. The Council enforces rigorous, multi-perspective scrutiny before any branch can merge.
+- **Council Seats**:
+  - **Seat A (`reviewer-a`)**: OpenAI frontier family (`gpt-6-astra` via Codex).
+  - **Seat B (`reviewer-b`)**: Anthropic frontier family (`claude-opus-5-5` via Antigravity or `claudeAgent`).
+  - **Seat C (`reviewer-c`)**: Meta / Open-source frontier family (`muse-spark-1.3-contributor` via OpenCode Go).
+  - **Escalation (`reviewer-esc`)**: A 4th independent family dispatched if the council deadlocks after 3 rounds.
+- **Core Council Invariants**:
+  - **Author-Reviewer Independence**: A model that authored code (`implementer`, `tester`, `patch`, or fixers) cannot review its own code. Identical-model self-review is strictly forbidden.
+  - **Non-Blocking Model Independence**: Council requires &ge;2 distinct non-author reviewer models. If families overlap or a seat is lost, model-level independence satisfies the author vote so development proceeds without deadlocks.
+  - **Actionable Severity Syntax**: Findings must strictly follow `path:line: emoji severity: problem. fix.` (RED = bug/must-fix, YELLOW = risk, BLUE = nit on request). Zero subjective chatter or performative praise.
+  - **Closed Fixer Loop**: Red findings trigger `implementer` fixes &rarr; `tester` regression checks &rarr; `make-ci-green` PR checks &rarr; re-review by all active council seats together (maximum 3 rounds).
+
+#### 3. Cybernetic Fallbacks & Quota Resilience
+
+- **Per-Role 3-Tier Ladder**: Every role in `PROVIDERS.md` defines `primary` &rarr; `fallback` &rarr; `last-resort`. Crucially, fallbacks swap provider quota pools so a single provider 429 never deadlocks a task.
+- **Shared Quota Pools & Soft Caps**: Models sharing an underlying subscription pool (e.g. `antigravity-claude`) are grouped into pools. Soft caps prevent workhorse tasks from consuming tokens reserved for critical seats.
+- **Machine-Local Quota Ledger (`state/quota-ledger.tsv`)**: When a 429 or rate limit occurs, the pool and its cooldown timestamp are recorded in the ledger. Subsequent dispatches immediately skip dead pools without burning API calls or latency.
+- **Sibling Hand-Off & Backup Ladder**: If a role exhausts all 3 ladder rungs, implementation seats attempt sibling hand-off (`implementer-deep` &harr; `implementer`), followed by ascending traversal of `## Backup ladder`.
+- **Hard Budget Stops**: When all eligible rungs are exhausted, the harness stops cleanly with `budget stop: <role>` and reports the earliest reset time, refusing to silently downgrade to an inferior model or hallucinate.
+
+---
 
 ### Which profile do I pick?
 
