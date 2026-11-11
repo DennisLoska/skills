@@ -27,7 +27,7 @@ When `auto-approve: true` is present (read from the spec header, or from the dis
 
 Otherwise present exactly these, get user choice:
 
-1. **Merge PR** - `gh pr merge --squash -t "<subject>"` then handoff (Part 3)
+1. **Merge PR** - parse the effective last `council_verdict` line from `$(git rev-parse --git-dir)/info/oneshot-state.md` and require `council_verdict: PASS`, `mode` in `nominal|degraded|escalation`, and `head=<sha>` matching local `git rev-parse HEAD` (or, for standalone runs outside oneshot where no state artifact exists, verify a Phase 6 Council consensus PASS on the current `HEAD` `<sha>` in the current session; otherwise run Phase 6 Council before merge), then enforce remote PR head match via `gh pr merge --squash --match-head-commit <sha> -t "<subject>"` and handoff (Part 3)
 2. **Keep PR open** - done, report URL
 3. **Keep branch** - done, report branch name
 4. **Discard** - report state and stop; destructive removal only on explicit user instruction afterward
@@ -48,6 +48,7 @@ Same menu as the standalone flow, reusable any time a PR is merged:
 
 ## Rules
 
+- Under oneshot, merging parses the effective last `council_verdict` line in `$(git rev-parse --git-dir)/info/oneshot-state.md` and requires an audited Phase 6 `council_verdict: PASS` with `mode` in `nominal|degraded|escalation` (`mode=nominal` >= 2/3, `mode=degraded` unanimous 2/2, or post-round-3 `mode=escalation` single `reviewer-esc` PASS with zero unresolved confirmed reds, non-author family, and green tests) and `head=<sha>` matching both local `git rev-parse HEAD` and the remote PR head via `gh pr merge --squash --match-head-commit <sha>`. If the effective last `council_verdict` is `FAIL`, carries an unrecognized `mode`, or its `<sha>` differs from local `HEAD` or remote PR head, refuse to merge. For standalone runs outside oneshot (where no state artifact exists), allow a Phase 6 Council consensus PASS on the current `HEAD` `<sha>` in the current session (still passing `gh pr merge --squash --match-head-commit <sha>`). Never merge without verified Council consensus PASS.
 - Never merge on red tests or open review findings
 - Never create-PR-if-none when tests are red: verify first
 - Never commit to master directly; master advances only via PR merge

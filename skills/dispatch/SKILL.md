@@ -18,10 +18,11 @@ Execute a plan by dispatching a fresh subagent per task, with two-stage review a
 ## Step 0: Routing Bootstrap
 
 <HARD-GATE>
-Before dispatching ANY subagent (`tester`, `implementer`, `implementer-deep`, `patch`, or `task-reviewer`), verify all three bootstrap checks:
+Before dispatching ANY subagent (`tester`, `implementer`, `implementer-deep`, `patch`, or `task-reviewer`), verify all four bootstrap checks:
 1. **Load `HARNESS.md` and `PROVIDERS.md` into context:** Check whether `# Cybernetic SDLC Harness` (`HARNESS.md`) AND the active provider profile routing table (`PROVIDERS.md`) are BOTH already loaded verbatim in this session. If either is missing, read `../_harness/HARNESS.md` and `../_harness/PROVIDERS.md` (or `../../HARNESS.md` and `../../PROVIDERS.md`) relative to this skill's directory NOW before taking any other action.
 2. **Select the `HARNESS.md` Dispatch Adapter path (including lazy MCP servers):** Inspect both eager tools and any lazy-loaded MCP server schemas in your environment before choosing a subagent tool. Run the one-time session capability check required by `HARNESS.md` `## Dispatch Adapter` Path 1 when cross-provider orchestration tools are present (reading their lazy MCP schema files first when needed), and NEVER fall back to native same-session subagent tools while Path 1 orchestration tools are available.
 3. **Forbid same-model inheritance:** Every dispatch MUST resolve its exact `<provider>/<model> (<effort>)` rung from `PROVIDERS.md` (checking `../../state/quota-ledger.tsv`) and start with the header defined in `HARNESS.md` `## Dispatch Adapter`: seat dispatches (`scout`, `tester`, `implementer`, `implementer-deep`, `patch`, `reviewer-*`) carry `Role contract:` + `Rung:` (or `Rung:` only on autoloaded pinned seats), while `task-reviewer` and `design` carry `Rung:` only (no `Role contract:`, as they have no agent file). Spawning native `inherit`/same-model subagents when `PROVIDERS.md` routes roles across distinct providers or model families is forbidden.
+4. **Forbid driver inline execution:** The main driver session orchestrates and NEVER writes implementation or production code inline. All implementation edits, test changes, and fixes MUST be performed through fresh subagents (`tester`, `implementer`, `implementer-deep`, or `patch`) routed via `HARNESS.md` Dispatch Adapter. Writing code directly inline in the main orchestrator session is a hard protocol violation.
 </HARD-GATE>
 
 ## When to Use
@@ -29,24 +30,16 @@ Before dispatching ANY subagent (`tester`, `implementer`, `implementer-deep`, `p
 ```dot
 digraph when_to_use {
     "Have implementation plan?" [shape=diamond];
-    "Tasks mostly independent?" [shape=diamond];
-    "Run in this session?" [shape=diamond];
-    "dispatch" [shape=box];
-    "shape first" [shape=box];
-    "Manual execution" [shape=box];
-
-    "Have implementation plan?" -> "Tasks mostly independent?" [label="yes"];
+    "Have implementation plan?" -> "dispatch" [label="yes"];
     "Have implementation plan?" -> "shape first" [label="no"];
-    "Tasks mostly independent?" -> "Run in this session?" [label="yes"];
-    "Tasks mostly independent?" -> "Manual execution" [label="no - tightly coupled"];
-    "Run in this session?" -> "dispatch" [label="yes"];
 }
 ```
 
-**vs manual execution:**
-- Fresh subagent per task, no context pollution
+**Autonomous Subagent Isolation:**
+In the cybernetic harness, the driver orchestrates and NEVER writes implementation code inline. All implementation occurs via isolated subagents:
+- Fresh subagent per task, zero context pollution
 - Two-stage review after each task: spec compliance first, then code quality
-- Faster iteration, no human-in-loop between tasks
+- Strict author-family tracking recorded per task commit
 - Subagents can ask questions before and during work
 
 ## Working Branch & Worktrees

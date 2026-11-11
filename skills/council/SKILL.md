@@ -17,7 +17,7 @@ Consensus review by 3 independent reviewers, followed by disciplined application
 Before dispatching ANY council reviewer or fixer subagent, verify all three bootstrap checks:
 1. **Load `HARNESS.md` and `PROVIDERS.md` into context:** Check whether `# Cybernetic SDLC Harness` (`HARNESS.md`) AND the active provider profile routing table (`PROVIDERS.md`) are BOTH already loaded verbatim in this session. If either is missing, read `../_harness/HARNESS.md` and `../_harness/PROVIDERS.md` (or `../../HARNESS.md` and `../../PROVIDERS.md`) relative to this skill's directory NOW before taking any other action.
 2. **Select the `HARNESS.md` Dispatch Adapter path (including lazy MCP servers):** Inspect both eager tools and any lazy-loaded MCP server schemas in your environment before choosing a subagent tool. Run the one-time session capability check required by `HARNESS.md` `## Dispatch Adapter` Path 1 when cross-provider orchestration tools are present (reading their lazy MCP schema files first when needed), and NEVER fall back to native same-session subagent tools while Path 1 orchestration tools are available.
-3. **Forbid same-model council seats:** Every dispatched council seat (`reviewer-a`, `reviewer-b`, `reviewer-c`, `reviewer-esc`) MUST resolve its rung from `PROVIDERS.md` (carrying `Role contract:` + `Rung:` on non-autoloaded paths, or `Rung:` only on autoloaded pinned seats), with no two active seats sharing a model family and at least 2 (`>= 2`) healthy independent families overall (else stop with `yellow: degraded council`). Never spawn native `inherit`/same-model subagents for council seats.
+3. **Forbid same-model council seats and author self-review:** Every dispatched council seat (`reviewer-a`, `reviewer-b`, `reviewer-c`, `reviewer-esc`) MUST resolve its rung from `PROVIDERS.md` (carrying `Role contract:` + `Rung:` on non-autoloaded paths, or `Rung:` only on autoloaded pinned seats), with no two active seats sharing a model family and at least 2 (`>= 2`) healthy independent families overall (else stop with `yellow: degraded council`). Never spawn native `inherit`/same-model subagents for council seats. Furthermore, no council seat may review code authored by the identical model, and in nominal mode at least one PASS vote must come from a non-author family (if all nominal seats belong to author families, `reviewer-esc` supplies the non-author vote per Request phase step 6; in degraded mode when all healthy families are authors, dual-family model-level independence applies per step 6); reviewing one's own code without required model/family independence is a hard protocol violation.
 </HARD-GATE>
 
 ## Request phase
@@ -39,30 +39,30 @@ Output:
 No praise. No "looks good". No scope creep.
 ```
 
-4. If a seat's rung is exhausted, unreachable, soft-cap reserved, or fails a transient retry mid-round: re-dispatch the SAME seat role on its next eligible ladder rung (or matching `## Backup ladder` row) from the active provider profile per AGENTS.md Routing Rules (mechanics below). Rerun only that seat. Never fill a seat with a rung whose family is active on another council seat anywhere in this PR (AGENTS.md Routing Rules).
+4. Mid-round provider retry vs Round N+1 re-review: If a seat's rung is exhausted, unreachable, soft-cap reserved, or fails a transient retry mid-round: re-dispatch that SAME seat role on its next eligible ladder rung (or matching `## Backup ladder` row) from the active provider profile per AGENTS.md Routing Rules (mechanics below). Rerun only that failed seat to complete the current round. Conversely, whenever implementation fix subagents push new commits in Round N+1, ALL active council seats (all 3 in nominal, all 2 in degraded) MUST be re-dispatched against the new HEAD. Cherry-picking or re-dispatching only a single rejecting seat across rounds is strictly forbidden.
 5. Confidentiality gate: if the review brief or referenced diff carries a confidential flag, the AGENTS.md Routing Rules privacy gate applies to every seat (`privacy: trains` rungs in the active provider profile auto-skip); demote to the next privacy-safe rung and announce.
 
-6. Author-family rule: PASS also needs the author-family vote from the AGENTS.md Council Contract (at least one PASS from a council seat whose family is not an author family, or dual-family model-level independence in degraded council). Read the author families from the state artifact. If every seat's family is an author family: in nominal 3-seat mode dispatch `reviewer-esc` for the non-author vote on a rung whose family is neither a council-seat nor an author family (AGENTS.md Council Contract; one extra dispatch counted against the 14-dispatch guard); in degraded mode with 2 healthy families both in the author set, accept intra-family model-level independence (each seat's reviewer model must differ from the identical author model) and record in state: `degraded council author vote: dual-family model-level independence (<model1>, <model2>)`; if that is impossible, stop with `yellow: degraded council`.
+6. Author-model & author-family rules: Read `author_models` and `author_families` (plus the author commit log) from `$(git rev-parse --git-dir)/info/oneshot-state.md` before dispatching seats. When any `reviewer-*` seat's primary (or candidate) rung `model` matches a recorded author model in `author_models`, skip that rung to the next eligible ladder or `## Backup ladder` rung and announce `demote: <seat> -> <provider>/<model> (author model conflict)` (`AGENTS.md` Routing Rules; if zero eligible non-author-model rungs remain for that seat, the seat is lost). PASS also needs the author-family vote from the `AGENTS.md` Council Contract (at least one PASS from a council seat whose family is not in `author_families`, or dual-family model-level independence in degraded council). If every seat's family is an author family: in nominal 3-seat mode dispatch `reviewer-esc` for the non-author vote on a rung whose family is neither a council-seat nor an author family and whose model is not in `author_models` (`AGENTS.md` Council Contract; one extra dispatch counted against the 14-dispatch guard); in degraded mode with 2 healthy families both in `author_families`, accept intra-family model-level independence (each seat's reviewer model must differ from `author_models`) and record in state: `degraded council author vote: dual-family model-level independence (<model1>, <model2>)`; if that is impossible, stop with `yellow: degraded council`.
 
 ## Fallback mechanics
 
-Every seat has a contract file (`agents/<seat>.md`) and a primary rung in the active provider profile. Before walking a seat's ladder, check `<dest>/state/quota-ledger.tsv` and per-run soft-cap counters (`AGENTS.md` Routing Rules). When its rung returns a usage-limit or 429-style provider error (`exhausted`, recorded in the quota ledger), is `unreachable`, or fails a `transient` retry:
+Every seat has a contract file (`agents/<seat>.md`) and a primary rung in the active provider profile. Before walking a seat's ladder, check `<dest>/state/quota-ledger.tsv`, per-run soft-cap counters, and `author_models` in `$(git rev-parse --git-dir)/info/oneshot-state.md` (`AGENTS.md` Routing Rules). When its rung returns a usage-limit or 429-style provider error (`exhausted`, recorded in the quota ledger), is `unreachable`, fails a `transient` retry, or conflicts with `author_models`:
 
 ```
 re-dispatch: AGENTS.md Dispatch Adapter, role <seat>, rung <next ladder or backup rung>
-announce: "seat <seat> demoted to <provider>/<model>" (or "backup: <seat> -> <provider>/<model>")
+announce: "seat <seat> demoted to <provider>/<model>" (or "backup: <seat> -> <provider>/<model>", or "demote: <seat> -> <provider>/<model> (author model conflict)")
 ```
 
-- A demotion (including onto `## Backup ladder`) never breaks family independence: a seat may demote within its own family, but skip any rung whose family is active on another council seat anywhere in this PR or equals the `reviewer-esc` family (`AGENTS.md` Routing Rules, backup ladder walk).
+- A demotion (including onto `## Backup ladder`) never breaks family or author-model independence: a seat may demote within its own family, but skip any rung whose model is in `author_models`, whose family is active on another council seat anywhere in this PR, or whose family equals the `reviewer-esc` family (`AGENTS.md` Routing Rules, backup ladder walk).
 - A seat with zero healthy ladder and backup rungs = seat lost. Continue if at least 2 independent families remain; otherwise stop with `yellow: degraded council` (and report exhausted pools + `earliest resume` per `AGENTS.md` Routing Rules, budget stop & resume when quota exhaustion caused the stop).
 - The escalation seat is a separate agent (`reviewer-esc`), routed by its rung in the active provider profile. It never substitutes a lost seat mid-round; it enters only after the round budget is spent, or to supply the author-family vote above.
 
 ## Verdict phase
 
-- PASS = in nominal 3-seat mode at least 2 of 3 seats vote PASS (or in degraded mode unanimous 2 of 2 healthy seats vote PASS) AND zero unresolved confirmed red findings from any seat, and tests green, or the no-tests rule satisfied, plus the author-family vote above. A confirmed red from a single FAIL seat blocks PASS just the same, until it is fixed or rebutted with evidence.
+- PASS = in `mode=nominal` (3-seat mode) at least 2 of 3 seats vote PASS, in `mode=degraded` unanimous 2 of 2 healthy seats vote PASS, or in post-round-3 `mode=escalation` (`round=esc`) the single `reviewer-esc` seat votes PASS on a non-author, unused-council family; ALL modes require zero unresolved confirmed red findings and green tests (`mode=nominal` allows the `no-tests` exception under `AGENTS.md` Review contracts; `mode=degraded` and `mode=escalation` require green tests), plus the author-family vote above in nominal/degraded modes. A confirmed red from a single FAIL seat blocks PASS just the same, until it is fixed or rebutted with evidence.
 - Fewer than 2 families healthy: STOP with `yellow: degraded council` per the canonical degraded-council rule in `AGENTS.md` Routing Rules (Degraded council).
 - Merge findings into one list, severity sorted red -> yellow -> blue. Dedupe identical findings, keep the sharpest wording.
-- Escalation seat independence spans the whole PR: `reviewer-esc` never runs on a model family a council seat (`reviewer-a`, `reviewer-b`, `reviewer-c`) already used this PR (check the `family` column of the active provider profile per ladder rung). On conflict, demote along the `reviewer-esc` ladder in the profile until an unused family is found, else stop and surface `yellow: degraded council`.
+- Escalation seat independence spans the whole PR: `reviewer-esc` never runs on a model in `author_models`, an author family in `author_families`, or a model family a council seat (`reviewer-a`, `reviewer-b`, `reviewer-c`) already used this PR (check the `family` and `model` columns of the active provider profile per ladder/backup rung). On conflict, demote along the `reviewer-esc` ladder (then `## Backup ladder`) until an eligible unused non-author family is found, else stop and surface `yellow: degraded council`.
 
 ## Receiving phase (rigor)
 
@@ -80,24 +80,24 @@ total review batches = 3, counted out loud:
     dispatch fresh fixer subagents from the implementation seats (`implementer`, or `implementer-deep` for hard clusters; one per finding cluster, max 2 files each; see `AGENTS.md` Review contracts for fixer seat routing); allow `patch` only for a finding that needs a 1-2 file edit with no test run
     implementation-seat fixers run tests before declaring done
     re-run verify skill checks (tests, lint, typecheck, build)
-    round N+1 review = 3 fresh reviewer seats
+    round N+1 review = all active fresh reviewer seats (all 3 in nominal, all 2 in degraded; never a single seat)
     PASS + green -> done
     streamed, no user pause
 ```
 
-- Rounds exhausted -> escalation review on the `reviewer-esc` rung of the active provider profile (own family, not one already used).
-- Escalation still FAIL -> STOP: report rounds, final findings, test output. This is one of the council stop points (alongside the degraded-council stop).
-- Reviewer never fixes. Fixer never reviews. Fresh subagent each round, both ways.
+- Rounds exhausted -> escalation review on the `reviewer-esc` rung of the active provider profile (non-author family, unused by council seats, model not in `author_models`): if `reviewer-esc` votes PASS with zero unresolved confirmed red findings and green tests, write `council_verdict: PASS round=esc mode=escalation head=<sha>` to `$(git rev-parse --git-dir)/info/oneshot-state.md`.
+- Escalation still FAIL -> write `council_verdict: FAIL round=esc mode=escalation head=<sha>` to `$(git rev-parse --git-dir)/info/oneshot-state.md`, then STOP: report rounds, final findings, test output. This is one of the council stop points (alongside the degraded-council stop).
+- Reviewer never fixes. Fixer never reviews. Fresh subagent each round, both ways. Never re-dispatch only one rejecting seat in round N+1; all active seats must evaluate the fixed code together.
 
 ## No test suite
 
-See `AGENTS.md` Review contracts for the canonical `no-tests` gate rule. Operational steps: label a `no-tests` PASS `provisional: no-tests` in the verdict, have the reviewer flag `no tests: yellow` in findings, and never invent a test suite in council (that belongs to `tdd` in the task loop).
+See `AGENTS.md` Review contracts for the canonical `no-tests` gate rule. Operational steps: label a `no-tests` PASS `provisional: no-tests` in the verdict (`mode=nominal` only; `mode=degraded` and `mode=escalation` require green tests), have the reviewer flag `no tests: yellow` in findings, and never invent a test suite in council (that belongs to `tdd` in the task loop).
 
 ## Output format
 
 ```
-Round N: [verdicts (3 nominal, or 2 active + lost seats in degraded)] -> merged findings (r red, y yellow, b blue, k rejected)
+Round N: [verdicts (3 nominal, 2 active + lost seats in degraded, or 1 reviewer-esc in escalation)] -> merged findings (r red, y yellow, b blue, k rejected)
 Verdict: PASS | FAIL | DEGRADED
 ```
 
-Then on PASS: one-line summary. On FAIL: the merged finding list. Stop.
+State artifact verdict schema: `council_verdict: PASS|FAIL round=<n> mode=<nominal|degraded|escalation> head=<sha>` (where `<n>` is `1..3` for nominal/degraded rounds or `esc` for escalation, and `<sha>` is `git rev-parse HEAD`). On PASS: Phase 6 (and standalone council when a git repo is present) appends/updates `council_verdict: PASS round=<n> mode=<nominal|degraded|escalation> head=<sha>` in `$(git rev-parse --git-dir)/info/oneshot-state.md` (creating `$(git rev-parse --git-dir)/info` if missing), then outputs a one-line summary. On FAIL: write `council_verdict: FAIL round=<n> mode=<nominal|degraded|escalation> head=<sha>` when updating the state artifact, output the merged finding list, and stop.
