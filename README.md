@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Skills-12%20Pipeline%20Units-1AD1A5?style=flat-square" alt="12 Pipeline Skills" />
   <img src="https://img.shields.io/badge/Council-3%20Independent%20Families-FF6B35?style=flat-square" alt="3-Family Council" />
   <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
-  <img src="https://img.shields.io/badge/Tests-144%2F144%20Passing-2ECC71?style=flat-square" alt="144/144 Tests Passing" />
+  <img src="https://img.shields.io/badge/Tests-146%2F146%20Passing-2ECC71?style=flat-square" alt="146/146 Tests Passing" />
   <img src="https://img.shields.io/badge/Profiles-tri%20%7C%20quad%20%7C%20opencode--go%20%7C%20codex%20%7C%20antigravity%20%7C%20claude%20%7C%20--providers-8B5CF6?style=flat-square" alt="Profiles: tri, quad, opencode-go, codex, antigravity, claude, or dynamic --providers" />
 </p>
 
@@ -103,7 +103,7 @@ Every track is complete on its own. Run from inside the cloned repository (`git 
 | --- | --- |
 | **What is it?** | A gated SDLC controller (`oneshot`) plus 12 pipeline skills and 9 role-contract subagent seats, wired by four closed feedback loops. |
 | **What runs where?** | Every role resolves to a *rung* (`primary` &rarr; `fallback` &rarr; `last-resort`) in a swappable provider profile, then to a provider instance, model, and effort. No harness file names a model. |
-| **What does it guarantee?** | Tests-first task loops, evidence-before-claims verification, three independent council families, author-independent PASS, and hard budget stops instead of silent model downgrades. |
+| **What does it guarantee?** | Tests-first task loops, evidence-before-claims verification, three independent council families (with non-blocking model independence), author-independent PASS, and hard budget stops instead of silent model downgrades. |
 | **Where does it install?** | OpenCode, Codex, Antigravity, and Claude Code, one profile bound at install time (`--target all` for every host). |
 | **How do I start?** | Run the track command for your host in [Installation & Setup](#️-installation--setup), then prompt `oneshot <task>`. |
 
@@ -194,7 +194,7 @@ flowchart LR
 
 ### 1. Full Autonomous Pipeline (`oneshot` - 3 Human Gates)
 
-Trigger the end-to-end controller by prefixing a task with `oneshot`:
+Trigger the end-to-end controller by prefixing a task with `oneshot` (or `"use oneshot"`, `"use the oneshot harness"`):
 
 ```text
 oneshot build a rate-limited webhook delivery worker with exponential backoff, dead-letter queue, and SQLite persistence
@@ -203,12 +203,12 @@ oneshot build a rate-limited webhook delivery worker with exponential backoff, d
 **Pipeline execution flow (7 numbered phases plus 6.5):**
 1. **Phase 1 &ndash; `shape` + `domain-modeling` + `codebase-design`:** ensures feature branch/worktree, explores context via `scout`, updates `GLOSSARY.md`/ADRs, commits spec to `docs/specs/`. *Pauses at Gate 1 for design approval.*
 2. **Phase 2 &ndash; `plan`:** targets exact `path:line` references via `scout`, decomposes spec into bite-size TDD tasks in `docs/plans/`. *Pauses at Gate 2 for plan approval.*
-3. **Phase 3 &ndash; `dispatch` + `tdd` (L1 Task Loop):** dispatches `tester` for failing tests, `implementer`/`implementer-deep`/`patch` to make them pass, and runs 2-stage review via `task-reviewer`.
+3. **Phase 3 &ndash; `dispatch` + `tdd` (L1 Task Loop):** dispatches `tester` for failing tests, `implementer`/`implementer-deep`/`patch` to make them pass, and runs 2-stage review via `task-reviewer`. The driver orchestrates without writing code inline.
 4. **Phase 4 &ndash; `verify`:** runs full test suite, lint, and build via `tester` to collect fresh pass/fail command evidence.
 5. **Phase 5 &ndash; `land` (PR Filing):** pushes branch and opens GitHub PR with summary, test plan, and quota budget block.
 6. **Phase 6.5 &ndash; `make-ci-green` (L3 CI Loop):** polls GitHub Actions / review bots, inspects logs via `tester`, and dispatches implementation fixers.
-7. **Phase 6 &ndash; `council` (L2 Branch Loop):** 3 independent reviewer families (`reviewer-a`, `reviewer-b`, `reviewer-c`, plus `reviewer-esc` escalation). Requires &ge;2/3 PASS and &ge;1 non-author family PASS.
-8. **Phase 7 &ndash; `land` (Gate 3 Handoff):** presents finish options (merge PR, keep PR open, keep branch, discard). Merging is worktree-aware.
+7. **Phase 6 &ndash; `council` (L2 Branch Loop):** 3 independent reviewer families (`reviewer-a`, `reviewer-b`, `reviewer-c`, plus `reviewer-esc` escalation). Forbids identical-model author self-review. Requires &ge;2/3 PASS and &ge;1 non-author family PASS (or intra-family model-level independence when families overlap).
+8. **Phase 7 &ndash; `land` (Gate 3 Handoff):** presents finish options (merge PR, keep PR open, keep branch, discard). Merging strictly requires an audited Phase 6 `council_verdict: PASS` with `head=<sha>` match via `gh pr merge --squash --match-head-commit <sha>`, and is worktree-aware.
 
 ### 2. Zero-Gate Unattended Mode (`oneshot` Auto-Approve)
 
@@ -273,7 +273,7 @@ The harness separates concerns into three decoupled layers:
 | Provider | Instance ID | Effort Option ID & Values | Example Model IDs | Limit Inspection |
 | --- | --- | --- | --- | --- |
 | **OpenCode Go** | `opencode` | `variant` (`low\|medium\|high\|xhigh\|max`, or `-`) | `muse-spark-1.3-contributor`, `deepseek-v4.1-flash`, `mimo-v2.6-flash`, `glm-5.3-flash` | `opencode.ai/docs/go` console (monthly $ allowance + 5h rolling cap) |
-| **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-argon`, `gemini-3.8-flash`, `claude-opus-5-5`, `claude-sonnet-5-5` | `/status` in Antigravity (rolling 5-hour window) |
+| **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-carbon`, `gemini-4-argon`, `gemini-3.8-flash`, `claude-opus-5-5`, `claude-sonnet-5-5` | `/status` in Antigravity (rolling 5-hour window) |
 | **Codex** | `codex` | `reasoningEffort` (`low\|medium\|high\|xhigh`) | `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-luna`, `gpt-6-sol` | `/status` in Codex (rolling 5-hour window) |
 | **Claude Code** | `claudeAgent` | `effort` (`low\|medium\|high\|xhigh\|max\|...`) | `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` | `/status` in Claude Code (rolling 5-hour window) |
 
@@ -352,7 +352,7 @@ cp providers/tri.md ~/.config/oneshot/my-profile.md
 **Invariants:**
 - Harness files (`skills/**`, `agents/*.md`, `AGENTS.md`) contain **no** concrete model IDs or provider quotas.
 - Every profile defines a `primary` row for all ten dispatched roles; advisory rows (`driver`, `compaction`) remain optional.
-- Council strictly requires &ge;2 independent model families.
+- Council requires &ge;2 distinct non-author reviewer models (model-level independence satisfies the author vote when families overlap, preventing council blocking). Identical-model author self-review is strictly forbidden.
 - In T3 Code, Path 1 (`delegate_task`) dispatches every provider; standalone OpenCode uses Path 2 only when the rung matches its installed pin, or Path 3 same-provider dispatch.
 - Never commit or push to `main`/`master`; work on `feat/<topic>` and land through a PR.
 
@@ -379,7 +379,7 @@ providers/        swappable provider profiles: tri (default), quad (tri + Claude
                                                opencode-go, codex, antigravity, claude
 docs/             design specs and plans:      docs/specs/, docs/plans/
 docs/assets/      vector visuals:              logo.svg, architecture.svg
-test/install.sh   144-assertion contract suite (runs in throwaway HOME on Bash >=3.2)
+test/install.sh   146-assertion contract suite (runs in throwaway HOME on Bash >=3.2)
 AGENTS.md         harness routing instructions (installed as <dest>/HARNESS.md)
 install.sh        multi-host installer         (opencode, codex, antigravity, claude, all)
 NOTICE            upstream MIT attribution     (mattpocock/skills)
@@ -390,7 +390,7 @@ LICENSE           MIT license
 
 ## 🧪 Testing
 
-Run the 144-assertion installer contract suite (hermetic throwaway `HOME` under `$TMPDIR`):
+Run the 146-assertion installer contract suite (hermetic throwaway `HOME` under `$TMPDIR`):
 
 ```sh
 bash -n install.sh && bash -n test/install.sh
