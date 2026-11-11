@@ -22,14 +22,11 @@ Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code
 
 ## Budget facts and provider load split
 
-No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model is routed through OpenCode Go in `quad`: all Google models come from Antigravity, all Claude models come from Antigravity or `claudeAgent`, and all `gpt-*` models come from Codex.
-
-- **Antigravity Separate Quota Pools:** Antigravity isolates `gemini-*` (`antigravity-gemini`) from `claude-*` (`antigravity-claude`, soft-capped at 6 dispatches per run and reserved for `reviewer-b`).
-- **Claude Code (`claudeAgent`):** carries `implementer-deep` fallback (`claude-opus-5-5`), `implementer` fallback (`claude-sonnet-5-5`), `task-reviewer` fallback (`claude-sonnet-5-5`), `reviewer-b` fallback (`claude-opus-5-5`), `reviewer-esc` primary (`claude-sonnet-5-5`), `driver` fallback (`claude-sonnet-5-5`), and `compaction` primary (`claude-haiku-5-5`).
-- **Antigravity:** focuses on Google models (`implementer` and `implementer-deep` primary `gemini-4-argon` at `high`, `reviewer-a` first fallback `gemini-4-carbon` at `high`, and `gemini-3.8-flash` last-resorts), plus `claude-opus-5-5` for `reviewer-b` primary and `claude-sonnet-5-5` for `reviewer-esc` fallback.
-- **Codex:** carries `driver` (`gpt-6.1-sol`), `task-reviewer` (`gpt-6.1-terra`), council Seat A `reviewer-a` primary (`gpt-6-astra`), `implementer` last-resort (`gpt-6.1-sol`), `implementer-deep` last-resort (`gpt-6-astra`), and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
-- **OpenCode Go:** carries high-allowance roles (`scout`, `tester`, `patch`), council Seat C `reviewer-c` (`muse-spark-1.3-contributor` -> `deepseek-v4.1-flash` `high` -> `deepseek-v4.1-flash` `max`), cross-provider last-resorts for `reviewer-a`, `reviewer-b`, and `reviewer-esc` (`deepseek-v4.1-flash` `high`), and the primary backup ladder rungs (`deepseek-v4.1-flash`).
-- **Council budget:** Seat C (`muse-spark-1.3-contributor` ~90,600 req/5h -> `deepseek-v4.1-flash` ~86,670 req/5h) and all reviewer last-resorts (`deepseek-v4.1-flash` ~86,670 req/5h) have vast OpenCode Go allowances.
+No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model routes through OpenCode Go in `quad`.
+- **Antigravity:** isolates `gemini-*` (`antigravity-gemini`) from `claude-*` (`antigravity-claude`, soft-capped at 6 dispatches and reserved for `reviewer-b`).
+- **Claude Code (`claudeAgent`):** offloads high-volume Claude roles (`implementer*` fallbacks, `task-reviewer` fallback, `reviewer-esc` primary, and `compaction`).
+- **Codex:** carries `driver`, `task-reviewer`, council Seat A primary (`gpt-6-astra`), and workhorse fallbacks.
+- **OpenCode Go:** carries `scout`, `tester`, `patch`, Seat C `reviewer-c`, and cross-provider last-resorts (`deepseek-v4.1-flash`).
 
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -61,7 +58,7 @@ No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model is rou
 | reviewer-b | last-resort | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | reviewer-c | primary | opencode | opencode-go/muse-spark-1.3-contributor | variant=xhigh | meta | trains |
 | reviewer-c | fallback | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
-| reviewer-c | last-resort | opencode | opencode-go/deepseek-v4.1-flash | variant=max | deepseek | ok |
+| reviewer-c | last-resort | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
 | reviewer-esc | primary | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
 | reviewer-esc | fallback | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic | ok |
 | reviewer-esc | last-resort | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
