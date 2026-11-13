@@ -1631,12 +1631,15 @@ generate_dynamic_profile() {
         print "| driver | primary | - | host-default | - | - | ok |"
       }
 
-      # scout (3 rungs)
+      # scout (3 rungs): with OpenCode Go, claudeAgent haiku backs the mimo
+      # primary ahead of gemini-3.8-flash / gpt-6-luna; without OpenCode Go,
+      # haiku keeps its slot after gpt-6-luna so it never becomes primary.
       add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
       add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=low", "deepseek", "ok")
-      add_cand("claudeAgent", "claude-haiku-5-5", "effort=low", "anthropic", "ok")
+      if (has_oc) add_cand("claudeAgent", "claude-haiku-5-5", "effort=low", "anthropic", "ok")
       add_cand("antigravity", "gemini-3.8-flash", "thinking_level=low", "google", "ok")
       add_cand("codex", "gpt-6-luna", "reasoningEffort=low", "openai", "ok")
+      if (!has_oc) add_cand("claudeAgent", "claude-haiku-5-5", "effort=low", "anthropic", "ok")
       add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=low", "zhipu", "ok")
       add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=low", "anthropic", "ok")
       add_cand("codex", "gpt-6.1-terra", "reasoningEffort=low", "openai", "ok")

@@ -5,12 +5,12 @@ Goal: Give `scout` a Claude Code `claude-haiku-5-5` fallback and keep Antigravit
 
 ## 1. Problem
 
-`scout` (read-only locator) runs on OpenCode Go flash models. When OpenCode Go is exhausted (it hits its cap first in practice), the next rung in `quad` is `deepseek-v4.1-flash` on the same exhausted pool, then Antigravity. Anthropic's cheapest model, `claude-haiku-5-5`, is a fast, cheap fit for locating code and sits on the otherwise idle Claude Code pool.
+`scout` (read-only locator) runs on OpenCode Go flash models. When OpenCode Go is exhausted (it hits its cap first in practice), the next rung in `quad` is `deepseek-v4.1-flash` on the same exhausted pool, then Antigravity. Anthropic's cheapest model, `claude-haiku-5-5`, is a fast, cheap fit for locating code. The Claude Code pool is not idle: it also carries the review captain, `implementer-deep`, the `implementer` same-model alternate, the `task-reviewer` fallback, and `compaction`. Haiku only runs once the OpenCode Go primary is exhausted, and that extra Claude Code load is an accepted trade-off (a `claude-code` soft-cap/reserve is deferred to the backlog).
 
 ## 2. Design
 
-- `providers/quad.md`: `scout` ladder becomes primary `opencode-go/mimo-v2.6-flash`, fallback `claudeAgent` `claude-haiku-5-5` (`effort=low`, `anthropic`), last-resort `antigravity` `gemini-3.8-flash` (`thinking_level=low`, unchanged). `deepseek-v4.1-flash` stays reachable via `## Backup ladder` rows 2/7. Update the `Discovery` bullet and the Claude Code load-split bullet.
-- `install.sh` `--providers` generator: in the `scout` candidate list, move `claudeAgent` `claude-haiku-5-5` ahead of `antigravity` `gemini-3.8-flash`, so compositions containing Claude Code get `mimo -> haiku -> gemini-3.8-flash`; compositions without Claude Code are unchanged.
+- `providers/quad.md`: `scout` ladder becomes primary `opencode-go/mimo-v2.6-flash`, fallback `claudeAgent` `claude-haiku-5-5` (`effort=low`, `anthropic`), last-resort `antigravity` `gemini-3.8-flash` (`thinking_level=low`, unchanged). `deepseek-v4.1-flash` stays reachable for `scout` via `## Backup ladder` row 7 only (`variant=max`). Update the `Discovery` bullet and the Claude Code load-split bullet.
+- `install.sh` `--providers` generator: in the `scout` candidate list, gate `claudeAgent` `claude-haiku-5-5` on OpenCode Go: with OpenCode Go it sits ahead of `antigravity` `gemini-3.8-flash`, so compositions with OpenCode Go, Claude Code and Antigravity get `mimo -> haiku -> gemini-3.8-flash`; compositions without OpenCode Go keep their existing scout order (haiku after `gpt-6-luna`, never primary), and compositions without Claude Code are unchanged.
 - `tri`, `opencode-go`, `codex`, `claude`, `antigravity` profiles are unchanged: none can serve Haiku next to Gemini Flash on a scout ladder (`claude` already has Haiku as primary; `antigravity` has no Claude Code).
 - `README.md`: mention the scout ladder in the `quad` section. `docs/assets/architecture.svg` is not touched.
 - `test/install.sh`: assert the new `quad.md` scout rows and the generated quad composition parity.
