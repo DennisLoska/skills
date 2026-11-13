@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/Skills-12%20Pipeline%20Units-1AD1A5?style=flat-square" alt="12 Pipeline Skills" />
   <img src="https://img.shields.io/badge/Council-3%20Seats%20%2B%20Review%20Captain-FF6B35?style=flat-square" alt="3-Seat Council with Review Captain" />
   <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
-  <img src="https://img.shields.io/badge/Tests-154%2F154%20Passing-2ECC71?style=flat-square" alt="154/154 Tests Passing" />
+  <img src="https://img.shields.io/badge/Tests-166%2F166%20Passing-2ECC71?style=flat-square" alt="166/166 Tests Passing" />
   <img src="https://img.shields.io/badge/Profiles-tri%20%7C%20quad%20%7C%20opencode--go%20%7C%20codex%20%7C%20antigravity%20%7C%20claude%20%7C%20--providers-8B5CF6?style=flat-square" alt="Profiles: tri, quad, opencode-go, codex, antigravity, claude, or dynamic --providers" />
 </p>
 
@@ -298,6 +298,7 @@ Every profile now shares the same implementation and review ladders (see [Defaul
 - **`quad` (The 4-Subscription Powerhouse: `tri` + Dedicated Claude Code)**:
   - **What it adds**: Claude Code (T3 Code provider instance `claudeAgent`) serves the captain and `implementer-deep` on `claude-fable-5-2`, and a same-model alternate for `implementer`: when Antigravity's Claude pool runs dry, `implementer` stays on `claude-opus-5-5` through Claude Code before falling to Gemini.
   - **Load balancing**: Antigravity's Claude pool is no longer reserved for a review seat, since no seat's primary runs there.
+  - **Scout fallback**: `scout` falls back from OpenCode Go `mimo-v2.6-flash` to Claude Code `claude-haiku-5-5` (`low`), then Antigravity `gemini-3.8-flash`.
 
 #### 2. The Council: Three Seats and a Review Captain (Phase 6)
 

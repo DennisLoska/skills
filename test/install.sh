@@ -2552,6 +2552,73 @@ for non_oc_combo in antigravity,codex antigravity,claude claude,codex; do
 done
 pass "--providers enforces pool independence across rungs and orders antigravity Claude Opus before claudeAgent"
 
+# 77b. scout ladder: quad ships mimo -> claudeAgent haiku -> gemini-3.8-flash;
+# tri ships its unchanged ladder. antigravity,claude,codex,opencode and
+# antigravity,codex,opencode short-circuit to the static quad.md / tri.md, so
+# the prov-home-1/2 installs re-check static files, not the awk composer.
+SCOUT_PRIMARY='| scout | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |'
+SCOUT_HAIKU='| scout | fallback | claudeAgent | claude-haiku-5-5 | effort=low | anthropic | ok |'
+SCOUT_GEMINI='| scout | last-resort | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |'
+SCOUT_DEEPSEEK='| scout | fallback | opencode | opencode-go/deepseek-v4.1-flash | variant=low | deepseek | ok |'
+grep -qxF "$SCOUT_PRIMARY" "$ROOT/providers/quad.md" || fail "quad.md scout primary is mimo-v2.6-flash"
+grep -qxF "$SCOUT_HAIKU" "$ROOT/providers/quad.md" || fail "quad.md scout fallback is claudeAgent claude-haiku-5-5"
+grep -qxF "$SCOUT_GEMINI" "$ROOT/providers/quad.md" || fail "quad.md scout last-resort is antigravity gemini-3.8-flash"
+! grep -qF '| scout | fallback | opencode |' "$ROOT/providers/quad.md" || fail "quad.md has no opencode scout fallback row"
+quad_static_md="$TMPROOT/prov-home-2/.config/opencode/PROVIDERS.md"
+[ -f "$quad_static_md" ] || fail "77b: --providers antigravity,claude,codex,opencode install (static quad.md) exists"
+grep -qxF "$SCOUT_PRIMARY" "$quad_static_md" || fail "static quad.md install scout primary is mimo-v2.6-flash"
+grep -qxF "$SCOUT_HAIKU" "$quad_static_md" || fail "static quad.md install scout fallback is claudeAgent haiku"
+grep -qxF "$SCOUT_GEMINI" "$quad_static_md" || fail "static quad.md install scout last-resort is gemini-3.8-flash"
+tri_static_md="$TMPROOT/prov-home-1/.config/opencode/PROVIDERS.md"
+[ -f "$tri_static_md" ] || fail "77b: --providers antigravity,codex,opencode install (static tri.md) exists"
+grep -qxF "$SCOUT_PRIMARY" "$tri_static_md" || fail "static tri.md install scout primary unchanged (mimo)"
+grep -qxF "$SCOUT_DEEPSEEK" "$tri_static_md" || fail "static tri.md install scout fallback unchanged (deepseek)"
+grep -qxF "$SCOUT_GEMINI" "$tri_static_md" || fail "static tri.md install scout last-resort unchanged (gemini-3.8-flash)"
+pass "scout ladder: static quad.md ships haiku fallback, static tri.md unchanged"
+
+# 77c. scout ladder from the awk composer: with OpenCode Go, claudeAgent haiku
+# sits before gemini-3.8-flash / gpt-6-luna; without OpenCode Go, Claude lists
+# keep the 47dbc92 order (haiku never primary); Claude-free lists are unchanged.
+# Expected: "list;primary;fallback;last-resort" as "provider model effort family"
+# (empty = no row for that rung).
+SC_MIMO='opencode | opencode-go/mimo-v2.6-flash | - | xiaomi'
+SC_HAIKU='claudeAgent | claude-haiku-5-5 | effort=low | anthropic'
+SC_GEM='antigravity | gemini-3.8-flash | thinking_level=low | google'
+SC_LUNA='codex | gpt-6-luna | reasoningEffort=low | openai'
+SC_AGYSON='antigravity | claude-sonnet-5-5 | thinking_level=low | anthropic'
+while IFS=';' read -r sc_list sc_p sc_f sc_l; do
+  prov_case=$((prov_case + 1))
+  prov_home="$TMPROOT/prov-home-$prov_case"
+  prov_md="$prov_home/.config/opencode/PROVIDERS.md"
+  rc=0
+  HOME="$prov_home" "$INSTALL" --providers "$sc_list" >"$TMPROOT/prov-install-$prov_case.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-install-$prov_case.out" >&2; fail "--providers $sc_list exits 0 (got $rc)"; }
+  grep -q '^# Composable provider profile' "$prov_md" || fail "--providers $sc_list is composed by the awk generator"
+  for sc_rung in primary fallback last-resort; do
+    case "$sc_rung" in primary) sc_want="$sc_p" ;; fallback) sc_want="$sc_f" ;; *) sc_want="$sc_l" ;; esac
+    if [ -n "$sc_want" ]; then
+      grep -qxF "| scout | $sc_rung | $sc_want | ok |" "$prov_md" || { grep '^| scout |' "$prov_md" >&2; fail "--providers $sc_list scout $sc_rung is $sc_want"; }
+    else
+      ! grep -qF "| scout | $sc_rung |" "$prov_md" || { grep '^| scout |' "$prov_md" >&2; fail "--providers $sc_list has no scout $sc_rung row"; }
+    fi
+  done
+  case "$sc_list" in
+    *opencode*) ;;
+    *claude*) ! grep -qF "| scout | primary | $SC_HAIKU |" "$prov_md" || fail "--providers $sc_list scout primary is not claude-haiku-5-5 without OpenCode Go" ;;
+  esac
+  pass "--providers $sc_list scout ladder matches the composer contract"
+done <<EOF_SCOUT
+antigravity,claude,opencode;$SC_MIMO;$SC_HAIKU;$SC_GEM
+claude,codex,opencode;$SC_MIMO;$SC_HAIKU;$SC_LUNA
+claude,opencode;$SC_MIMO;$SC_HAIKU;
+antigravity,claude;$SC_GEM;$SC_HAIKU;$SC_AGYSON
+claude,codex;$SC_LUNA;$SC_HAIKU;
+antigravity,claude,codex;$SC_GEM;$SC_LUNA;$SC_HAIKU
+codex,opencode;$SC_MIMO;$SC_LUNA;
+antigravity,opencode;$SC_MIMO;$SC_GEM;$SC_AGYSON
+antigravity,codex;$SC_GEM;$SC_LUNA;$SC_AGYSON
+EOF_SCOUT
+
 # Single-provider alias claude (and claudeAgent) canonicalizes to claudeAgent in PROVIDERS.md.
 for cld_alias in claude claudeAgent; do
   prov_case=$((prov_case + 1))
