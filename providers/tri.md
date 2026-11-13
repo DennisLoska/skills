@@ -5,9 +5,9 @@ Three subscriptions: Antigravity (Google + Anthropic models), Codex (OpenAI mode
 - **Driver:** Codex `gpt-6.1-sol` (`medium`), Antigravity `claude-sonnet-5-5` (`medium`) fallback.
 - **Discovery (`scout`):** OpenCode Go `mimo-v2.6-flash`, `deepseek-v4.1-flash` (`low`), Antigravity `gemini-3.8-flash`.
 - **Testing & script running (`tester`, `patch`):** OpenCode Go `deepseek-v4.1-flash` (`high`), Codex `gpt-6-luna` (`medium`), Antigravity `gemini-3.8-flash`.
-- **Implementation:** `implementer` runs on Antigravity `claude-opus-5-5` (`high`), then `gemini-4-carbon` and Codex `gpt-6.1-sol` (`high`); `implementer-deep` prefers `claudeAgent` `claude-fable-5-2` (`high`; unreachable without a Claude Code subscription, so it demotes to `gemini-4-carbon`), then `gpt-6.1-sol`.
+- **Implementation:** `implementer` runs on Antigravity `claude-opus-5-5` (`high`), then `gemini-4-carbon` and Codex `gpt-6.1-sol` (`high`); `implementer-deep` prefers `claudeAgent` `claude-fable-5-2` (`high`; unreachable without a Claude Code subscription, so it demotes to `gemini-4-hydrogen`), then `gpt-6.1-sol`.
 - **Per-task review (`task-reviewer`):** Codex `gpt-6.1-terra` (`high`), OpenCode Go `glm-5.3-flash` (`high`), Antigravity `gemini-3.8-flash` (`high`), skipping author families.
-- **Council:** Seat A, the review captain, prefers `claudeAgent` `claude-fable-5-2` and demotes to Codex `gpt-6.1-terra` here; Seat B runs on Codex `gpt-6-astra`; Seat C on Antigravity `gemini-4-carbon`, all at `high`. Review runs only on Anthropic, OpenAI and Google models; `## Single-provider review` covers the case where only one provider has budget left.
+- **Council:** Seat A, the review captain, prefers `claudeAgent` `claude-fable-5-2` and demotes to Codex `gpt-6.1-terra` here; Seat B runs on Codex `gpt-6-astra`; Seat C on Antigravity `gemini-4-hydrogen`, all at `high`. Review runs only on Anthropic, OpenAI and Google models; `## Single-provider review` covers the case where only one provider has budget left.
 
 ## Budget facts and provider load split
 
@@ -31,7 +31,7 @@ Expensive low-allowance Pro models are excluded from `tri`.
 
 Provider load split and council budget notes:
 
-- **Antigravity:** carries `implementer` (`claude-opus-5-5`, then `gemini-4-carbon`), the `implementer-deep` fallback, and Seat C (`gemini-4-carbon`). For Claude Code subscriptions, use [`providers/quad.md`](./quad.md).
+- **Antigravity:** carries `implementer` (`claude-opus-5-5`, then `gemini-4-carbon`), the `implementer-deep` fallback (`gemini-4-hydrogen`), and Seat C (`gemini-4-hydrogen`). For Claude Code subscriptions, use [`providers/quad.md`](./quad.md).
 - **Codex:** carries `driver` (`gpt-6.1-sol`), `task-reviewer` (`gpt-6.1-terra`), Seat B (`gpt-6-astra`), the captain fallback, implementer last-resorts, and `gpt-6-luna` fallbacks for `tester`, `patch`, and `compaction`.
 - **OpenCode Go Plus:** carries `scout`, `tester`, `patch`, `compaction` primary (`mimo-v2.6-flash`), and non-reviewer backup rows.
 - **Council budget:** at most 3 rounds of 3 seats plus 3 captain rulings per PR.
@@ -47,7 +47,7 @@ Provider load split and council budget notes:
 | implementer | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | implementer | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
 | implementer-deep | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
-| implementer-deep | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| implementer-deep | fallback | antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
 | implementer-deep | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
 | tester | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | tester | fallback | codex | gpt-6-luna | reasoningEffort=medium | openai | ok |
@@ -60,11 +60,11 @@ Provider load split and council budget notes:
 | task-reviewer | last-resort | antigravity | gemini-3.8-flash | thinking_level=high | google | ok |
 | reviewer-a | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | reviewer-a | fallback | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
-| reviewer-a | last-resort | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| reviewer-a | last-resort | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | reviewer-b | primary | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
-| reviewer-b | fallback | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| reviewer-b | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | reviewer-b | last-resort | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
-| reviewer-c | primary | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| reviewer-c | primary | antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
 | reviewer-c | fallback | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic | ok |
 | reviewer-c | last-resort | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
 | compaction | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
@@ -98,9 +98,9 @@ When exactly one provider still has an eligible pool, every council seat draws p
 
 | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- |
-| antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
 | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
-| antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
 | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
 | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |

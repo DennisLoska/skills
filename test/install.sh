@@ -2465,7 +2465,7 @@ for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode c
   [ -f "$prov_md" ] || fail "--providers $prov_combo installs PROVIDERS.md"
   grep -qxF "# providers $prov_combo" "$prov_home/.config/opencode/.harness-manifest" || fail "--providers $prov_combo records '# providers $prov_combo' in .harness-manifest"
   case "$prov_combo" in
-    *antigravity*) [ "$(prov_reviewer_c_row "$prov_md" primary)" = "antigravity gemini-4-carbon" ] || fail "--providers $prov_combo puts Seat C primary on gemini-4-carbon" ;;
+    *antigravity*) [ "$(prov_reviewer_c_row "$prov_md" primary)" = "antigravity gemini-4-hydrogen" ] || fail "--providers $prov_combo puts Seat C primary on gemini-4-hydrogen" ;;
   esac
   if awk -F '|' '$2 ~ /^ reviewer-[abc] $/ && $4 == " opencode "' "$prov_md" | grep -q .; then
     fail "--providers $prov_combo puts no reviewer rung on opencode"
@@ -2662,14 +2662,14 @@ seat_cell() {
 }
 
 # Under --providers antigravity,claude the captain takes Fable on claudeAgent,
-# Seat C takes gemini-4-carbon, and Seat B takes the remaining distinct family.
+# Seat C takes gemini-4-hydrogen, and Seat B takes the remaining distinct family.
 prov_test_home="$TMPROOT/prov-dual-home"
 HOME="$prov_test_home" "$INSTALL" --providers antigravity,claude >/dev/null 2>&1
 dual_md="$prov_test_home/.config/opencode/PROVIDERS.md"
 [ "$(seat_cell "$dual_md" reviewer-a 5)" = "claude-fable-5-2" ] || fail "--providers antigravity,claude seat A (captain) primary is claude-fable-5-2"
 [ "$(seat_cell "$dual_md" reviewer-a 4)" = "claudeAgent" ] || fail "--providers antigravity,claude seat A runs on claudeAgent"
 [ "$(seat_cell "$dual_md" reviewer-b 7)" = "google" ] || fail "--providers antigravity,claude seat B primary family differs from seat A"
-[ "$(seat_cell "$dual_md" reviewer-c 5)" = "gemini-4-carbon" ] || fail "--providers antigravity,claude seat C primary is gemini-4-carbon"
+[ "$(seat_cell "$dual_md" reviewer-c 5)" = "gemini-4-hydrogen" ] || fail "--providers antigravity,claude seat C primary is gemini-4-hydrogen"
 [ "$(seat_cell "$dual_md" implementer 5)" = "claude-opus-5-5" ] || fail "--providers antigravity,claude implementer primary is claude-opus-5-5"
 [ "$(seat_cell "$dual_md" implementer-deep 5)" = "claude-fable-5-2" ] || fail "--providers antigravity,claude implementer-deep primary is claude-fable-5-2"
 
@@ -2991,7 +2991,7 @@ check_council_profile() {
     [ "$(seat_cell "$md" reviewer-b 5)" = "gpt-6-astra" ] || fail "80e: $label reviewer-b primary is gpt-6-astra"
   fi
   if [ "$has_agy" -eq 1 ]; then
-    [ "$(seat_cell "$md" reviewer-c 5)" = "gemini-4-carbon" ] || fail "80e: $label reviewer-c primary is gemini-4-carbon"
+    [ "$(seat_cell "$md" reviewer-c 5)" = "gemini-4-hydrogen" ] || fail "80e: $label reviewer-c primary is gemini-4-hydrogen"
   fi
   return 0
 }
@@ -3002,15 +3002,15 @@ for shipped in quad tri opencode-go codex antigravity claude; do
     'implementer|fallback|antigravity|gemini-4-carbon|thinking_level=high|google|ok' \
     'implementer|last-resort|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
     'implementer-deep|primary|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
-    'implementer-deep|fallback|antigravity|gemini-4-carbon|thinking_level=high|google|ok' \
+    'implementer-deep|fallback|antigravity|gemini-4-hydrogen|thinking_level=high|google|ok' \
     'implementer-deep|last-resort|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
     'reviewer-a|primary|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
     'reviewer-a|fallback|codex|gpt-6.1-terra|reasoningEffort=high|openai|ok' \
-    'reviewer-a|last-resort|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
+    'reviewer-a|last-resort|antigravity|gemini-4-carbon|thinking_level=high|google|ok' \
     'reviewer-b|primary|codex|gpt-6-astra|reasoningEffort=high|openai|ok' \
-    'reviewer-b|fallback|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
+    'reviewer-b|fallback|antigravity|gemini-4-carbon|thinking_level=high|google|ok' \
     'reviewer-b|last-resort|claudeAgent|claude-sonnet-5-5|effort=high|anthropic|ok' \
-    'reviewer-c|primary|antigravity|gemini-4-carbon|thinking_level=high|google|ok' \
+    'reviewer-c|primary|antigravity|gemini-4-hydrogen|thinking_level=high|google|ok' \
     'reviewer-c|fallback|antigravity|claude-sonnet-5-5|thinking_level=high|anthropic|ok' \
     'reviewer-c|last-resort|codex|gpt-6.1-terra|reasoningEffort=high|openai|ok'; do
     profile_rows "$shipped_md" roles | grep -qxF "$spec_row" || fail "80e: providers/$shipped.md carries spec row $spec_row"

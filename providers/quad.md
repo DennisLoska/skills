@@ -15,9 +15,9 @@ Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code
 - **Architecture & Design (`shape`, `domain-modeling`, `codebase-design`):** advisory recommendation for `claudeAgent` `claude-fable-5-2` (or `claude-fable-5-1`) in Phase 1 sessions.
 - **Discovery (`scout`):** OpenCode Go flash models (`mimo-v2.6-flash`, `deepseek-v4.1-flash` at `low`) with Antigravity `gemini-3.8-flash` as last resort.
 - **Testing & script running (`tester`, `patch`):** OpenCode Go `deepseek-v4.1-flash` (`high`), falling back to Codex `gpt-6-luna` (`medium`) and Antigravity `gemini-3.8-flash` (`medium`).
-- **Implementation:** `implementer` runs on Antigravity `claude-opus-5-5` (`high`), then Antigravity `gemini-4-carbon` and Codex `gpt-6.1-sol` (`high`); backup row 1 is the same-model alternate on `claudeAgent` `claude-opus-5-5`. `implementer-deep` runs on `claudeAgent` `claude-fable-5-2` (`high`), then `gemini-4-carbon` and `gpt-6.1-sol`.
+- **Implementation:** `implementer` runs on Antigravity `claude-opus-5-5` (`high`), then Antigravity `gemini-4-carbon` and Codex `gpt-6.1-sol` (`high`); backup row 1 is the same-model alternate on `claudeAgent` `claude-opus-5-5`. `implementer-deep` runs on `claudeAgent` `claude-fable-5-2` (`high`), then `gemini-4-hydrogen` and `gpt-6.1-sol`.
 - **Per-task review (`task-reviewer`):** Codex `gpt-6.1-terra` (`high`), falling back to `claudeAgent` `claude-sonnet-5-5` (`effort=high`) and Antigravity `gemini-3.8-flash` (`high`), skipping any rung whose family authored the task.
-- **Council:** Seat A, the review captain, on `claudeAgent` `claude-fable-5-2`; Seat B on Codex `gpt-6-astra`; Seat C on Antigravity `gemini-4-carbon`, all at `high`. Fallbacks cross the three review providers so a seat can balance onto whichever pool has the most room. No OpenCode model sits in a review ladder or a reviewer backup row; `## Single-provider review` covers the case where only one provider has budget left.
+- **Council:** Seat A, the review captain, on `claudeAgent` `claude-fable-5-2`; Seat B on Codex `gpt-6-astra`; Seat C on Antigravity `gemini-4-hydrogen`, all at `high`. Fallbacks cross the three review providers so a seat can balance onto whichever pool has the most room. No OpenCode model sits in a review ladder or a reviewer backup row; `## Single-provider review` covers the case where only one provider has budget left.
 
 ## Budget facts and provider load split
 
@@ -38,7 +38,7 @@ No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model routes
 | implementer | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | implementer | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
 | implementer-deep | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
-| implementer-deep | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| implementer-deep | fallback | antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
 | implementer-deep | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
 | tester | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | tester | fallback | codex | gpt-6-luna | reasoningEffort=medium | openai | ok |
@@ -51,11 +51,11 @@ No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model routes
 | task-reviewer | last-resort | antigravity | gemini-3.8-flash | thinking_level=high | google | ok |
 | reviewer-a | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | reviewer-a | fallback | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
-| reviewer-a | last-resort | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| reviewer-a | last-resort | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | reviewer-b | primary | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
-| reviewer-b | fallback | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| reviewer-b | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | reviewer-b | last-resort | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
-| reviewer-c | primary | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| reviewer-c | primary | antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
 | reviewer-c | fallback | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic | ok |
 | reviewer-c | last-resort | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
 | compaction | primary | claudeAgent | claude-haiku-5-5 | effort=low | anthropic | ok |
@@ -99,9 +99,9 @@ When exactly one provider still has an eligible pool, every council seat draws p
 | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
 | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
 | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
-| antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
 | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
-| antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
 | opencode | opencode-go/muse-spark-1.3-contributor | variant=high | meta | trains |

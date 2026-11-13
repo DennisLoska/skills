@@ -2,7 +2,7 @@
 
 Provider: OpenCode Go (`opencode-go/*`, sized for the $40/mo Go Plus tier; the $10 Go tier grants 2x-8x less per model) for every non-review role. No Anthropic, Google, OpenAI, or low-allowance Pro models are routed through OpenCode Go. Cheap seats sit on high-allowance open-weight request tiers (18,960 to 90,600 req/5h): `deepseek-v4.1-flash`, `muse-spark-1.3-contributor`, `mimo-v2.6-flash`, and `glm-5.3-flash`.
 
-The shared implementer and council ladders name Antigravity, Claude Code and Codex rungs (implementers on Claude Opus 5.5 / Fable 5.2 at `high`; council captain on `claude-fable-5-2`, Seat B `gpt-6-astra`, Seat C `gemini-4-carbon`). On an OpenCode-only host those rungs are `unreachable`: implementers demote to the OpenCode backup rows, and the council runs as `single-provider review: opencode` on the rows in `## Single-provider review`.
+The shared implementer and council ladders name Antigravity, Claude Code and Codex rungs (implementers on Claude Opus 5.5 / Fable 5.2 at `high`; council captain on `claude-fable-5-2`, Seat B `gpt-6-astra`, Seat C `gemini-4-hydrogen`). On an OpenCode-only host those rungs are `unreachable`: implementers demote to the OpenCode backup rows, and the council runs as `single-provider review: opencode` on the rows in `## Single-provider review`.
 
 Effort defaults:
 - **Tester and patch:** `deepseek-v4.1-flash` pinned `#high` (its middle tier; the catalog exposes `low|high|max`).
@@ -15,7 +15,7 @@ Effort defaults:
 | implementer | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | implementer | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
 | implementer-deep | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
-| implementer-deep | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| implementer-deep | fallback | antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
 | implementer-deep | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
 | tester | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | tester | fallback | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
@@ -31,11 +31,11 @@ Effort defaults:
 | scout | last-resort | opencode | opencode-go/glm-5.3-flash | variant=low | zhipu | ok |
 | reviewer-a | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | reviewer-a | fallback | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
-| reviewer-a | last-resort | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| reviewer-a | last-resort | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | reviewer-b | primary | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
-| reviewer-b | fallback | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| reviewer-b | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | reviewer-b | last-resort | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
-| reviewer-c | primary | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| reviewer-c | primary | antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
 | reviewer-c | fallback | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic | ok |
 | reviewer-c | last-resort | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
 | compaction | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
@@ -72,9 +72,9 @@ Each OpenCode Go model has its own per-model monthly dollar limit and 5-hour cap
 | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
 | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
 | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
-| antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
 | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
-| antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 
 ## Quotas and provider notes
 

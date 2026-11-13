@@ -1484,7 +1484,7 @@ generate_dynamic_profile() {
 
   printf '# Composable provider profile (%s)\n\n' "$prov_list"
   printf 'Dynamically composed profile for enabled providers: `%s`.\n\n' "$prov_list"
-  printf 'Enforces cross-provider fallback ordering across disjoint quota pools, official providers for Anthropic (`antigravity` primary, `claudeAgent` fallback and Fable), Google (`antigravity`), and OpenAI (`codex`), and high-allowance open-weight flash/spark models on OpenCode Go. Implementers prefer Claude Opus 5.5 (`implementer`) and Claude Fable 5.2 (`implementer-deep`) at `high`; the council runs on Anthropic, OpenAI and Google models only (captain Seat A prefers `claude-fable-5-2`, Seat B `gpt-6-astra`, Seat C `gemini-4-carbon`), and no Anthropic row exceeds `high` effort.\n\n'
+  printf 'Enforces cross-provider fallback ordering across disjoint quota pools, official providers for Anthropic (`antigravity` primary, `claudeAgent` fallback and Fable), Google (`antigravity`), and OpenAI (`codex`), and high-allowance open-weight flash/spark models on OpenCode Go. Implementers prefer Claude Opus 5.5 (`implementer`) and Claude Fable 5.2 (`implementer-deep`) at `high`; the council runs on Anthropic, OpenAI and Google models only (captain Seat A prefers `claude-fable-5-2`, Seat B `gpt-6-astra`, Seat C `gemini-4-hydrogen`), and no Anthropic row exceeds `high` effort.\n\n'
   printf '| role | rung | provider | model | effort | family | privacy |\n'
   printf '| --- | --- | --- | --- | --- | --- | --- |\n'
 
@@ -1621,7 +1621,6 @@ generate_dynamic_profile() {
       add_cand("codex", "gpt-6.1-sol", "reasoningEffort=medium", "openai", "ok")
       add_cand("claudeAgent", "claude-sonnet-5-5", "effort=medium", "anthropic", "ok")
       add_cand("antigravity", "gemini-4-carbon", "thinking_level=high", "google", "ok")
-      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
       add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=medium", "anthropic", "ok")
       add_cand("codex", "gpt-6-astra", "reasoningEffort=medium", "openai", "ok")
       add_cand("claudeAgent", "claude-opus-5-5", "effort=medium", "anthropic", "ok")
@@ -1642,7 +1641,7 @@ generate_dynamic_profile() {
       add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=low", "anthropic", "ok")
       add_cand("codex", "gpt-6.1-terra", "reasoningEffort=low", "openai", "ok")
       add_cand("claudeAgent", "claude-sonnet-5-5", "effort=low", "anthropic", "ok")
-      add_cand("antigravity", "gemini-4-argon", "thinking_level=low", "google", "ok")
+      add_cand("antigravity", "gemini-4-carbon", "thinking_level=low", "google", "ok")
       add_cand("codex", "gpt-6.1-sol", "reasoningEffort=low", "openai", "ok")
       add_cand("claudeAgent", "claude-fable-5-1", "effort=low", "anthropic", "ok")
       emit_role("scout", 3, 0)
@@ -1656,19 +1655,18 @@ generate_dynamic_profile() {
       add_cand("codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
       add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
       add_cand("codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
-      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
       add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
       add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
       emit_role("implementer", 3, 0)
 
       # implementer-deep (3 rungs): Fable 5.2 high on Claude Code (Opus 5.5 on
-      # Antigravity without Claude Code), then gemini-4-carbon and gpt-6.1-sol.
+      # Antigravity without Claude Code), then gemini-4-hydrogen and gpt-6.1-sol.
       add_cand("claudeAgent", "claude-fable-5-2", "effort=high", "anthropic", "ok")
       if (!has_cld) add_cand("antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
-      add_cand("antigravity", "gemini-4-carbon", "thinking_level=high", "google", "ok")
+      add_cand("antigravity", "gemini-4-hydrogen", "thinking_level=high", "google", "ok")
       add_cand("codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
       add_cand("codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
-      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
+      add_cand("antigravity", "gemini-4-carbon", "thinking_level=high", "google", "ok")
       add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
       add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=max", "deepseek", "ok")
       add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
@@ -1684,7 +1682,7 @@ generate_dynamic_profile() {
       add_cand("codex", "gpt-6.1-terra", "reasoningEffort=medium", "openai", "ok")
       add_cand("claudeAgent", "claude-sonnet-5-5", "effort=medium", "anthropic", "ok")
       add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
-      add_cand("antigravity", "gemini-4-argon", "thinking_level=medium", "google", "ok")
+      add_cand("antigravity", "gemini-4-carbon", "thinking_level=medium", "google", "ok")
       add_cand("codex", "gpt-6.1-sol", "reasoningEffort=low", "openai", "ok")
       add_cand("claudeAgent", "claude-fable-5-1", "effort=medium", "anthropic", "ok")
       emit_role("tester", 3, 0)
@@ -1699,7 +1697,7 @@ generate_dynamic_profile() {
       add_cand("codex", "gpt-6.1-terra", "reasoningEffort=medium", "openai", "ok")
       add_cand("claudeAgent", "claude-sonnet-5-5", "effort=medium", "anthropic", "ok")
       add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
-      add_cand("antigravity", "gemini-4-argon", "thinking_level=medium", "google", "ok")
+      add_cand("antigravity", "gemini-4-carbon", "thinking_level=medium", "google", "ok")
       add_cand("codex", "gpt-6.1-sol", "reasoningEffort=low", "openai", "ok")
       add_cand("claudeAgent", "claude-fable-5-1", "effort=medium", "anthropic", "ok")
       emit_role("patch", 3, 0)
@@ -1715,13 +1713,12 @@ generate_dynamic_profile() {
       add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
       add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
       add_cand("antigravity", "gemini-4-carbon", "thinking_level=high", "google", "ok")
-      add_cand("antigravity", "gemini-4-argon", "thinking_level=high", "google", "ok")
       add_cand("codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
       add_cand("claudeAgent", "claude-haiku-5-5", "effort=high", "anthropic", "ok")
       emit_role("task-reviewer", 3, 0)
 
       # Council: Seat A (captain) takes claude-fable-5-2, Seat B gpt-6-astra and
-      # Seat C gemini-4-carbon whenever their provider is selected. A seat
+      # Seat C gemini-4-hydrogen whenever their provider is selected. A seat
       # whose spec model is missing takes a family no other seat holds when
       # possible, else a model no other seat holds; fallbacks avoid every seat
       # primary model and reuse no quota pool within a seat.
@@ -1729,20 +1726,20 @@ generate_dynamic_profile() {
       split("", seat_model_taken)
       pa = (has_cld ? "claudeAgent:claude-fable-5-2" : "")
       pb = (has_cdx ? "codex:gpt-6-astra" : "")
-      pc = (has_agy ? "antigravity:gemini-4-carbon" : "")
+      pc = (has_agy ? "antigravity:gemini-4-hydrogen" : "")
       if (pa != "") take_seat(pa)
       if (pb != "") take_seat(pb)
       if (pc != "") take_seat(pc)
-      if (pa == "") { pa = pick_primary("antigravity:claude-opus-5-5 claudeAgent:claude-opus-5-5 codex:gpt-6.1-terra antigravity:gemini-4-argon codex:gpt-6.1-sol opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/glm-5.3-flash opencode:opencode-go/muse-spark-1.3-contributor"); take_seat(pa) }
-      if (pb == "") { pb = pick_primary("codex:gpt-6.1-terra antigravity:gemini-4-argon claudeAgent:claude-sonnet-5-5 antigravity:claude-sonnet-5-5 codex:gpt-6.1-sol claudeAgent:claude-opus-5-5 opencode:opencode-go/glm-5.3-flash opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/muse-spark-1.3-contributor"); take_seat(pb) }
-      if (pc == "") { pc = pick_primary("antigravity:gemini-4-argon antigravity:claude-sonnet-5-5 codex:gpt-6.1-terra codex:gpt-6.1-sol claudeAgent:claude-opus-5-5 claudeAgent:claude-sonnet-5-5 opencode:opencode-go/muse-spark-1.3-contributor opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/glm-5.3-flash"); take_seat(pc) }
+      if (pa == "") { pa = pick_primary("antigravity:claude-opus-5-5 claudeAgent:claude-opus-5-5 codex:gpt-6.1-terra antigravity:gemini-4-carbon codex:gpt-6.1-sol opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/glm-5.3-flash opencode:opencode-go/muse-spark-1.3-contributor"); take_seat(pa) }
+      if (pb == "") { pb = pick_primary("codex:gpt-6.1-terra antigravity:gemini-4-carbon claudeAgent:claude-sonnet-5-5 antigravity:claude-sonnet-5-5 codex:gpt-6.1-sol claudeAgent:claude-opus-5-5 opencode:opencode-go/glm-5.3-flash opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/muse-spark-1.3-contributor"); take_seat(pb) }
+      if (pc == "") { pc = pick_primary("antigravity:gemini-4-carbon antigravity:claude-sonnet-5-5 codex:gpt-6.1-terra codex:gpt-6.1-sol claudeAgent:claude-opus-5-5 claudeAgent:claude-sonnet-5-5 opencode:opencode-go/muse-spark-1.3-contributor opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/glm-5.3-flash"); take_seat(pc) }
       split("", seat_primary_model)
       seat_primary_model[substr(pa, index(pa, ":") + 1)] = 1
       seat_primary_model[substr(pb, index(pb, ":") + 1)] = 1
       seat_primary_model[substr(pc, index(pc, ":") + 1)] = 1
-      emit_seat("reviewer-a", pa, "codex:gpt-6.1-terra antigravity:gemini-4-argon claudeAgent:claude-sonnet-5-5 antigravity:claude-sonnet-5-5 codex:gpt-6.1-sol antigravity:gemini-4-carbon claudeAgent:claude-opus-5-5 opencode:opencode-go/glm-5.3-flash opencode:opencode-go/deepseek-v4.1-flash")
-      emit_seat("reviewer-b", pb, "antigravity:gemini-4-argon claudeAgent:claude-sonnet-5-5 codex:gpt-6.1-terra antigravity:claude-sonnet-5-5 codex:gpt-6.1-sol claudeAgent:claude-opus-5-5 opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/glm-5.3-flash")
-      emit_seat("reviewer-c", pc, "antigravity:claude-sonnet-5-5 codex:gpt-6.1-terra claudeAgent:claude-sonnet-5-5 antigravity:gemini-4-argon codex:gpt-6.1-sol claudeAgent:claude-opus-5-5 opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/glm-5.3-flash")
+      emit_seat("reviewer-a", pa, "codex:gpt-6.1-terra antigravity:gemini-4-carbon claudeAgent:claude-sonnet-5-5 antigravity:claude-sonnet-5-5 codex:gpt-6.1-sol antigravity:gemini-4-hydrogen claudeAgent:claude-opus-5-5 opencode:opencode-go/glm-5.3-flash opencode:opencode-go/deepseek-v4.1-flash")
+      emit_seat("reviewer-b", pb, "antigravity:gemini-4-carbon claudeAgent:claude-sonnet-5-5 codex:gpt-6.1-terra antigravity:claude-sonnet-5-5 codex:gpt-6.1-sol claudeAgent:claude-opus-5-5 opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/glm-5.3-flash")
+      emit_seat("reviewer-c", pc, "antigravity:claude-sonnet-5-5 codex:gpt-6.1-terra claudeAgent:claude-sonnet-5-5 antigravity:gemini-4-carbon codex:gpt-6.1-sol claudeAgent:claude-opus-5-5 opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/glm-5.3-flash")
 
       # compaction (2 rungs)
       add_cand("claudeAgent", "claude-haiku-5-5", "effort=low", "anthropic", "ok")
@@ -1825,9 +1822,9 @@ generate_dynamic_profile() {
   printf '| provider | model | effort | family | privacy |\n'
   printf '| --- | --- | --- | --- | --- |\n'
   if [ "$has_agy" -eq 1 ]; then
-    printf '| antigravity | gemini-4-carbon | thinking_level=high | google | ok |\n'
+    printf '| antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |\n'
     printf '| antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |\n'
-    printf '| antigravity | gemini-4-argon | thinking_level=high | google | ok |\n'
+    printf '| antigravity | gemini-4-carbon | thinking_level=high | google | ok |\n'
   fi
   if [ "$has_cld" -eq 1 ]; then
     printf '| claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |\n'

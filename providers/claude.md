@@ -7,9 +7,9 @@ Single-subscription Anthropic profile (`provider: claudeAgent`, `family: anthrop
 - **Driver:** `claude-sonnet-5-5` (`effort=medium`), falling back to `claude-opus-5-5` (`effort=medium`).
 - **Discovery (`scout`):** `claude-haiku-5-5` (`effort=low`) -> `claude-sonnet-5-5` (`low`) -> `claude-fable-5-1` (`low`).
 - **Testing & surgical edits (`tester`, `patch`):** `claude-haiku-5-5` (`effort=medium`) -> `claude-sonnet-5-5` (`medium`) -> `claude-fable-5-1` (`medium`).
-- **Implementation:** `implementer` runs on `claude-opus-5-5` (`high`) and `implementer-deep` on `claude-fable-5-2` (`high`), both falling back to Antigravity `gemini-4-carbon` and Codex `gpt-6.1-sol`. Backup rows keep `claude-opus-5-5` and `claude-sonnet-5-5` (`high`) on Claude Code.
+- **Implementation:** `implementer` runs on `claude-opus-5-5` (`high`) and `implementer-deep` on `claude-fable-5-2` (`high`), falling back to Antigravity `gemini-4-carbon` and `gemini-4-hydrogen` respectively, then Codex `gpt-6.1-sol`. Backup rows keep `claude-opus-5-5` and `claude-sonnet-5-5` (`high`) on Claude Code.
 - **Per-task review (`task-reviewer`):** `high`-effort rungs across `claude-sonnet-5-5`, `claude-opus-5-5`, and `claude-haiku-5-5`.
-- **Council:** Seat A (captain) runs on `claude-fable-5-2`; Seat B prefers Codex `gpt-6-astra` and Seat C Antigravity `gemini-4-carbon`. With only Claude Code reachable, `single-provider review: claudeAgent` seats draw from `claude-fable-5-2`, `claude-opus-5-5`, and `claude-sonnet-5-5` at `high`.
+- **Council:** Seat A (captain) runs on `claude-fable-5-2`; Seat B prefers Codex `gpt-6-astra` and Seat C Antigravity `gemini-4-hydrogen`. With only Claude Code reachable, `single-provider review: claudeAgent` seats draw from `claude-fable-5-2`, `claude-opus-5-5`, and `claude-sonnet-5-5` at `high`.
 
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -22,7 +22,7 @@ Single-subscription Anthropic profile (`provider: claudeAgent`, `family: anthrop
 | implementer | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | implementer | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
 | implementer-deep | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
-| implementer-deep | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| implementer-deep | fallback | antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
 | implementer-deep | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
 | tester | primary | claudeAgent | claude-haiku-5-5 | effort=medium | anthropic | ok |
 | tester | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |
@@ -35,11 +35,11 @@ Single-subscription Anthropic profile (`provider: claudeAgent`, `family: anthrop
 | task-reviewer | last-resort | claudeAgent | claude-haiku-5-5 | effort=high | anthropic | ok |
 | reviewer-a | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | reviewer-a | fallback | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
-| reviewer-a | last-resort | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| reviewer-a | last-resort | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | reviewer-b | primary | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
-| reviewer-b | fallback | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| reviewer-b | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | reviewer-b | last-resort | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
-| reviewer-c | primary | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| reviewer-c | primary | antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
 | reviewer-c | fallback | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic | ok |
 | reviewer-c | last-resort | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
 | compaction | primary | claudeAgent | claude-haiku-5-5 | effort=low | anthropic | ok |
@@ -67,9 +67,9 @@ Single-subscription Anthropic profile (`provider: claudeAgent`, `family: anthrop
 | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |
 | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
-| antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
 | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
-| antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
 | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
 | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
