@@ -311,3 +311,4 @@ Rules:
 - Git plumbing can still read committed secret history; those denies are best-effort guardrails, not a sandbox.
 - Secret denies are an enumerated blocklist: unknown sibling names such as .envrc or **/*.env are not covered. Treat shell and git as untrusted for secrets.
 - Permissions are last-match-wins: broad denies come first, narrow allows last.
+- If your brief names you review captain (Seat A lost), your review is unchanged; the captain ruling is a separate dispatch under the `reviewer-a` contract's ruling mode.

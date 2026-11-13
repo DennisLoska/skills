@@ -47,14 +47,27 @@ while read -r seat pin; do
 done <<'PINS'
 scout opencode-go/mimo-v2.6-flash
 implementer -
-implementer-deep opencode-go/deepseek-v4.1-flash#max
+implementer-deep -
 patch opencode-go/deepseek-v4.1-flash#high
 tester opencode-go/deepseek-v4.1-flash#high
-reviewer-a opencode-go/mimo-v2.6-flash
-reviewer-b opencode-go/glm-5.3-flash#high
-reviewer-c opencode-go/muse-spark-1.3-contributor#xhigh
-reviewer-esc opencode-go/mimo-v2.6-flash
+reviewer-a -
+reviewer-b -
+reviewer-c -
 PINS
+
+# expected_profile <source> [tracker]: path of the PROVIDERS.md an install of
+# <source> renders: the source without trailing blank lines, then a trailing
+# "## Project management" section naming the backlog tracker (default auto).
+expected_profile() {
+  local src="$1" pm="${2:-auto}" out
+  out="$TMPROOT/expected-profile.$(printf '%s|%s' "$src" "$pm" | cksum | cut -d' ' -f1).md"
+  awk '
+    { line[NR] = $0; if ($0 !~ /^[[:space:]]*$/) last = NR }
+    END { for (i = 1; i <= last; i++) print line[i] }
+  ' "$src" >"$out"
+  printf '\n## Project management\n\nbacklog_tracker: %s\n' "$pm" >>"$out"
+  printf '%s' "$out"
+}
 
 # 1. clean install into an empty HOME
 rc1=0
@@ -324,7 +337,7 @@ while IFS= read -r mrel || [ -n "$mrel" ]; do
   if [ "$mrel" = "HARNESS.md" ]; then
     src="$ROOT/AGENTS.md"
   elif [ "$mrel" = "PROVIDERS.md" ]; then
-    src="$ROOT/providers/tri.md"
+    src="$(expected_profile "$ROOT/providers/tri.md")"
   elif [[ "$mrel" == agents/*.md ]]; then
     # Compare against the independent default pin fixture.
     src="$TMPROOT/tri-agents/${mrel#agents/}"
@@ -610,18 +623,14 @@ grep -q 'inside the source checkout' "$TMPROOT/case28.link-interior-dot.out" || 
 pass "./ and <symlink-to-src>/missing/./sub exit 1 and create nothing"
 
 # 38. default tri binding and native pins
-cmp -s "$ROOT/providers/tri.md" "$DEST/PROVIDERS.md" || fail "default selects tri"
+cmp -s "$(expected_profile "$ROOT/providers/tri.md")" "$DEST/PROVIDERS.md" || fail "default selects tri"
 grep -qx 'PROVIDERS.md' "$MANIFEST" || fail "manifest owns PROVIDERS.md"
 [ "$(sed -n '2p' "$MANIFEST")" = '# profile tri' ] || fail "manifest line 2 names tri"
 grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$DEST/agents/scout.md" || fail "tri scout pin"
-grep -qxF 'model: opencode-go/deepseek-v4.1-flash#max' "$DEST/agents/implementer-deep.md" || fail "tri implementer-deep pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$DEST/agents/tester.md" || fail "tri tester pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$DEST/agents/patch.md" || fail "tri patch pin"
-grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$DEST/agents/reviewer-a.md" || fail "tri reviewer-a pin"
-grep -qxF 'model: opencode-go/glm-5.3-flash#high' "$DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
-grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$DEST/agents/reviewer-c.md" || fail "tri reviewer-c pin"
-grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
-for seat in implementer; do
+[ ! -e "$DEST/agents/reviewer-esc.md" ] || fail "tri installs no retired reviewer-esc seat"
+for seat in implementer implementer-deep reviewer-a reviewer-b reviewer-c; do
   if grep -q '^model:' "$DEST/agents/$seat.md"; then
     fail "tri $seat has no native pin"
   fi
@@ -639,13 +648,17 @@ while IFS="$(printf '\t')" read -r seat line model; do
   awk -v line="$line" 'NR != line' "$installed" >"$TMPROOT/without-pin"
   cmp -s "$ROOT/agents/$seat.md" "$TMPROOT/without-pin" || fail "current source body: $seat"
 done <"$ROOT/test/fixtures/legacy-pins.txt"
-cmp -s "$ROOT/providers/opencode-go.md" "$LEGACY_DEST/PROVIDERS.md" || fail "legacy profile is byte copied"
+cmp -s "$(expected_profile "$ROOT/providers/opencode-go.md")" "$LEGACY_DEST/PROVIDERS.md" || fail "legacy profile is byte copied"
 [ "$(sed -n '2p' "$LEGACY_DEST/.harness-manifest")" = '# profile opencode-go' ] || fail "legacy metadata"
-pass "opencode-go preserves all nine historical pins and current source bodies"
+for seat in implementer implementer-deep reviewer-a reviewer-b reviewer-c; do
+  cmp -s "$ROOT/agents/$seat.md" "$LEGACY_DEST/agents/$seat.md" || fail "opencode-go leaves the delegate-only $seat seat unpinned"
+done
+[ ! -e "$LEGACY_DEST/agents/reviewer-esc.md" ] || fail "opencode-go installs no retired reviewer-esc seat"
+pass "opencode-go preserves the scout, tester and patch pins and leaves delegate-only seats unpinned"
 
 # 40. both flag forms bind the same profile
 OPENCODE_CONFIG="$LEGACY_DEST" "$INSTALL" --force --profile=opencode-go >"$TMPROOT/equals.out"
-cmp -s "$ROOT/providers/opencode-go.md" "$LEGACY_DEST/PROVIDERS.md" || fail "equals flag binds legacy profile"
+cmp -s "$(expected_profile "$ROOT/providers/opencode-go.md")" "$LEGACY_DEST/PROVIDERS.md" || fail "equals flag binds legacy profile"
 pass "--profile=NAME is accepted"
 
 # 41. unknown and malformed names fail before any write, even with force/prune
@@ -697,12 +710,12 @@ OPENCODE_CONFIG="$PROFILE_DEST" "$INSTALL" --force >"$TMPROOT/profile-force.out"
 [ "$(cat "$TMPROOT/outside-profile.md")" = outside ] || fail "profile force preserves symlink target"
 [ ! -L "$PROFILE_DEST/PROVIDERS.md" ] || fail "profile force unlinks symlink"
 OPENCODE_CONFIG="$PROFILE_DEST" "$INSTALL" --force --prune --profile opencode-go >"$TMPROOT/profile-prune.out"
-cmp -s "$ROOT/providers/opencode-go.md" "$PROFILE_DEST/PROVIDERS.md" || fail "profile switch survives prune"
+cmp -s "$(expected_profile "$ROOT/providers/opencode-go.md")" "$PROFILE_DEST/PROVIDERS.md" || fail "profile switch survives prune"
 [ ! -e "$PROFILE_DEST/providers" ] || fail "profiles directory is not installed"
 pass "PROVIDERS.md respects collision, force, symlink and prune rules"
 
 # 44. every required role is validated (including the ad-hoc task reviewer)
-for role in scout implementer implementer-deep patch tester reviewer-a reviewer-b reviewer-c reviewer-esc task-reviewer; do
+for role in scout implementer implementer-deep patch tester reviewer-a reviewer-b reviewer-c task-reviewer; do
   awk -F '|' -v role="$role" '!($2 == " " role " " && $3 == " primary ")' "$ROOT/providers/tri.md" >"$FIXTURE/providers/broken.md"
   rc=0
   OPENCODE_CONFIG="$TMPROOT/incomplete-dest" "$FIXTURE/install.sh" --profile broken >"$TMPROOT/role.out" 2>"$TMPROOT/role.err" || rc=$?
@@ -710,7 +723,7 @@ for role in scout implementer implementer-deep patch tester reviewer-a reviewer-
   grep -qxF "install.sh: profile broken incomplete: $role" "$TMPROOT/role.err" || fail "missing primary names $role"
   [ ! -e "$TMPROOT/incomplete-dest" ] || fail "missing $role creates nothing"
 done
-pass "all ten required roles must have a primary rung"
+pass "all nine required roles (reviewer-c included) must have a primary rung"
 
 # 45. table order cannot override ladder order; unrelated rows are ignored
 cp -R "$ROOT/agents" "$FIXTURE/agents"
@@ -718,7 +731,7 @@ mkdir -p "$FIXTURE/skills"
 cp "$ROOT/NOTICE" "$ROOT/LICENSE" "$FIXTURE/"
 printf 'fixture harness\n' >"$FIXTURE/AGENTS.md"
 awk '
-  /^[|] (scout|implementer|implementer-deep|patch|tester|reviewer-a|reviewer-b|reviewer-c|reviewer-esc|task-reviewer) [|]/ { rows[++n] = $0; next }
+  /^[|] (scout|implementer|implementer-deep|patch|tester|reviewer-a|reviewer-b|reviewer-c|task-reviewer) [|]/ { rows[++n] = $0; next }
   { print }
   END { for (i = n; i >= 1; i--) print rows[i] }
 ' "$ROOT/providers/opencode-go.md" >"$FIXTURE/providers/reordered.md"
@@ -800,7 +813,7 @@ reject_unchanged 2 'usage: install.sh' --profile=
 pass "missing and empty profile arguments show usage without writes"
 
 OPENCODE_CONFIG="$LEGACY_DEST" "$INSTALL" --force >"$TMPROOT/reuse.out"
-cmp -s "$ROOT/providers/opencode-go.md" "$LEGACY_DEST/PROVIDERS.md" || fail "implicit reuse retains opencode-go"
+cmp -s "$(expected_profile "$ROOT/providers/opencode-go.md")" "$LEGACY_DEST/PROVIDERS.md" || fail "implicit reuse retains opencode-go"
 pass "implicit profile reuses previous manifest binding"
 OPENCODE_CONFIG="$LEGACY_DEST" "$INSTALL" --force --profile tri >"$TMPROOT/change.out"
 grep -qxF 'profile changed: opencode-go -> tri' "$TMPROOT/change.out" || fail "explicit profile change announced"
@@ -823,7 +836,7 @@ for selection in implicit explicit; do
     expected_profile=tri
     expected_message='profile changed: opencode-go -> tri'
   fi
-  cmp -s "$ROOT/providers/$expected_profile.md" "$PREPROFILE_DEST/PROVIDERS.md" || fail "pre-profile $selection binding"
+  cmp -s "$(expected_profile "$ROOT/providers/$expected_profile.md")" "$PREPROFILE_DEST/PROVIDERS.md" || fail "pre-profile $selection binding"
   grep -qxF "# profile $expected_profile" "$PREPROFILE_DEST/.harness-manifest" || fail "pre-profile $selection metadata"
   grep -qxF "$expected_message" "$TMPROOT/preprofile.out" || fail "pre-profile $selection announcement"
   pass "pre-profile manifest respects $selection selection"
@@ -840,8 +853,8 @@ for legacy_kind in headerless premanifest; do
   fi
   OPENCODE_CONFIG="$OLD_DEST" "$INSTALL" --force >"$TMPROOT/old.out"
   [ "$(sed -n '2p' "$OLD_DEST/.harness-manifest")" = '# profile opencode-go' ] || fail "$legacy_kind metadata"
-  grep -qxF 'model: opencode-go/glm-5.3-flash#high' "$OLD_DEST/agents/reviewer-a.md" || fail "$legacy_kind reviewer-a pin"
-  grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$OLD_DEST/agents/reviewer-c.md" || fail "$legacy_kind reviewer-c pin"
+  grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$OLD_DEST/agents/scout.md" || fail "$legacy_kind scout pin"
+  grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$OLD_DEST/agents/tester.md" || fail "$legacy_kind tester pin"
   grep -qxF 'profile: opencode-go (previous install predates profiles)' "$TMPROOT/old.out" || fail "$legacy_kind announcement"
   pass "$legacy_kind preserves historical profile"
 done
@@ -891,13 +904,13 @@ PF_DEST="$TMPROOT/profile-file-dest"
 rc=0
 OPENCODE_CONFIG="$PF_DEST" "$INSTALL" --profile-file "$PF_ABS" >"$TMPROOT/profile-file.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/profile-file.out" >&2; fail "--profile-file install exits 0"; }
-cmp -s "$PF_ABS" "$PF_DEST/PROVIDERS.md" || fail "PROVIDERS.md is a byte copy of the profile file"
+cmp -s "$(expected_profile "$PF_ABS")" "$PF_DEST/PROVIDERS.md" || fail "PROVIDERS.md is a byte copy of the profile file"
 [ "$(sed -n '2p' "$PF_DEST/.harness-manifest")" = "# profile-file $PF_ABS" ] || fail "manifest line 2 records the profile file path"
 PF_REL_DEST="$TMPROOT/profile-file-rel-dest"
 rc=0
 ( cd "$PF_DIR" && OPENCODE_CONFIG="$PF_REL_DEST" "$INSTALL" --profile-file custom.md ) >"$TMPROOT/profile-file-rel.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/profile-file-rel.out" >&2; fail "relative --profile-file install exits 0"; }
-cmp -s "$PF_ABS" "$PF_REL_DEST/PROVIDERS.md" || fail "relative profile file is byte copied"
+cmp -s "$(expected_profile "$PF_ABS")" "$PF_REL_DEST/PROVIDERS.md" || fail "relative profile file is byte copied"
 [ "$(sed -n '2p' "$PF_REL_DEST/.harness-manifest")" = "# profile-file $PF_ABS" ] || fail "relative profile file is recorded as absolute"
 pass "--profile-file binds, copies and records an absolute path"
 
@@ -905,7 +918,7 @@ pass "--profile-file binds, copies and records an absolute path"
 rc=0
 OPENCODE_CONFIG="$PF_DEST" "$INSTALL" --force >"$TMPROOT/profile-reuse.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/profile-reuse.out" >&2; fail "refresh with a recorded profile file exits 0"; }
-cmp -s "$PF_ABS" "$PF_DEST/PROVIDERS.md" || fail "refresh without flags reuses the recorded profile file"
+cmp -s "$(expected_profile "$PF_ABS")" "$PF_DEST/PROVIDERS.md" || fail "refresh without flags reuses the recorded profile file"
 [ "$(sed -n '2p' "$PF_DEST/.harness-manifest")" = "# profile-file $PF_ABS" ] || fail "refresh keeps the profile file binding"
 find "$PF_DEST" -type f -exec cksum {} + | sort >"$TMPROOT/profile-missing.snap"
 rm -f -- "$PF_ABS"
@@ -940,14 +953,10 @@ rc=0
 OPENCODE_CONFIG="$PINS_DEST" "$INSTALL" >"$TMPROOT/pins.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/pins.out" >&2; fail "fresh tri install exits 0"; }
 grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$PINS_DEST/agents/scout.md" || fail "tri scout pin"
-grep -qxF 'model: opencode-go/deepseek-v4.1-flash#max' "$PINS_DEST/agents/implementer-deep.md" || fail "tri implementer-deep pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$PINS_DEST/agents/tester.md" || fail "tri tester pin"
 grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$PINS_DEST/agents/patch.md" || fail "tri patch pin"
-grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$PINS_DEST/agents/reviewer-a.md" || fail "tri reviewer-a pin"
-grep -qxF 'model: opencode-go/glm-5.3-flash#high' "$PINS_DEST/agents/reviewer-b.md" || fail "tri reviewer-b pin"
-grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$PINS_DEST/agents/reviewer-c.md" || fail "tri reviewer-c pin"
-grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$PINS_DEST/agents/reviewer-esc.md" || fail "tri reviewer-esc pin"
-for seat in implementer; do
+[ ! -e "$PINS_DEST/agents/reviewer-esc.md" ] || fail "tri installs no retired reviewer-esc seat"
+for seat in implementer implementer-deep reviewer-a reviewer-b reviewer-c; do
   if grep -q '^model:' "$PINS_DEST/agents/$seat.md"; then
     fail "tri $seat has no native pin"
   fi
@@ -961,12 +970,11 @@ QUAD_DEST="$TMPROOT/quad-install"
 rc=0
 OPENCODE_CONFIG="$QUAD_DEST" "$INSTALL" --profile quad >"$TMPROOT/quad.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/quad.out" >&2; fail "quad install exits 0 (claudeAgent provider id accepted)"; }
-cmp -s "$ROOT/providers/quad.md" "$QUAD_DEST/PROVIDERS.md" || fail "quad PROVIDERS.md is a byte copy of providers/quad.md"
-grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$QUAD_DEST/agents/reviewer-a.md" || fail "quad reviewer-a pin"
-grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$QUAD_DEST/agents/reviewer-b.md" || fail "quad reviewer-b pin"
-grep -qxF 'model: opencode-go/muse-spark-1.3-contributor#xhigh' "$QUAD_DEST/agents/reviewer-c.md" || fail "quad reviewer-c pin"
-grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$QUAD_DEST/agents/reviewer-esc.md" || fail "quad reviewer-esc pin"
-for seat in implementer implementer-deep; do
+cmp -s "$(expected_profile "$ROOT/providers/quad.md")" "$QUAD_DEST/PROVIDERS.md" || fail "quad PROVIDERS.md is a byte copy of providers/quad.md"
+grep -qxF 'model: opencode-go/mimo-v2.6-flash' "$QUAD_DEST/agents/scout.md" || fail "quad scout pin"
+grep -qxF 'model: opencode-go/deepseek-v4.1-flash#high' "$QUAD_DEST/agents/tester.md" || fail "quad tester pin"
+[ ! -e "$QUAD_DEST/agents/reviewer-esc.md" ] || fail "quad installs no retired reviewer-esc seat"
+for seat in implementer implementer-deep reviewer-a reviewer-b reviewer-c; do
   if grep -q '^model:' "$QUAD_DEST/agents/$seat.md"; then
     fail "quad $seat has no native pin"
   fi
@@ -1017,12 +1025,12 @@ OPENCODE_CONFIG="$SELF_DEST" "$INSTALL" --force --profile-file "$SELF_DEST/PROVI
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/self-bind.err" >&2; fail "--profile-file pointing at installed PROVIDERS.md exits 0"; }
 [ -e "$SELF_DEST/PROVIDERS.md" ] || fail "self-bound PROVIDERS.md still exists"
 [ -s "$SELF_DEST/PROVIDERS.md" ] || fail "self-bound PROVIDERS.md is non-empty"
-cmp -s "$ROOT/providers/tri.md" "$SELF_DEST/PROVIDERS.md" || fail "self-bound PROVIDERS.md is byte-identical to providers/tri.md"
+cmp -s "$(expected_profile "$ROOT/providers/tri.md")" "$SELF_DEST/PROVIDERS.md" || fail "self-bound PROVIDERS.md is byte-identical to providers/tri.md"
 ln -s "$SELF_DEST/PROVIDERS.md" "$TMPROOT/providers-link.md"
 rc=0
 OPENCODE_CONFIG="$SELF_DEST" "$INSTALL" --force --profile-file "$TMPROOT/providers-link.md" >"$TMPROOT/self-bind-link.out" 2>"$TMPROOT/self-bind-link.err" || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/self-bind-link.err" >&2; fail "--profile-file symlinked to installed PROVIDERS.md exits 0"; }
-cmp -s "$ROOT/providers/tri.md" "$SELF_DEST/PROVIDERS.md" || fail "symlink-bound PROVIDERS.md stays byte-identical to providers/tri.md"
+cmp -s "$(expected_profile "$ROOT/providers/tri.md")" "$SELF_DEST/PROVIDERS.md" || fail "symlink-bound PROVIDERS.md stays byte-identical to providers/tri.md"
 pass "--profile-file pointing to installed PROVIDERS.md preserves the file"
 
 # 56. --profile-file rejects a path containing a newline before writing anything.
@@ -1057,6 +1065,7 @@ rc=0
 OPENCODE_CONFIG="$TMPROOT/no-pools-dest" "$INSTALL" --profile-file "$TMPROOT/no-pools-or-backups.md" >"$TMPROOT/no-pools.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/no-pools.out" >&2; fail "a profile without quota pools or backup ladder installs cleanly"; }
 [ -f "$TMPROOT/no-pools-dest/PROVIDERS.md" ] || fail "a profile without quota pools or backup ladder renders PROVIDERS.md"
+grep -qxF "install.sh: profile $(cd "$TMPROOT" && pwd -P)/no-pools-or-backups.md: reviewer-esc rows ignored (role retired; captain replaces escalation)" "$TMPROOT/no-pools.out" || { cat "$TMPROOT/no-pools.out" >&2; fail "a retired reviewer-esc row is ignored with a warning"; }
 for shipped in tri quad opencode-go; do
   grep -qxF '## Quota pools' "$ROOT/providers/$shipped.md" || fail "providers/$shipped.md carries a ## Quota pools section"
   grep -qxF '## Backup ladder' "$ROOT/providers/$shipped.md" || fail "providers/$shipped.md carries a ## Backup ladder section"
@@ -1775,7 +1784,7 @@ HOME="$INH_HOME" "$INSTALL" --force --prune --target antigravity >"$TMPROOT/inh-
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/inh-t3-a.out" >&2; fail "multi-root antigravity profile inheritance exits 0 (got $rc)"; }
 for inh_root in "$INH_HOME/.gemini/config" "$INH_PROV/hash-x/config" "$INH_PROV/hash-y/config"; do
   grep -qxF '# profile quad' "$inh_root/.harness-manifest" || fail "multi-root antigravity inheritance writes '# profile quad' into $inh_root/.harness-manifest"
-  cmp -s "$ROOT/providers/quad.md" "$inh_root/PROVIDERS.md" || fail "multi-root antigravity inheritance writes quad PROVIDERS.md into $inh_root"
+  cmp -s "$(expected_profile "$ROOT/providers/quad.md")" "$inh_root/PROVIDERS.md" || fail "multi-root antigravity inheritance writes quad PROVIDERS.md into $inh_root"
 done
 cmp -s "$INH_HOME/.gemini/config/PROVIDERS.md" "$INH_PROV/hash-x/config/PROVIDERS.md" || fail "standalone and hash-x PROVIDERS.md are byte-identical"
 cmp -s "$INH_HOME/.gemini/config/PROVIDERS.md" "$INH_PROV/hash-y/config/PROVIDERS.md" || fail "standalone and hash-y PROVIDERS.md are byte-identical"
@@ -1796,7 +1805,7 @@ case "$expected_pf_line" in
   *) fail "standalone manifest carries # profile-file line (got: $expected_pf_line)" ;;
 esac
 [ "$(sed -n '2p' "$INH_PROV/hash-z/config/.harness-manifest")" = "$expected_pf_line" ] || fail "hash-z inherits # profile-file from standalone antigravity manifest"
-cmp -s "$INH_CUSTOM_PROF" "$INH_PROV/hash-z/config/PROVIDERS.md" || fail "hash-z receives the inherited external profile file"
+cmp -s "$(expected_profile "$INH_CUSTOM_PROF")" "$INH_PROV/hash-z/config/PROVIDERS.md" || fail "hash-z receives the inherited external profile file"
 grep -qxF '# profile opencode-go' "$INH_HOME/.config/opencode/.harness-manifest" || fail "non-antigravity target preserves its own manifest profile under --target all"
 
 INH_LEG_HOME="$TMPROOT/inh-leg-home"
@@ -1822,7 +1831,7 @@ HOME="$SYM_INH_HOME" "$INSTALL" --force --target antigravity >"$TMPROOT/sym-inh-
 [ -L "$SYM_INH_HOME/.gemini/config" ] || fail "symlinked ~/.gemini/config remains a symlink after refresh"
 for sym_root in "$SYM_INH_HOME/.gemini/config" "$REAL_AGY" "$SYM_INH_PROV/hash-sym-inh/config"; do
   grep -qxF '# profile quad' "$sym_root/.harness-manifest" || fail "symlinked ~/.gemini/config refresh writes '# profile quad' into $sym_root/.harness-manifest"
-  cmp -s "$ROOT/providers/quad.md" "$sym_root/PROVIDERS.md" || fail "symlinked ~/.gemini/config refresh writes quad PROVIDERS.md into $sym_root"
+  cmp -s "$(expected_profile "$ROOT/providers/quad.md")" "$sym_root/PROVIDERS.md" || fail "symlinked ~/.gemini/config refresh writes quad PROVIDERS.md into $sym_root"
 done
 cmp -s "$SYM_INH_HOME/.gemini/config/PROVIDERS.md" "$SYM_INH_PROV/hash-sym-inh/config/PROVIDERS.md" || fail "symlinked standalone and T3 PROVIDERS.md are byte-identical"
 
@@ -1841,7 +1850,7 @@ HOME="$SYM_ENV_HOME" ANTIGRAVITY_CONFIG="$SYM_AGY_CFG" T3_USERDATA_DIR="$SYM_ENV
 [ -L "$SYM_AGY_CFG" ] || fail "symlinked ANTIGRAVITY_CONFIG remains a symlink after refresh"
 for sym_env_root in "$SYM_AGY_CFG" "$REAL_AGY_LEG" "$SYM_ENV_PROV/hash-sym-env/config"; do
   grep -qxF '# profile quad' "$sym_env_root/.harness-manifest" || fail "symlinked ANTIGRAVITY_CONFIG refresh writes '# profile quad' into $sym_env_root/.harness-manifest"
-  cmp -s "$ROOT/providers/quad.md" "$sym_env_root/PROVIDERS.md" || fail "symlinked ANTIGRAVITY_CONFIG refresh writes quad PROVIDERS.md into $sym_env_root"
+  cmp -s "$(expected_profile "$ROOT/providers/quad.md")" "$sym_env_root/PROVIDERS.md" || fail "symlinked ANTIGRAVITY_CONFIG refresh writes quad PROVIDERS.md into $sym_env_root"
 done
 cmp -s "$SYM_AGY_CFG/PROVIDERS.md" "$SYM_ENV_PROV/hash-sym-env/config/PROVIDERS.md" || fail "symlinked ANTIGRAVITY_CONFIG and T3 PROVIDERS.md are byte-identical"
 
@@ -1873,7 +1882,7 @@ HOME="$FRESH_SA_HOME" "$INSTALL" --force --target antigravity >"$TMPROOT/fresh-s
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/fresh-sa.out" >&2; fail "fresh standalone with existing T3 binding exits 0 (got $rc)"; }
 for fsa_root in "$FRESH_SA_HOME/.gemini/config" "$FRESH_SA_PROV/hash-a-fresh/config" "$FRESH_SA_PROV/hash-existing/config"; do
   grep -qxF '# profile quad' "$fsa_root/.harness-manifest" || fail "fresh standalone + existing T3 converges $fsa_root to '# profile quad'"
-  cmp -s "$ROOT/providers/quad.md" "$fsa_root/PROVIDERS.md" || fail "fresh standalone + existing T3 writes quad PROVIDERS.md into $fsa_root"
+  cmp -s "$(expected_profile "$ROOT/providers/quad.md")" "$fsa_root/PROVIDERS.md" || fail "fresh standalone + existing T3 writes quad PROVIDERS.md into $fsa_root"
 done
 cmp -s "$FRESH_SA_HOME/.gemini/config/PROVIDERS.md" "$FRESH_SA_PROV/hash-existing/config/PROVIDERS.md" || fail "fresh standalone and hash-existing PROVIDERS.md are byte-identical"
 
@@ -1972,13 +1981,18 @@ done
 backup_ladder() {
   awk '/^## Backup ladder/ { found = 1; next } found && /^## / { exit } found' "$1"
 }
+NONREVIEW_ROLES='scout,implementer,implementer-deep,tester,patch,task-reviewer'
 backup_ladder "$ROOT/providers/tri.md" >"$TMPROOT/tri-backup-74.txt"
-grep -qF '* | codex |' "$TMPROOT/tri-backup-74.txt" || fail "tri backup ladder carries a wildcard codex fallback rung"
-grep -qF '* | antigravity |' "$TMPROOT/tri-backup-74.txt" || fail "tri backup ladder carries a wildcard antigravity fallback rung"
+grep -qF "| $NONREVIEW_ROLES | codex |" "$TMPROOT/tri-backup-74.txt" || fail "tri backup ladder carries an explicit non-reviewer codex fallback rung"
+grep -qF "| $NONREVIEW_ROLES | antigravity |" "$TMPROOT/tri-backup-74.txt" || fail "tri backup ladder carries an explicit non-reviewer antigravity fallback rung"
+grep -qF '| reviewer-a,reviewer-b,reviewer-c | codex |' "$TMPROOT/tri-backup-74.txt" || fail "tri backup ladder carries a codex reviewer rung"
 backup_ladder "$ROOT/providers/quad.md" >"$TMPROOT/quad-backup-74.txt"
-grep -qF '* | codex |' "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries a wildcard codex fallback rung"
-grep -qF '* | antigravity |' "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries a wildcard antigravity fallback rung"
-grep -qF '* | claudeAgent |' "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries a wildcard claudeAgent fallback rung"
+grep -qF "| $NONREVIEW_ROLES | codex |" "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries an explicit non-reviewer codex fallback rung"
+grep -qF "| $NONREVIEW_ROLES | antigravity |" "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries an explicit non-reviewer antigravity fallback rung"
+grep -qF "| $NONREVIEW_ROLES | claudeAgent |" "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries an explicit non-reviewer claudeAgent fallback rung"
+for rv_prov in codex antigravity claudeAgent; do
+  grep -qF "| reviewer-a,reviewer-b,reviewer-c | $rv_prov |" "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries a $rv_prov reviewer rung"
+done
 
 for needle in '<skills-dir>/_harness/agents/<seat>.md' spawn_agent invoke_subagent 'degraded task-review: single-family host'; do
   grep -qF "$needle" "$ROOT/AGENTS.md" || fail "AGENTS.md documents the standalone dispatch adapter via $needle"
@@ -2450,8 +2464,12 @@ for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode c
   [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-install-$prov_case.out" >&2; fail "--providers $prov_combo exits 0 (got $rc)"; }
   [ -f "$prov_md" ] || fail "--providers $prov_combo installs PROVIDERS.md"
   grep -qxF "# providers $prov_combo" "$prov_home/.config/opencode/.harness-manifest" || fail "--providers $prov_combo records '# providers $prov_combo' in .harness-manifest"
-  [ "$(prov_reviewer_c_row "$prov_md" primary)" = "opencode opencode-go/muse-spark-1.3-contributor" ] || fail "--providers $prov_combo keeps Seat C primary on muse-spark-1.3-contributor"
-  [ "$(prov_reviewer_c_row "$prov_md" fallback)" = "opencode opencode-go/deepseek-v4.1-flash" ] || fail "--providers $prov_combo keeps Seat C fallback on deepseek-v4.1-flash"
+  case "$prov_combo" in
+    *antigravity*) [ "$(prov_reviewer_c_row "$prov_md" primary)" = "antigravity gemini-4-carbon" ] || fail "--providers $prov_combo puts Seat C primary on gemini-4-carbon" ;;
+  esac
+  if awk -F '|' '$2 ~ /^ reviewer-[abc] $/ && $4 == " opencode "' "$prov_md" | grep -q .; then
+    fail "--providers $prov_combo puts no reviewer rung on opencode"
+  fi
   prov_purged_models "$prov_md" >"$TMPROOT/prov-purged-$prov_case.out"
   if [ -s "$TMPROOT/prov-purged-$prov_case.out" ]; then
     cat "$TMPROOT/prov-purged-$prov_case.out" >&2
@@ -2484,7 +2502,7 @@ for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode c
     cat "$TMPROOT/prov-verify-$prov_case.out" >&2
     fail "--verify reports no [FAIL] for --providers $prov_combo"
   fi
-  pass "--providers $prov_combo composes, records, verifies, and keeps Seat C on muse-spark/deepseek"
+  pass "--providers $prov_combo composes, records, verifies, and keeps the council off opencode"
 done
 
 # Non-opencode compositions and the claude alias (canonicalizing to claudeAgent
@@ -2516,9 +2534,10 @@ for non_oc_combo in antigravity,codex antigravity,claude claude,codex; do
       ;;
   esac
   if [ "$non_oc_combo" = "antigravity,claude" ]; then
-    [ "$(prov_role_rung_pool "$prov_md" implementer fallback)" = "antigravity-claude" ] || fail "--providers antigravity,claude orders antigravity Claude before claudeAgent in implementer"
-    [ "$(prov_role_rung_pool "$prov_md" implementer-deep primary)" = "antigravity-gemini" ] || fail "--providers antigravity,claude implementer-deep primary is antigravity-gemini"
-    [ "$(prov_role_rung_pool "$prov_md" implementer-deep fallback)" = "antigravity-claude" ] || fail "--providers antigravity,claude orders antigravity Claude before claudeAgent in implementer-deep"
+    [ "$(prov_role_rung_pool "$prov_md" implementer primary)" = "antigravity-claude" ] || fail "--providers antigravity,claude orders antigravity Claude Opus before claudeAgent in implementer"
+    [ "$(prov_role_rung_pool "$prov_md" implementer fallback)" = "antigravity-gemini" ] || fail "--providers antigravity,claude implementer fallback is gemini-4-carbon"
+    [ "$(prov_role_rung_pool "$prov_md" implementer-deep primary)" = "claude-code" ] || fail "--providers antigravity,claude implementer-deep primary is claudeAgent Fable"
+    grep -qF '| implementer | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |' "$prov_md" || fail "--providers antigravity,claude carries the claudeAgent Opus same-model backup row"
   fi
   case "$non_oc_combo" in
     *claude*)
@@ -2531,7 +2550,7 @@ for non_oc_combo in antigravity,codex antigravity,claude claude,codex; do
   [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-verify-$prov_case.out" >&2; fail "--verify accepts the --providers $non_oc_combo install (got $rc)"; }
   pass "--providers $non_oc_combo composes without opencode and canonicalizes claude to claudeAgent"
 done
-pass "--providers enforces pool independence across rungs and orders antigravity Claude before claudeAgent"
+pass "--providers enforces pool independence across rungs and orders antigravity Claude Opus before claudeAgent"
 
 # Single-provider alias claude (and claudeAgent) canonicalizes to claudeAgent in PROVIDERS.md.
 for cld_alias in claude claudeAgent; do
@@ -2622,69 +2641,55 @@ pass "shipped tri and quad tables carry no Pro models and no third-party models 
 grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$ROOT/providers/tri.md" || fail "tri carries opencode-go pool row"
 grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$ROOT/providers/quad.md" || fail "quad carries opencode-go pool row"
 grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$ROOT/providers/opencode-go.md" || fail "opencode-go carries opencode-go pool row"
-grep -qF '| 6 | * | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |' "$ROOT/providers/tri.md" || fail "tri backup ladder carries an antigravity Claude fallback rung"
-grep -qF '| 7 | * | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |' "$ROOT/providers/quad.md" || fail "quad backup ladder carries an antigravity Claude fallback rung"
+grep -qF '| 8 | scout,implementer,implementer-deep,tester,patch,task-reviewer | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |' "$ROOT/providers/tri.md" || fail "tri backup ladder carries an antigravity Claude fallback rung"
+grep -qF '| 11 | scout,implementer,implementer-deep,tester,patch,task-reviewer | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |' "$ROOT/providers/quad.md" || fail "quad backup ladder carries an antigravity Claude fallback rung"
+# opencode-go: backup row 1 (variant=high) excludes implementer-deep, so the
+# first opencode backup row matching implementer-deep is the variant=max one.
+grep -qF '| 1 | implementer,tester,patch | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |' "$ROOT/providers/opencode-go.md" || fail "opencode-go backup row 1 omits implementer-deep"
+oc_deep_first="$(awk -F '|' '
+  /^## / { inb = ($0 ~ /^## Backup ladder[[:space:]]*$/); next }
+  inb && /^[|] *[0-9]+ *[|]/ {
+    roles = $3; prov = $4; eff = $6
+    gsub(/^ +| +$/, "", roles); gsub(/^ +| +$/, "", prov); gsub(/^ +| +$/, "", eff)
+    if (prov != "opencode") next
+    if (roles == "*" || ("," roles ",") ~ /,implementer-deep,/) { print eff; exit }
+  }
+' "$ROOT/providers/opencode-go.md")"
+[ "$oc_deep_first" = "variant=max" ] || fail "opencode-go implementer-deep first opencode backup row is variant=max (got '$oc_deep_first')"
 
-# Verify that under --providers antigravity,claude, Seat A and Seat B have distinct primary families, no fallback cross-contamination, and Seat C drops out
+seat_cell() {
+  awk -F '|' -v seat="$2" -v col="$3" '$2 == " " seat " " && $3 == " primary " { v = $col; gsub(/^ +| +$/, "", v); print v }' "$1"
+}
+
+# Under --providers antigravity,claude the captain takes Fable on claudeAgent,
+# Seat C takes gemini-4-carbon, and Seat B takes the remaining distinct family.
 prov_test_home="$TMPROOT/prov-dual-home"
 HOME="$prov_test_home" "$INSTALL" --providers antigravity,claude >/dev/null 2>&1
 dual_md="$prov_test_home/.config/opencode/PROVIDERS.md"
-seat_a_fam="$(awk -F '|' '$2 ~ /reviewer-a/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$dual_md")"
-seat_b_fam="$(awk -F '|' '$2 ~ /reviewer-b/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$dual_md")"
-[ "$seat_a_fam" = "google" ] || fail "--providers antigravity,claude seat A primary is google (got $seat_a_fam)"
-[ "$seat_b_fam" = "anthropic" ] || fail "--providers antigravity,claude seat B primary is anthropic (got $seat_b_fam)"
-[ "$seat_a_fam" != "$seat_b_fam" ] || fail "--providers antigravity,claude seat A and seat B have distinct primary families"
-seat_a_mod="$(awk -F '|' '$2 ~ /reviewer-a/ && $3 ~ /primary/ { mod=$5; gsub(/^ +| +$/, "", mod); print mod }' "$dual_md")"
-[ "$seat_a_mod" = "gemini-4-carbon" ] || fail "--providers antigravity,claude seat A primary is gemini-4-carbon (got $seat_a_mod)"
-impl_mod="$(awk -F '|' '$2 ~ /^ *implementer *$/ && $3 ~ /primary/ { mod=$5; gsub(/^ +| +$/, "", mod); print mod }' "$dual_md")"
-[ "$impl_mod" = "gemini-4-carbon" ] || fail "--providers antigravity,claude implementer primary is gemini-4-carbon (got $impl_mod)"
-impldeep_mod="$(awk -F '|' '$2 ~ /implementer-deep/ && $3 ~ /primary/ { mod=$5; gsub(/^ +| +$/, "", mod); print mod }' "$dual_md")"
-[ "$impldeep_mod" = "gemini-4-carbon" ] || fail "--providers antigravity,claude implementer-deep primary is gemini-4-carbon (got $impldeep_mod)"
-if grep -qE '\| reviewer-c \|' "$dual_md"; then
-  fail "--providers antigravity,claude seat C should drop out in 2-family composition"
-fi
-if awk -F '|' '$2 ~ /reviewer-a/ && $7 ~ /anthropic/ { found=1 } END { exit found ? 0 : 1 }' "$dual_md"; then
-  fail "--providers antigravity,claude seat A should have no anthropic rungs"
-fi
-if awk -F '|' '$2 ~ /reviewer-b/ && $7 ~ /google/ { found=1 } END { exit found ? 0 : 1 }' "$dual_md"; then
-  fail "--providers antigravity,claude seat B should have no google rungs"
-fi
+[ "$(seat_cell "$dual_md" reviewer-a 5)" = "claude-fable-5-2" ] || fail "--providers antigravity,claude seat A (captain) primary is claude-fable-5-2"
+[ "$(seat_cell "$dual_md" reviewer-a 4)" = "claudeAgent" ] || fail "--providers antigravity,claude seat A runs on claudeAgent"
+[ "$(seat_cell "$dual_md" reviewer-b 7)" = "google" ] || fail "--providers antigravity,claude seat B primary family differs from seat A"
+[ "$(seat_cell "$dual_md" reviewer-c 5)" = "gemini-4-carbon" ] || fail "--providers antigravity,claude seat C primary is gemini-4-carbon"
+[ "$(seat_cell "$dual_md" implementer 5)" = "claude-opus-5-5" ] || fail "--providers antigravity,claude implementer primary is claude-opus-5-5"
+[ "$(seat_cell "$dual_md" implementer-deep 5)" = "claude-fable-5-2" ] || fail "--providers antigravity,claude implementer-deep primary is claude-fable-5-2"
 
-# Verify that under --providers claude,opencode, seats A, B, and C have pairwise-distinct primary families and per-role pool distinctness
+# Under --providers claude,opencode the council stays on Claude Code with
+# pairwise-distinct models (OpenCode never reviews while another provider exists).
 prov_oc_home="$TMPROOT/prov-oc-home"
 HOME="$prov_oc_home" "$INSTALL" --providers claude,opencode >/dev/null 2>&1
 oc_md="$prov_oc_home/.config/opencode/PROVIDERS.md"
-oc_seat_a="$(awk -F '|' '$2 ~ /reviewer-a/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$oc_md")"
-oc_seat_b="$(awk -F '|' '$2 ~ /reviewer-b/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$oc_md")"
-oc_seat_c="$(awk -F '|' '$2 ~ /reviewer-c/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$oc_md")"
+oc_seat_a="$(seat_cell "$oc_md" reviewer-a 5)"
+oc_seat_b="$(seat_cell "$oc_md" reviewer-b 5)"
+oc_seat_c="$(seat_cell "$oc_md" reviewer-c 5)"
 [ -n "$oc_seat_a" ] && [ -n "$oc_seat_b" ] && [ -n "$oc_seat_c" ] || fail "claude,opencode seats A, B, and C all exist"
-[ "$oc_seat_a" != "$oc_seat_b" ] || fail "claude,opencode seat A and seat B share primary family"
-[ "$oc_seat_a" != "$oc_seat_c" ] || fail "claude,opencode seat A and seat C share primary family"
-[ "$oc_seat_b" != "$oc_seat_c" ] || fail "claude,opencode seat B and seat C share primary family"
-for test_esc_provs in "claude,opencode" "antigravity,opencode" "antigravity,claude,opencode" "codex,opencode" "antigravity,codex,opencode" "claude,codex,opencode" "antigravity,claude,codex,opencode"; do
-  esc_test_home="$TMPROOT/prov-esc-$(echo "$test_esc_provs" | tr ',' '-')"
-  HOME="$esc_test_home" "$INSTALL" --providers "$test_esc_provs" >/dev/null 2>&1
-  esc_md="$esc_test_home/.config/opencode/PROVIDERS.md"
-  esc_seat_a="$(awk -F '|' '$2 ~ /reviewer-a/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$esc_md")"
-  esc_seat_b="$(awk -F '|' '$2 ~ /reviewer-b/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$esc_md")"
-  esc_seat_c="$(awk -F '|' '$2 ~ /reviewer-c/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$esc_md")"
-  esc_seat_esc="$(awk -F '|' '$2 ~ /reviewer-esc/ && $3 ~ /primary/ { fam=$7; gsub(/^ +| +$/, "", fam); print fam }' "$esc_md")"
-  [ -n "$esc_seat_esc" ] || fail "--providers $test_esc_provs reviewer-esc primary exists"
-  [ -n "$esc_seat_a" ] || fail "--providers $test_esc_provs reviewer-a primary exists"
-  [ -n "$esc_seat_b" ] || fail "--providers $test_esc_provs reviewer-b primary exists"
-  [ "$esc_seat_esc" != "$esc_seat_a" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat A ($esc_seat_a)"
-  if [ "$test_esc_provs" = "antigravity,claude,codex,opencode" ]; then
-    esc_mod_esc="$(awk -F '|' '$2 ~ /reviewer-esc/ && $3 ~ /primary/ { mod=$5; gsub(/^ +| +$/, "", mod); print mod }' "$esc_md")"
-    esc_mod_b="$(awk -F '|' '$2 ~ /reviewer-b/ && $3 ~ /primary/ { mod=$5; gsub(/^ +| +$/, "", mod); print mod }' "$esc_md")"
-    [ "$esc_mod_esc" != "$esc_mod_b" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_mod_esc) shares model with seat B ($esc_mod_b)"
-  else
-    [ "$esc_seat_esc" != "$esc_seat_b" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat B ($esc_seat_b)"
-  fi
-  [ -z "$esc_seat_c" ] || [ "$esc_seat_esc" != "$esc_seat_c" ] || fail "--providers $test_esc_provs reviewer-esc ($esc_seat_esc) shares primary family with seat C ($esc_seat_c)"
+[ "$oc_seat_a" = "claude-fable-5-2" ] || fail "claude,opencode seat A (captain) primary is claude-fable-5-2"
+[ "$oc_seat_a" != "$oc_seat_b" ] && [ "$oc_seat_a" != "$oc_seat_c" ] && [ "$oc_seat_b" != "$oc_seat_c" ] || fail "claude,opencode council seats run on pairwise-distinct models"
+for oc_seat in reviewer-a reviewer-b reviewer-c; do
+  [ "$(seat_cell "$oc_md" "$oc_seat" 4)" = "claudeAgent" ] || fail "claude,opencode $oc_seat stays off opencode"
 done
 
 awk -F '|' '
-  /^[|] (driver|scout|implementer|implementer-deep|tester|patch|task-reviewer|reviewer-a|reviewer-b|reviewer-esc|compaction) [|]/ {
+  /^[|] (driver|scout|implementer|implementer-deep|tester|patch|task-reviewer|reviewer-a|reviewer-b|reviewer-c|compaction) [|]/ {
     role = $2; gsub(/^ +| +$/, "", role)
     prov = $4; gsub(/^ +| +$/, "", prov)
     model = $5; gsub(/^ +| +$/, "", model)
@@ -2700,19 +2705,19 @@ awk '/^## Backup ladder/,0' "$oc_md" | grep -qF '| opencode |' || fail "dynamic 
 awk '/^## Backup ladder/,0' "$oc_md" | grep -qF '| claudeAgent |' || fail "dynamic backup ladder carries claudeAgent"
 
 grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$prov_oc_home/.config/opencode/PROVIDERS.md" || fail "dynamic profile with opencode carries opencode-go pool row"
-pass "cybernetic quota resilience: opencode-go pools, backup diversity, and dual-provider seat independence"
+pass "cybernetic quota resilience: opencode-go pools, backup diversity, and dual-provider council seats"
 
 # 79. Harness compliance and council integrity invariants:
 # - dispatch forbids manual execution (case-insensitive), has 4 bootstrap checks + driver inline HARD-GATE
 # - plan header template does not allow inline execution under dispatch
-# - council forbids identical-model self-review (not provider instance), clarifies reviewer-esc in Step 0,
+# - council forbids identical-model self-review (not provider instance),
 #   reads author_models/author_families from oneshot-state.md in Step 6 and skips matching author models,
-#   enforces all-seats round N+1 reruns, and documents council_verdict with mode=<nominal|degraded|escalation> and head=<sha>
-# - land parses effective last council_verdict: PASS with mode in nominal|degraded|escalation and head=<sha> matching
+#   enforces all-seats round N+1 reruns, and binds head=<sha> to git rev-parse HEAD
+# - land parses effective last council_verdict: PASS and head=<sha> matching
 #   local git rev-parse HEAD and remote PR head via gh pr merge --squash --match-head-commit <sha> (plus standalone rule)
-# - oneshot records <provider>/<model> in author logs, author_models: + author_families: in state, round=esc mode=escalation in Phase 6,
+# - oneshot records <provider>/<model> in author logs, author_models: + author_families: in state,
 #   effective last council_verdict in Phase 7, and recognizes "use the oneshot harness"
-# - AGENTS.md routing rules demote reviewer-* on author model conflict, review & council contracts recognize mode=nominal|degraded|escalation,
+# - AGENTS.md routing rules demote reviewer-* on author model conflict, review & council contracts recognize mode=nominal|degraded,
 #   carry oneshot-state.md council_verdict + explicit author-family rungs recorded in state, and stay <=21250 bytes
 grep -qF 'verify all four bootstrap checks' "$ROOT/skills/dispatch/SKILL.md" || fail "dispatch SKILL.md Step 0 verifies all four bootstrap checks"
 grep -qF 'Forbid driver inline execution' "$ROOT/skills/dispatch/SKILL.md" || fail "dispatch SKILL.md carries driver inline execution hard-gate"
@@ -2726,17 +2731,14 @@ grep -qF 'Forbid same-model council seats and author self-review' "$ROOT/skills/
 if grep -qF 'or provider instance' "$ROOT/skills/council/SKILL.md"; then
   fail "council SKILL.md Step 0 bans identical model only, not provider instance"
 fi
-sed -n '/^## Step 0: Routing Bootstrap/,/^## /p' "$ROOT/skills/council/SKILL.md" | grep -qF 'reviewer-esc' || fail "council SKILL.md Step 0 clarifies reviewer-esc supplies the non-author vote when all nominal seats are authors"
 sed -n '/^6\. /,/## Fallback mechanics/p' "$ROOT/skills/council/SKILL.md" | grep -qF 'oneshot-state.md' || fail "council SKILL.md Step 6 reads author models and families from oneshot-state.md"
 sed -n '/^6\. /,/## Fallback mechanics/p' "$ROOT/skills/council/SKILL.md" | grep -qF 'author_models' || fail "council SKILL.md Step 6 references author_models"
 sed -n '/^6\. /,/## Fallback mechanics/p' "$ROOT/skills/council/SKILL.md" | grep -qF 'author_families' || fail "council SKILL.md Step 6 references author_families"
 grep -qF 'demote: <seat> -> <provider>/<model> (author model conflict)' "$ROOT/skills/council/SKILL.md" || fail "council SKILL.md announces author model conflict demotion"
 grep -qF 'round N+1 review = all active fresh reviewer seats' "$ROOT/skills/council/SKILL.md" || fail "council SKILL.md round loop specifies all active seats"
-grep -qF 'council_verdict: PASS|FAIL round=<n> mode=<nominal|degraded|escalation> head=<sha>' "$ROOT/skills/council/SKILL.md" || fail "council SKILL.md documents council_verdict schema with mode=<nominal|degraded|escalation> and head=<sha>"
 grep -qF 'git rev-parse HEAD' "$ROOT/skills/council/SKILL.md" || fail "council SKILL.md binds head=<sha> to git rev-parse HEAD"
 grep -qF 'council_verdict: PASS' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md checks council_verdict: PASS in oneshot-state.md"
 grep -qiF 'effective last' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md parses effective last council_verdict from oneshot-state.md"
-grep -qF 'nominal|degraded|escalation' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md requires mode in nominal|degraded|escalation"
 grep -qF 'head=<sha>' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md checks head=<sha> in oneshot-state.md"
 grep -qF 'git rev-parse HEAD' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md verifies head=<sha> matches git rev-parse HEAD"
 grep -qF 'gh pr merge --squash --match-head-commit <sha>' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md enforces remote PR head match via gh pr merge --squash --match-head-commit <sha>"
@@ -2745,26 +2747,334 @@ grep -qF 'Never merge without verified Council consensus PASS' "$ROOT/skills/lan
 grep -qF 'use the oneshot harness' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot SKILL.md description recognizes use the oneshot harness trigger"
 sed -n '/^## Phase 3: DISPATCH/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF '<provider>/<model>' || fail "oneshot SKILL.md Phase 3 step 7 records <provider>/<model> alongside family"
 sed -n '/^## Phase 6: COUNCIL/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'council_verdict: PASS round=<n> mode=<nominal|degraded> head=<sha>' || fail "oneshot SKILL.md Phase 6 records council_verdict with head=<sha>"
-sed -n '/^## Phase 6: COUNCIL/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'council_verdict: PASS round=esc mode=escalation head=<sha>' || fail "oneshot SKILL.md Phase 6 escalation branch records round=esc mode=escalation on PASS"
-sed -n '/^## Phase 6: COUNCIL/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'council_verdict: FAIL round=esc mode=escalation head=<sha>' || fail "oneshot SKILL.md Phase 6 escalation branch records round=esc mode=escalation on FAIL"
 grep -qF 'Phase 6 Council consensus PASS is recorded' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot SKILL.md Phase 7 requires council consensus in state artifact"
 sed -n '/^## Phase 7: FINISH/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qiF 'effective last' || fail "oneshot SKILL.md Phase 7 checks effective last council_verdict line"
 sed -n '/^## Phase 7: FINISH/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'git rev-parse HEAD' || fail "oneshot SKILL.md Phase 7 requires head=<sha> match against git rev-parse HEAD"
 sed -n '/^## State Artifact/,/^## /p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'author_models:' || fail "oneshot SKILL.md State Artifact includes author_models:"
 sed -n '/^## State Artifact/,/^## /p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'author_families:' || fail "oneshot SKILL.md State Artifact includes author_families:"
-sed -n '/^## State Artifact/,/^## /p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'council_verdict: PASS|FAIL round=<n> mode=<nominal|degraded|escalation> head=<sha>' || fail "oneshot SKILL.md State Artifact documents council_verdict schema with escalation mode"
 sed -n '/^## Routing Rules/,/^### /p' "$ROOT/AGENTS.md" | grep -qF 'demote: <seat> -> <provider>/<model> (author model conflict)' || fail "AGENTS.md Routing Rules specify author model conflict skip and demotion announcement"
 sed -n '/^### Review contracts/,/^## /p' "$ROOT/AGENTS.md" | grep -qF 'oneshot-state.md' || fail "AGENTS.md Review contracts require consensus PASS in oneshot-state.md"
 sed -n '/^### Review contracts/,/^## /p' "$ROOT/AGENTS.md" | grep -qF 'council_verdict: PASS' || fail "AGENTS.md Review contracts reference council_verdict: PASS"
 sed -n '/^### Review contracts/,/^## Unit Naming Map/p' "$ROOT/AGENTS.md" | grep -qF 'mode=nominal' || fail "AGENTS.md recognizes mode=nominal"
 sed -n '/^### Review contracts/,/^## Unit Naming Map/p' "$ROOT/AGENTS.md" | grep -qF 'mode=degraded' || fail "AGENTS.md recognizes mode=degraded"
-sed -n '/^### Review contracts/,/^## Unit Naming Map/p' "$ROOT/AGENTS.md" | grep -qF 'mode=escalation' || fail "AGENTS.md recognizes mode=escalation"
 grep -qF '(`implementer*`, `tester`, `patch`, CI/council fixers)' "$ROOT/AGENTS.md" || fail "AGENTS.md restores explicit author-family rung list"
 grep -qF 'producing branch commits recorded in state' "$ROOT/AGENTS.md" || fail "AGENTS.md specifies author-family commits are recorded in state"
 grep -qF 'single-seat re-dispatch across rounds is forbidden' "$ROOT/AGENTS.md" || fail "AGENTS.md Council Contract forbids single-seat re-dispatch across rounds"
 grep -qF 'No council seat may review code authored by the identical model.' "$ROOT/AGENTS.md" || fail "AGENTS.md Council Contract forbids identical-model self-review"
 [ "$(wc -c <"$ROOT/AGENTS.md")" -le 21250 ] || fail "AGENTS.md stays within 21250 byte limit"
 pass "harness compliance: context hygiene hard-gate, council integrity, and land pre-merge gate"
+
+# 80. Council captain: reviewer-esc retirement, the Anthropic effort cap,
+# ## Single-provider review validation, the --pm backlog tracker, and the
+# implementer/council shape of every shipped profile and --providers composition.
+
+# 80a. reviewer-esc is retired: never rendered, removed from stale manifest-owned
+# installs without --prune (including skills/_harness on Antigravity), user-owned
+# copies survive, and custom profiles that still carry reviewer-esc rows install
+# with a warning.
+ESC_DEST="$TMPROOT/esc-retire"
+OPENCODE_CONFIG="$ESC_DEST" "$INSTALL" </dev/null >"$TMPROOT/esc-retire.out" 2>&1 || { cat "$TMPROOT/esc-retire.out" >&2; fail "80a: fresh install exits 0"; }
+[ ! -e "$ESC_DEST/agents/reviewer-esc.md" ] || fail "80a: no agents/reviewer-esc.md is rendered"
+if grep -qxF 'agents/reviewer-esc.md' "$ESC_DEST/.harness-manifest"; then fail "80a: manifest does not record reviewer-esc"; fi
+printf 'stale escalation seat\n' >"$ESC_DEST/agents/reviewer-esc.md"
+printf 'agents/reviewer-esc.md\n' >>"$ESC_DEST/.harness-manifest"
+OPENCODE_CONFIG="$ESC_DEST" "$INSTALL" --force </dev/null >"$TMPROOT/esc-retire-refresh.out" 2>&1 || { cat "$TMPROOT/esc-retire-refresh.out" >&2; fail "80a: refresh exits 0"; }
+[ ! -e "$ESC_DEST/agents/reviewer-esc.md" ] || fail "80a: refresh without --prune removes the manifest-owned reviewer-esc.md"
+grep -qxF 'removed retired file: agents/reviewer-esc.md' "$TMPROOT/esc-retire-refresh.out" || fail "80a: refresh announces the retired file removal"
+if grep -qxF 'agents/reviewer-esc.md' "$ESC_DEST/.harness-manifest"; then fail "80a: refresh drops reviewer-esc from the manifest"; fi
+printf 'user-owned escalation notes\n' >"$ESC_DEST/agents/reviewer-esc.md"
+OPENCODE_CONFIG="$ESC_DEST" "$INSTALL" --force </dev/null >"$TMPROOT/esc-retire-user.out" 2>&1 || fail "80a: refresh with a user-owned reviewer-esc.md exits 0"
+[ "$(cat "$ESC_DEST/agents/reviewer-esc.md")" = "user-owned escalation notes" ] || fail "80a: a reviewer-esc.md the installer never recorded is left alone"
+ESC_AGY="$TMPROOT/esc-retire-agy"
+OPENCODE_CONFIG="$TMPROOT/esc-retire-agy-oc" ANTIGRAVITY_CONFIG="$ESC_AGY" "$INSTALL" --target antigravity </dev/null >"$TMPROOT/esc-agy.out" 2>&1 || { cat "$TMPROOT/esc-agy.out" >&2; fail "80a: antigravity install exits 0"; }
+printf 'stale\n' >"$ESC_AGY/agents/reviewer-esc.md"
+printf 'stale\n' >"$ESC_AGY/skills/_harness/agents/reviewer-esc.md"
+printf 'agents/reviewer-esc.md\nskills/_harness/agents/reviewer-esc.md\n' >>"$ESC_AGY/.harness-manifest"
+OPENCODE_CONFIG="$TMPROOT/esc-retire-agy-oc" ANTIGRAVITY_CONFIG="$ESC_AGY" "$INSTALL" --target antigravity --force </dev/null >"$TMPROOT/esc-agy-refresh.out" 2>&1 || { cat "$TMPROOT/esc-agy-refresh.out" >&2; fail "80a: antigravity refresh exits 0"; }
+[ ! -e "$ESC_AGY/agents/reviewer-esc.md" ] || fail "80a: antigravity refresh removes agents/reviewer-esc.md"
+[ ! -e "$ESC_AGY/skills/_harness/agents/reviewer-esc.md" ] || fail "80a: antigravity refresh removes skills/_harness/agents/reviewer-esc.md"
+{ cat "$ROOT/providers/tri.md"
+  printf '| reviewer-esc | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |\n'
+  printf '| reviewer-esc | fallback | claudeAgent | claude-opus-5-5 | effort=max | anthropic | ok |\n'
+} >"$TMPROOT/esc-custom.md"
+ESC_CUSTOM_ABS="$(cd "$TMPROOT" && pwd -P)/esc-custom.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/esc-custom-dest" "$INSTALL" --profile-file "$ESC_CUSTOM_ABS" </dev/null >"$TMPROOT/esc-custom.out" 2>"$TMPROOT/esc-custom.err" || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/esc-custom.err" >&2; fail "80a: a custom profile with reviewer-esc rows still installs (got $rc)"; }
+grep -qxF "install.sh: profile $ESC_CUSTOM_ABS: reviewer-esc rows ignored (role retired; captain replaces escalation)" "$TMPROOT/esc-custom.err" || { cat "$TMPROOT/esc-custom.err" >&2; fail "80a: reviewer-esc rows trigger the exact retirement warning"; }
+[ "$(grep -c 'reviewer-esc rows ignored' "$TMPROOT/esc-custom.err")" -eq 1 ] || fail "80a: the retirement warning prints once"
+pass "reviewer-esc is retired: not rendered, stale manifest-owned copies removed without --prune, custom rows ignored with a warning"
+
+# 80b. Anthropic effort cap on role, backup and single-provider rows.
+CAP_BASE="$TMPROOT/cap-base.md"
+cp "$ROOT/providers/quad.md" "$CAP_BASE"
+cap_reject() {
+  local label="$1" diagnostic="$2" rc=0
+  OPENCODE_CONFIG="$TMPROOT/cap-dest" "$INSTALL" --profile-file "$TMPROOT/cap.md" </dev/null >"$TMPROOT/cap.out" 2>"$TMPROOT/cap.err" || rc=$?
+  [ "$rc" -eq 1 ] || { cat "$TMPROOT/cap.err" >&2; fail "80b: $label exits 1 (got $rc)"; }
+  grep -qxF "$diagnostic" "$TMPROOT/cap.err" || { cat "$TMPROOT/cap.err" >&2; fail "80b: $label diagnostic"; }
+  [ ! -e "$TMPROOT/cap-dest" ] || fail "80b: $label writes nothing"
+}
+CAP_ABS="$(cd "$TMPROOT" && pwd -P)/cap.md"
+for cap_effort in effort=xhigh effort=max effort=ultrathink effort=ultracode thinking_level=max variant=xhigh; do
+  awk -v e="$cap_effort" '{ if ($0 == "| driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |") print "| driver | fallback | claudeAgent | claude-sonnet-5-5 | " e " | anthropic | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
+  cap_reject "role row $cap_effort" "install.sh: profile $CAP_ABS invalid row: driver fallback: anthropic effort above high"
+done
+awk '{ if ($0 == "| 1 | implementer | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |") print "| 1 | implementer | claudeAgent | claude-opus-5-5 | effort=max | anthropic | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
+cap_reject "backup row effort=max" "install.sh: profile $CAP_ABS invalid backup row: 1: anthropic effort above high"
+awk '{ if ($0 == "| antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |") print "| antigravity | claude-opus-5-5 | thinking_level=xhigh | anthropic | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
+cap_reject "single-provider row thinking_level=xhigh" "install.sh: profile $CAP_ABS invalid single-provider row: antigravity claude-opus-5-5: anthropic effort above high"
+for cap_ok in - effort=low effort=medium effort=high; do
+  awk -v e="$cap_ok" '{ if ($0 == "| driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |") print "| driver | fallback | claudeAgent | claude-sonnet-5-5 | " e " | anthropic | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
+  rm -rf "$TMPROOT/cap-ok-dest"
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/cap-ok-dest" "$INSTALL" --profile-file "$TMPROOT/cap.md" </dev/null >"$TMPROOT/cap-ok.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/cap-ok.out" >&2; fail "80b: anthropic effort $cap_ok is accepted"; }
+done
+pass "anthropic effort cap rejects role, backup and single-provider rows above high and accepts -, low, medium, high"
+
+# 80c. ## Single-provider review rows are validated like dispatched rows;
+# ## Project management is prose the validator ignores.
+SP_BASE="$TMPROOT/sp-base.md"
+strip_profile_section "$ROOT/providers/codex.md" 'Single-provider review' >"$SP_BASE"
+SP_ABS="$(cd "$TMPROOT" && pwd -P)/sp.md"
+while IFS=';' read -r label row diagnostic; do
+  { cat "$SP_BASE"; printf '\n## Single-provider review\n\n| provider | model | effort | family | privacy |\n| --- | --- | --- | --- | --- |\n%s\n' "$row"; } >"$TMPROOT/sp.md"
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/sp-dest" "$INSTALL" --profile-file "$TMPROOT/sp.md" </dev/null >"$TMPROOT/sp.out" 2>"$TMPROOT/sp.err" || rc=$?
+  [ "$rc" -eq 1 ] || { cat "$TMPROOT/sp.err" >&2; fail "80c: single-provider $label exits 1 (got $rc)"; }
+  grep -qxF "install.sh: profile $SP_ABS invalid single-provider row: $diagnostic" "$TMPROOT/sp.err" || { cat "$TMPROOT/sp.err" >&2; fail "80c: single-provider $label diagnostic"; }
+  [ ! -e "$TMPROOT/sp-dest" ] || fail "80c: single-provider $label writes nothing"
+done <<'SPROWS'
+four cells;| codex | gpt-6-astra | reasoningEffort=high | openai |;codex gpt-6-astra: expected 5 cells
+empty model;| codex |  | reasoningEffort=high | openai | ok |;codex : empty cell
+bad provider;| bad_id | gpt-6-astra | reasoningEffort=high | openai | ok |;bad_id gpt-6-astra: invalid provider
+bad model;| codex | x: | reasoningEffort=high | openai | ok |;codex x:: invalid model
+bad effort;| codex | gpt-6-astra | high | openai | ok |;codex gpt-6-astra: invalid effort
+bad family;| codex | gpt-6-astra | reasoningEffort=high | OpenAI | ok |;codex gpt-6-astra: invalid family
+bad privacy;| codex | gpt-6-astra | reasoningEffort=high | openai | maybe |;codex gpt-6-astra: invalid privacy
+SPROWS
+{ cat "$SP_BASE"; printf '\n## Project management\n\nbacklog_tracker: linear\n\n| not | a | validated | table |\n| scout | primary | bogus |\n'; } >"$TMPROOT/sp.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/sp-pm-dest" "$INSTALL" --profile-file "$TMPROOT/sp.md" </dev/null >"$TMPROOT/sp-pm.out" 2>&1 || rc=$?
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/sp-pm.out" >&2; fail "80c: ## Project management content is ignored by the validator"; }
+[ "$(grep -c '^## Project management$' "$TMPROOT/sp-pm-dest/PROVIDERS.md")" -eq 1 ] || fail "80c: an embedded ## Project management section is replaced, not duplicated"
+grep -qxF 'backlog_tracker: auto' "$TMPROOT/sp-pm-dest/PROVIDERS.md" || fail "80c: the rendered tracker comes from the install, not the source file"
+pass "single-provider review rows are validated and ## Project management is ignored by the validator"
+
+# 80d. --pm records, renders and reuses the backlog tracker.
+for pm_val in auto github linear jira none; do
+  pm_dest="$TMPROOT/pm-$pm_val"
+  OPENCODE_CONFIG="$pm_dest" "$INSTALL" --pm "$pm_val" </dev/null >"$TMPROOT/pm.out" 2>&1 || { cat "$TMPROOT/pm.out" >&2; fail "80d: --pm $pm_val exits 0"; }
+  [ "$(sed -n '3p' "$pm_dest/.harness-manifest")" = "# pm $pm_val" ] || fail "80d: manifest line 3 records # pm $pm_val"
+  cmp -s "$(expected_profile "$ROOT/providers/tri.md" "$pm_val")" "$pm_dest/PROVIDERS.md" || fail "80d: PROVIDERS.md ends with backlog_tracker: $pm_val"
+done
+OPENCODE_CONFIG="$TMPROOT/pm-linear" "$INSTALL" --force </dev/null >"$TMPROOT/pm-refresh.out" 2>&1 || fail "80d: refresh exits 0"
+grep -qxF '# pm linear' "$TMPROOT/pm-linear/.harness-manifest" || fail "80d: refresh without --pm reuses the recorded tracker"
+grep -qxF 'backlog_tracker: linear' "$TMPROOT/pm-linear/PROVIDERS.md" || fail "80d: refresh re-renders the recorded tracker"
+OPENCODE_CONFIG="$TMPROOT/pm-linear" "$INSTALL" --force --pm=github </dev/null >"$TMPROOT/pm-switch.out" 2>&1 || fail "80d: --pm=github refresh exits 0"
+grep -qxF '# pm github' "$TMPROOT/pm-linear/.harness-manifest" || fail "80d: an explicit --pm replaces the recorded tracker"
+[ "$(grep -c '^## Project management$' "$TMPROOT/pm-linear/PROVIDERS.md")" -eq 1 ] || fail "80d: refresh renders exactly one ## Project management section"
+OPENCODE_CONFIG="$TMPROOT/pm-default" "$INSTALL" </dev/null >"$TMPROOT/pm-default.out" 2>&1 || fail "80d: default install exits 0"
+grep -qxF '# pm auto' "$TMPROOT/pm-default/.harness-manifest" || fail "80d: non-interactive installs default to auto"
+if grep -qF 'Backlog tracker [' "$TMPROOT/pm-default.out"; then fail "80d: non-interactive installs never prompt"; fi
+for pm_bad in trello GitHub ''; do
+  rc=0
+  OPENCODE_CONFIG="$TMPROOT/pm-bad-dest" "$INSTALL" --force --prune --pm "$pm_bad" </dev/null >"$TMPROOT/pm-bad.out" 2>"$TMPROOT/pm-bad.err" || rc=$?
+  [ "$rc" -eq 2 ] || fail "80d: --pm '$pm_bad' exits 2 (got $rc)"
+  grep -qxF "install.sh: unknown --pm value: $pm_bad (expected auto|github|linear|jira|none)" "$TMPROOT/pm-bad.err" || { cat "$TMPROOT/pm-bad.err" >&2; fail "80d: --pm '$pm_bad' diagnostic"; }
+  [ ! -e "$TMPROOT/pm-bad-dest" ] || fail "80d: --pm '$pm_bad' writes nothing"
+done
+rc=0
+OPENCODE_CONFIG="$TMPROOT/pm-bad-dest" "$INSTALL" --pm=bogus </dev/null >/dev/null 2>"$TMPROOT/pm-bad.err" || rc=$?
+[ "$rc" -eq 2 ] && grep -qxF 'install.sh: unknown --pm value: bogus (expected auto|github|linear|jira|none)' "$TMPROOT/pm-bad.err" || fail "80d: --pm=bogus exits 2 with the diagnostic"
+"$INSTALL" --help >"$TMPROOT/pm-help.out" 2>&1
+grep -qF -- '--pm TRACKER' "$TMPROOT/pm-help.out" || fail "80d: --help documents --pm"
+PM_ALL_HOME="$TMPROOT/pm-all-home"
+HOME="$PM_ALL_HOME" "$INSTALL" --target all --pm jira </dev/null >"$TMPROOT/pm-all.out" 2>&1 || { cat "$TMPROOT/pm-all.out" >&2; fail "80d: --target all --pm jira exits 0"; }
+for pm_root in .config/opencode .codex .gemini/config .claude; do
+  grep -qxF '# pm jira' "$PM_ALL_HOME/$pm_root/.harness-manifest" || fail "80d: --target all forwards --pm to $pm_root"
+  grep -qxF 'backlog_tracker: jira' "$PM_ALL_HOME/$pm_root/PROVIDERS.md" || fail "80d: $pm_root/PROVIDERS.md renders the tracker"
+done
+grep -qxF 'backlog_tracker: jira' "$PM_ALL_HOME/.codex/AGENTS.md" || fail "80d: codex AGENTS.md carries backlog_tracker"
+grep -qxF 'backlog_tracker: jira' "$PM_ALL_HOME/.claude/CLAUDE.md" || fail "80d: claude CLAUDE.md carries backlog_tracker"
+grep -qxF 'backlog_tracker: jira' "$PM_ALL_HOME/.gemini/config/rules/PROVIDERS.md" || fail "80d: antigravity rules/PROVIDERS.md carries backlog_tracker"
+HOME="$PM_ALL_HOME" "$INSTALL" --verify </dev/null >"$TMPROOT/pm-all-verify.out" 2>&1 || { cat "$TMPROOT/pm-all-verify.out" >&2; fail "80d: --verify accepts installs carrying ## Project management"; }
+if script -qec true /dev/null >/dev/null 2>&1; then
+  PM_TTY_DEST="$TMPROOT/pm-tty"
+  printf 'linear\n' | OPENCODE_CONFIG="$PM_TTY_DEST" script -qec "$INSTALL" /dev/null >"$TMPROOT/pm-tty.out" 2>&1 || true
+  grep -qF 'Backlog tracker [auto/github/linear/jira/none] (auto):' "$TMPROOT/pm-tty.out" || { cat "$TMPROOT/pm-tty.out" >&2; fail "80d: an interactive install prompts once for the backlog tracker"; }
+  grep -qxF '# pm linear' "$PM_TTY_DEST/.harness-manifest" || fail "80d: the prompt answer is recorded"
+  printf 'github\n' | OPENCODE_CONFIG="$PM_TTY_DEST" script -qec "$INSTALL --force" /dev/null >"$TMPROOT/pm-tty2.out" 2>&1 || true
+  if grep -qF 'Backlog tracker [' "$TMPROOT/pm-tty2.out"; then fail "80d: a recorded tracker suppresses the prompt"; fi
+  grep -qxF '# pm linear' "$PM_TTY_DEST/.harness-manifest" || fail "80d: an interactive refresh keeps the recorded tracker"
+  pass "--pm prompts once on a TTY when no tracker is recorded"
+  # Mixed-state multi-target TTY run: the prompt answer is only a default for
+  # roots without a recorded tracker; a recorded tracker is never overwritten.
+  PM_MIX_OC="$TMPROOT/pm-mix-tty-oc"
+  PM_MIX_CX="$TMPROOT/pm-mix-tty-codex"
+  OPENCODE_CONFIG="$PM_MIX_OC" "$INSTALL" --pm linear </dev/null >"$TMPROOT/pm-mix-seed.out" 2>&1 || { cat "$TMPROOT/pm-mix-seed.out" >&2; fail "80d: seeding a linear root exits 0"; }
+  printf 'github\n' | OPENCODE_CONFIG="$PM_MIX_OC" CODEX_HOME="$PM_MIX_CX" script -qec "$INSTALL --force --target opencode,codex" /dev/null >"$TMPROOT/pm-mix-tty.out" 2>&1 || true
+  [ "$(grep -c 'Backlog tracker \[' "$TMPROOT/pm-mix-tty.out")" -eq 1 ] || { cat "$TMPROOT/pm-mix-tty.out" >&2; fail "80d: a mixed-state multi-target TTY run prompts exactly once"; }
+  grep -qxF '# pm linear' "$PM_MIX_OC/.harness-manifest" || fail "80d: a multi-target prompt keeps a root's recorded tracker"
+  grep -qxF 'backlog_tracker: linear' "$PM_MIX_OC/PROVIDERS.md" || fail "80d: a multi-target prompt keeps the recorded root's rendered tracker"
+  # The answer differs from the child default (auto), so this pins the
+  # parent-to-child hand-off of the prompt answer.
+  grep -qxF '# pm github' "$PM_MIX_CX/.harness-manifest" || fail "80d: a multi-target prompt answer is handed to the unrecorded root"
+  grep -qxF 'backlog_tracker: github' "$PM_MIX_CX/PROVIDERS.md" || fail "80d: a multi-target prompt answer renders on the unrecorded root"
+  pass "a multi-target TTY prompt only defaults unrecorded roots and keeps recorded trackers"
+fi
+# The parent-to-child default hand-off (HARNESS_PM_DEFAULT) never overrides a
+# recorded tracker, fills an unrecorded root, and yields to an explicit --pm.
+PM_HO_OC="$TMPROOT/pm-handoff-oc"
+PM_HO_CX="$TMPROOT/pm-handoff-codex"
+OPENCODE_CONFIG="$PM_HO_OC" "$INSTALL" --pm linear </dev/null >"$TMPROOT/pm-handoff-seed.out" 2>&1 || { cat "$TMPROOT/pm-handoff-seed.out" >&2; fail "80d: seeding a linear root exits 0"; }
+HARNESS_PM_DEFAULT=github OPENCODE_CONFIG="$PM_HO_OC" CODEX_HOME="$PM_HO_CX" "$INSTALL" --force --target opencode,codex </dev/null >"$TMPROOT/pm-handoff.out" 2>&1 || { cat "$TMPROOT/pm-handoff.out" >&2; fail "80d: a mixed-state multi-target refresh exits 0"; }
+grep -qxF '# pm linear' "$PM_HO_OC/.harness-manifest" || fail "80d: the default hand-off keeps a recorded tracker"
+grep -qxF '# pm github' "$PM_HO_CX/.harness-manifest" || fail "80d: the default hand-off fills an unrecorded root"
+grep -qxF 'backlog_tracker: github' "$PM_HO_CX/PROVIDERS.md" || fail "80d: the default hand-off renders on the unrecorded root"
+HARNESS_PM_DEFAULT=github OPENCODE_CONFIG="$PM_HO_OC" CODEX_HOME="$PM_HO_CX" "$INSTALL" --force --target opencode,codex --pm none </dev/null >"$TMPROOT/pm-handoff2.out" 2>&1 || { cat "$TMPROOT/pm-handoff2.out" >&2; fail "80d: an explicit multi-target --pm exits 0"; }
+grep -qxF '# pm none' "$PM_HO_OC/.harness-manifest" && grep -qxF '# pm none' "$PM_HO_CX/.harness-manifest" || fail "80d: an explicit --pm overrides every root"
+pass "the multi-target default hand-off fills only unrecorded roots and yields to an explicit --pm"
+pass "--pm records # pm, renders backlog_tracker:, reuses it on refresh, forwards it across targets, and rejects unknown values"
+
+# 80e. Every shipped profile: Opus/Fable implementers with carbon/sol
+# fallbacks, Fable/astra/carbon council primaries, no OpenCode in review,
+# no Anthropic effort above high, and a single-provider table covering each
+# provider in the profile with >= 2 distinct high-effort models.
+profile_rows() {
+  awk -F '|' -v section="$2" '
+    /^##[[:space:]]+/ { cur = $0; sub(/^##[[:space:]]+/, "", cur); next }
+    (section == "roles" ? (cur !~ /^(Quota pools|Backup ladder|Single-provider review|Project management)$/) : (cur == section)) && /^[|]/ {
+      line = ""
+      for (i = 2; i < NF; i++) { c = $i; gsub(/^ +| +$/, "", c); line = line (i > 2 ? "|" : "") c }
+      print line
+    }
+  ' "$1"
+}
+check_council_profile() {
+  local md="$1" label="$2" has_cld="$3" has_cdx="$4" has_agy="$5" has_oc="$6" bad=""
+  profile_rows "$md" roles >"$TMPROOT/cp-roles.txt"
+  profile_rows "$md" "Backup ladder" >"$TMPROOT/cp-backup.txt"
+  profile_rows "$md" "Single-provider review" >"$TMPROOT/cp-single.txt"
+  awk -F '|' '$1 ~ /^reviewer-/ && $3 == "opencode" { print "opencode reviewer rung: " $0 }
+              $1 == "reviewer-esc" { print "reviewer-esc row: " $0 }
+              $6 == "anthropic" && $5 != "-" && $5 !~ /=(low|medium|high)$/ { print "anthropic above high: " $0 }' "$TMPROOT/cp-roles.txt" >"$TMPROOT/cp-bad.txt"
+  awk -F '|' '($2 == "*" || $2 ~ /reviewer-/) && $3 == "opencode" { print "opencode reviewer backup: " $0 }
+              $2 ~ /reviewer-/ && $5 !~ /=high$/ { print "reviewer backup below high: " $0 }
+              $2 == "*" { print "wildcard backup row: " $0 }
+              $6 == "anthropic" && $5 != "-" && $5 !~ /=(low|medium|high)$/ { print "anthropic above high: " $0 }' "$TMPROOT/cp-backup.txt" >>"$TMPROOT/cp-bad.txt"
+  awk -F '|' '$4 == "anthropic" && $3 != "-" && $3 !~ /=(low|medium|high)$/ { print "anthropic above high: " $0 }' "$TMPROOT/cp-single.txt" >>"$TMPROOT/cp-bad.txt"
+  if [ "$has_oc" -eq 1 ] && [ $((has_cld + has_cdx + has_agy)) -eq 0 ]; then :; fi
+  awk -F '|' 'NR == FNR { if ($1 ~ /^(scout|implementer|implementer-deep|tester|patch|task-reviewer|reviewer-a|reviewer-b|reviewer-c)$/ && $2 != "rung") provs[$3] = 1; next }
+              { models[$1, $2] = 1 }
+              END {
+                for (p in provs) {
+                  n = 0
+                  for (k in models) { split(k, kk, SUBSEP); if (kk[1] == p) n++ }
+                  if (n < 2) print "single-provider review lists " n " model(s) for " p
+                }
+              }' "$TMPROOT/cp-roles.txt" "$TMPROOT/cp-single.txt" >>"$TMPROOT/cp-bad.txt"
+  if [ -s "$TMPROOT/cp-bad.txt" ]; then cat "$TMPROOT/cp-bad.txt" >&2; fail "80e: $label council/effort invariants"; fi
+  [ "$(seat_cell "$md" reviewer-a 5)" != "" ] && [ "$(seat_cell "$md" reviewer-b 5)" != "" ] && [ "$(seat_cell "$md" reviewer-c 5)" != "" ] || fail "80e: $label carries all three council seats"
+  [ "$(seat_cell "$md" reviewer-a 5)" != "$(seat_cell "$md" reviewer-b 5)" ] && [ "$(seat_cell "$md" reviewer-a 5)" != "$(seat_cell "$md" reviewer-c 5)" ] && [ "$(seat_cell "$md" reviewer-b 5)" != "$(seat_cell "$md" reviewer-c 5)" ] || fail "80e: $label council primaries are pairwise-distinct models"
+  if [ "$has_cld" -eq 1 ]; then
+    [ "$(seat_cell "$md" reviewer-a 5)" = "claude-fable-5-2" ] || fail "80e: $label captain (reviewer-a) primary is claude-fable-5-2"
+    [ "$(seat_cell "$md" implementer-deep 5)" = "claude-fable-5-2" ] || fail "80e: $label implementer-deep primary is claude-fable-5-2"
+  elif [ "$has_agy" -eq 1 ]; then
+    [ "$(seat_cell "$md" implementer-deep 5)" = "claude-opus-5-5" ] || fail "80e: $label implementer-deep falls back to Antigravity claude-opus-5-5"
+  fi
+  if [ "$has_cld" -eq 1 ] || [ "$has_agy" -eq 1 ]; then
+    [ "$(seat_cell "$md" implementer 5)" = "claude-opus-5-5" ] || fail "80e: $label implementer primary is claude-opus-5-5"
+  fi
+  if [ "$has_cdx" -eq 1 ]; then
+    [ "$(seat_cell "$md" reviewer-b 5)" = "gpt-6-astra" ] || fail "80e: $label reviewer-b primary is gpt-6-astra"
+  fi
+  if [ "$has_agy" -eq 1 ]; then
+    [ "$(seat_cell "$md" reviewer-c 5)" = "gemini-4-carbon" ] || fail "80e: $label reviewer-c primary is gemini-4-carbon"
+  fi
+  return 0
+}
+for shipped in quad tri opencode-go codex antigravity claude; do
+  shipped_md="$ROOT/providers/$shipped.md"
+  check_council_profile "$shipped_md" "providers/$shipped.md" 1 1 1 1
+  for spec_row in \
+    'implementer|fallback|antigravity|gemini-4-carbon|thinking_level=high|google|ok' \
+    'implementer|last-resort|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
+    'implementer-deep|primary|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
+    'implementer-deep|fallback|antigravity|gemini-4-carbon|thinking_level=high|google|ok' \
+    'implementer-deep|last-resort|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
+    'reviewer-a|primary|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
+    'reviewer-a|fallback|codex|gpt-6.1-terra|reasoningEffort=high|openai|ok' \
+    'reviewer-a|last-resort|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
+    'reviewer-b|primary|codex|gpt-6-astra|reasoningEffort=high|openai|ok' \
+    'reviewer-b|fallback|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
+    'reviewer-b|last-resort|claudeAgent|claude-sonnet-5-5|effort=high|anthropic|ok' \
+    'reviewer-c|primary|antigravity|gemini-4-carbon|thinking_level=high|google|ok' \
+    'reviewer-c|fallback|antigravity|claude-sonnet-5-5|thinking_level=high|anthropic|ok' \
+    'reviewer-c|last-resort|codex|gpt-6.1-terra|reasoningEffort=high|openai|ok'; do
+    profile_rows "$shipped_md" roles | grep -qxF "$spec_row" || fail "80e: providers/$shipped.md carries spec row $spec_row"
+  done
+  if [ "$shipped" = claude ]; then
+    impl_row='implementer|primary|claudeAgent|claude-opus-5-5|effort=high|anthropic|ok'
+  else
+    impl_row='implementer|primary|antigravity|claude-opus-5-5|thinking_level=high|anthropic|ok'
+  fi
+  profile_rows "$shipped_md" roles | grep -qxF "$impl_row" || fail "80e: providers/$shipped.md implementer primary is Opus 5.5 high"
+done
+for alt_profile in quad claude; do
+  profile_rows "$ROOT/providers/$alt_profile.md" "Backup ladder" | grep -qE '^[0-9]+\|implementer\|claudeAgent\|claude-opus-5-5\|effort=high\|anthropic\|ok$' || fail "80e: providers/$alt_profile.md carries the claudeAgent Opus implementer backup row"
+done
+profile_rows "$ROOT/providers/quad.md" "Quota pools" | grep -qxF 'antigravity-claude|antigravity|claude-*|5h|-|-' || fail "80e: quad antigravity-claude pool carries no reviewer-b reserve"
+for own in antigravity:antigravity codex:codex claude:claudeAgent opencode-go:opencode; do
+  own_profile="${own%%:*}"
+  own_provider="${own#*:}"
+  profile_rows "$ROOT/providers/$own_profile.md" "Backup ladder" | awk -F '|' -v p="$own_provider" '$2 ~ /(^|,)implementer(,|$)/ && $2 ~ /implementer-deep/ && $3 == p { found = 1 } END { exit found ? 0 : 1 }' || fail "80e: providers/$own_profile.md keeps $own_provider implementation rows in its backup ladder"
+done
+pass "shipped profiles carry Opus/Fable implementers, the captain council, no OpenCode review, the Anthropic effort cap and single-provider review tables"
+
+# 80f. Every --providers composition follows the same shape, preferring spec
+# models whenever their provider is selected.
+for pv_combo in antigravity claude codex opencode antigravity,claude antigravity,codex antigravity,opencode claude,codex claude,opencode codex,opencode antigravity,claude,codex antigravity,claude,opencode antigravity,codex,opencode claude,codex,opencode antigravity,claude,codex,opencode; do
+  pv_home="$TMPROOT/pv-$(printf '%s' "$pv_combo" | tr ',' '-')"
+  rc=0
+  HOME="$pv_home" "$INSTALL" --providers "$pv_combo" </dev/null >"$TMPROOT/pv.out" 2>&1 || rc=$?
+  [ "$rc" -eq 0 ] || { cat "$TMPROOT/pv.out" >&2; fail "80f: --providers $pv_combo exits 0 (got $rc)"; }
+  pv_md="$pv_home/.config/opencode/PROVIDERS.md"
+  case "$pv_combo" in
+    antigravity|claude|codex|opencode|antigravity,codex,opencode|antigravity,claude,codex,opencode)
+      # Fixed compositions reuse the shipped profile, which carries every provider.
+      check_council_profile "$pv_md" "--providers $pv_combo" 1 1 1 1 ;;
+    *)
+      pv_cld=0; pv_cdx=0; pv_agy=0; pv_oc=0
+      case ",$pv_combo," in *,claude,*) pv_cld=1 ;; esac
+      case ",$pv_combo," in *,codex,*) pv_cdx=1 ;; esac
+      case ",$pv_combo," in *,antigravity,*) pv_agy=1 ;; esac
+      case ",$pv_combo," in *,opencode,*) pv_oc=1 ;; esac
+      check_council_profile "$pv_md" "--providers $pv_combo" "$pv_cld" "$pv_cdx" "$pv_agy" "$pv_oc"
+      if [ "$pv_cld" -eq 0 ] && [ "$pv_agy" -eq 0 ]; then
+        [ "$(seat_cell "$pv_md" implementer 5)" = "gpt-6.1-sol" ] || fail "80f: --providers $pv_combo implementer falls back to gpt-6.1-sol"
+      fi
+      if [ "$pv_agy" -eq 1 ] && [ "$pv_cld" -eq 1 ]; then
+        profile_rows "$pv_md" "Backup ladder" | grep -qE '^[0-9]+\|implementer\|claudeAgent\|claude-opus-5-5\|effort=high\|anthropic\|ok$' || fail "80f: --providers $pv_combo carries the same-model Opus backup row"
+      fi
+      if profile_rows "$pv_md" "Quota pools" | grep -qE '\|[0-9]+\|reviewer-b$'; then fail "80f: --providers $pv_combo reserves no pool for reviewer-b"; fi
+      ;;
+  esac
+  HOME="$pv_home" "$INSTALL" --verify </dev/null >"$TMPROOT/pv-verify.out" 2>&1 || { cat "$TMPROOT/pv-verify.out" >&2; fail "80f: --verify accepts --providers $pv_combo"; }
+done
+pass "every --providers composition prefers spec implementer and council models, keeps review off opencode, and caps Anthropic effort"
+
+# 80g. Council primaries must take distinct families when the review ladders allow it.
+{ awk '!/^[|] reviewer-b [|] primary [|]/' "$ROOT/providers/quad.md"
+  printf '| reviewer-b | primary | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |\n'
+} >"$TMPROOT/same-fam.md"
+rc=0
+OPENCODE_CONFIG="$TMPROOT/same-fam-dest" "$INSTALL" --profile-file "$TMPROOT/same-fam.md" </dev/null >/dev/null 2>"$TMPROOT/same-fam.err" || rc=$?
+[ "$rc" -eq 1 ] || fail "80g: reviewer-a and reviewer-b sharing a primary family exits 1 (got $rc)"
+grep -qF 'invariant violated: reviewer-a and reviewer-b share primary family anthropic' "$TMPROOT/same-fam.err" || { cat "$TMPROOT/same-fam.err" >&2; fail "80g: shared primary family diagnostic"; }
+[ ! -e "$TMPROOT/same-fam-dest" ] || fail "80g: shared primary family writes nothing"
+pass "council primaries keep pairwise-distinct families when the review ladders span them"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
 
