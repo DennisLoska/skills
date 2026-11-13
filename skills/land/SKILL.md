@@ -54,27 +54,23 @@ Run right after a successful merge in option 1, before the handoff. Each `backlo
 1. **Read the tracker:** `backlog_tracker: <value>` from the `## Project management` section of the active provider profile (`PROVIDERS.md`); missing section or value -> `auto`.
 2. **Resolve `auto`:** Linear MCP tools present -> `linear`; else Jira MCP tools present -> `jira`; else a GitHub remote with `gh` authenticated (`gh auth status`) and issues enabled (`gh repo view --json hasIssuesEnabled`) -> `github`; else `none`.
 3. **File one ticket per entry:**
-   - `github`: never inline model-written text into a shell command (findings carry backticks, `$()`, and quotes). Write the body (finding line, captain reason, PR link) to a temp file via a quoted heredoc, pass the title through a variable set the same way, and use `--body-file`:
+   - `github`: never route model-written text (findings carry backticks, `$()`, quotes, even a bare `EOF` line) through a heredoc or any shell literal. Two steps per entry, in order. (1) Write the files first: with the file-write tool (Write/Edit), not the shell, write the title and the body (finding line, captain reason, PR link) to `"$(git rev-parse --git-dir)/info/backlog-title.txt"` and `"$(git rev-parse --git-dir)/info/backlog-body.txt"`, overwriting them for each entry (`info/` is local-only, never committed). (2) Then run the snippet below as ONE shell call; it derives the paths itself and only reads the files (`"$(cat ...)"` output is not re-expanded). Retry without `--label` only when the error mentions the label; any other error, or a failed retry, is a filing failure (step 5). Success prints the ticket URL for step 4:
      ```bash
-     body=$(mktemp)
-     cat > "$body" <<'EOF'
-     <finding line>
-     <captain reason>
-     <PR link>
-     EOF
-     title=$(cat <<'EOF'
-     <short title>
-     EOF
-     )
-     if out=$(gh issue create --title "$title" --body-file "$body" --label backlog 2>&1); then
+     d=$(git rev-parse --git-dir)/info; title_file=$d/backlog-title.txt; body=$d/backlog-body.txt
+     if out=$(gh issue create --title "$(cat "$title_file")" --body-file "$body" --label backlog 2>&1); then
        printf '%s\n' "$out"
      else
        case $out in
-         *label*) gh issue create --title "$title" --body-file "$body" ;;  # `backlog` label missing: retry without it
-         *) printf '%s\n' "$out" >&2 ;;                                     # other failure: report it
+         *label*)  # `backlog` label missing: retry without it
+           if out=$(gh issue create --title "$(cat "$title_file")" --body-file "$body" 2>&1); then
+             printf '%s\n' "$out"
+           else
+             printf '%s\n' "$out" >&2
+           fi ;;
+         *) printf '%s\n' "$out" >&2 ;;  # other failure: report it
        esac
      fi
-     rm -f "$body"
+     rm -f "$body" "$title_file"
      ```
    - `linear` / `jira`: create one issue per deferred finding through the connected Linear or Jira MCP tools. Infer the team/project from context (repo, recent issues, memory) or ask the user once per run; under auto-approve, an unresolvable team/project counts as a filing failure. Title `<short>`, description = finding line, captain reason, PR link.
    - `none`: file nothing.
