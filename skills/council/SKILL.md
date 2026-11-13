@@ -78,22 +78,21 @@ Review captain ruling. Rule on every merged finding below (ids F1..Fn, seat
 attribution), checking each against the diff, spec, and plan. Read code to decide.
 For each finding output exactly one line:
   <finding-id>: accept | defer | reject: <one-line reason>
-    accept = real and in scope; must be fixed in this PR
-    defer  = valid but unrelated, overengineering, not relevant, or out of scope
-             for this change; becomes a backlog ticket
+    accept = real and in scope (any severity); must be fixed before PASS
+    defer  = valid but need not block this PR: unrelated, overengineering, not
+             relevant, or out of scope; becomes a backlog ticket
     reject = wrong; cite path:line evidence
 Never defer or reject a red that is an in-scope correctness, security, or
 data-loss bug introduced by this diff.
 Final line: Captain verdict: PASS | FAIL
-  PASS only when no red is accepted and every finding behind a FAIL vote is
-  deferred or rejected.
+  PASS only when every finding is deferred or rejected (nothing accepted).
 No new findings. No praise.
 ```
 
 **Limits on the captain (driver-enforced):**
 - A red finding that the driver confirms against real code as an in-scope correctness, security, or data-loss bug introduced by this diff can never be deferred or rejected. The driver overrides such a ruling to `accept`, writes `captain overruled: <finding-id>` to the state artifact, and treats the captain verdict as FAIL.
 - Green tests are always required; the captain can never waive a red test run.
-- Fixers address only `accept`ed findings. Deferred and rejected findings are never fixed in this PR.
+- Every `accept`ed finding, red or yellow, is fixed before PASS in every mode; valid findings that need not block this PR are `defer`red to the backlog instead. Fixers address only `accept`ed findings. Deferred and rejected findings are never fixed in this PR.
 
 **Backlog:** for every `defer`, write `backlog: <finding line> (<reason>)` to the state artifact (dedupe across rounds), and add the same entry to a `## Backlog` section in the PR body (create the section if missing; edit the body with `gh pr edit <number> --body-file <file>` per the `land` PR rules). After merge, `land` files one ticket per entry according to `backlog_tracker`.
 
@@ -103,13 +102,13 @@ Decide in this order, after applying driver overrules and receiving-side rigor:
 
 | mode | PASS condition |
 | --- | --- |
-| `nominal` | 3 healthy seats, >= 2/3 PASS, zero accepted unresolved red findings, green tests (or the `no-tests` exception) |
-| `degraded` | 2 healthy seats (one lost), 2/2 PASS, zero accepted unresolved red findings, green tests |
-| `captain` | captain verdict PASS overriding FAIL votes: every finding behind a FAIL vote is deferred or rejected, zero accepted unresolved red findings, green tests (no `no-tests` exception) |
+| `nominal` | 3 healthy seats, >= 2/3 PASS, zero unresolved accepted findings, green tests (or the `no-tests` exception) |
+| `degraded` | 2 healthy seats (one lost), 2/2 PASS, zero unresolved accepted findings, green tests |
+| `captain` | captain verdict PASS overriding FAIL votes: every finding is deferred or rejected, zero unresolved accepted findings, green tests (no `no-tests` exception) |
 
 - Captain mode is available in any round, with 2 or 3 healthy seats.
 - **Author vote:** PASS also needs >= 1 PASS vote from a non-author family or model-level independence (reviewer models distinct from `author_models`). In captain mode the captain's PASS is that vote. If all active seats share an author family, record `degraded council author vote: model-level independence (<model1>, <model2>)`.
-- Accepted yellows only block through FAIL votes: if the votes pass, they stay listed as standing findings in the round report and state artifact.
+- Accepted findings always block: any unresolved `accept` (red or yellow) makes the round FAIL, even when the seat votes pass; fix it and re-review.
 - Fewer than 2 distinct non-author reviewer models healthy: STOP with `yellow: degraded council` (`AGENTS.md` Routing Rules, Degraded council).
 
 ## Receiving phase (rigor)

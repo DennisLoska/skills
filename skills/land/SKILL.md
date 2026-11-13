@@ -54,7 +54,28 @@ Run right after a successful merge in option 1, before the handoff. Each `backlo
 1. **Read the tracker:** `backlog_tracker: <value>` from the `## Project management` section of the active provider profile (`PROVIDERS.md`); missing section or value -> `auto`.
 2. **Resolve `auto`:** Linear MCP tools present -> `linear`; else Jira MCP tools present -> `jira`; else a GitHub remote with `gh` authenticated (`gh auth status`) and issues enabled (`gh repo view --json hasIssuesEnabled`) -> `github`; else `none`.
 3. **File one ticket per entry:**
-   - `github`: `gh issue create --title "<short>" --body "<finding + reason + PR link>" --label backlog`; if it fails because the `backlog` label is missing, retry the same command without `--label`.
+   - `github`: never inline model-written text into a shell command (findings carry backticks, `$()`, and quotes). Write the body (finding line, captain reason, PR link) to a temp file via a quoted heredoc, pass the title through a variable set the same way, and use `--body-file`:
+     ```bash
+     body=$(mktemp)
+     cat > "$body" <<'EOF'
+     <finding line>
+     <captain reason>
+     <PR link>
+     EOF
+     title=$(cat <<'EOF'
+     <short title>
+     EOF
+     )
+     if out=$(gh issue create --title "$title" --body-file "$body" --label backlog 2>&1); then
+       printf '%s\n' "$out"
+     else
+       case $out in
+         *label*) gh issue create --title "$title" --body-file "$body" ;;  # `backlog` label missing: retry without it
+         *) printf '%s\n' "$out" >&2 ;;                                     # other failure: report it
+       esac
+     fi
+     rm -f "$body"
+     ```
    - `linear` / `jira`: create one issue per deferred finding through the connected Linear or Jira MCP tools. Infer the team/project from context (repo, recent issues, memory) or ask the user once per run; under auto-approve, an unresolvable team/project counts as a filing failure. Title `<short>`, description = finding line, captain reason, PR link.
    - `none`: file nothing.
 4. **Record:** append `backlog filed: <ticket url or id> <finding line>` per ticket to the state artifact and list the links in the final report.
@@ -62,7 +83,7 @@ Run right after a successful merge in option 1, before the handoff. Each `backlo
 
 ## Rules
 
-- Under oneshot, merging parses the effective last `council_verdict` line in `$(git rev-parse --git-dir)/info/oneshot-state.md` and requires an audited Phase 6 `council_verdict: PASS` with `mode` in `nominal|degraded|captain` (`mode=nominal` >= 2/3, `mode=degraded` unanimous 2/2, or `mode=captain` captain verdict PASS overriding FAIL votes whose findings were all deferred or rejected; every mode with zero accepted unresolved reds and green tests) and `head=<sha>` matching both local `git rev-parse HEAD` and the remote PR head via `gh pr merge --squash --match-head-commit <sha>`. If the effective last `council_verdict` is `FAIL`, carries an unrecognized `mode`, or its `<sha>` differs from local `HEAD` or remote PR head, refuse to merge. For standalone runs outside oneshot (where no state artifact exists), allow a Phase 6 Council consensus PASS on the current `HEAD` `<sha>` in the current session (still passing `gh pr merge --squash --match-head-commit <sha>`). Never merge without verified Council consensus PASS.
+- Under oneshot, merging parses the effective last `council_verdict` line in `$(git rev-parse --git-dir)/info/oneshot-state.md` and requires an audited Phase 6 `council_verdict: PASS` with `mode` in `nominal|degraded|captain` (`mode=nominal` >= 2/3, `mode=degraded` unanimous 2/2, or `mode=captain` captain verdict PASS overriding FAIL votes with every finding deferred or rejected; every mode with zero unresolved accepted findings and green tests) and `head=<sha>` matching both local `git rev-parse HEAD` and the remote PR head via `gh pr merge --squash --match-head-commit <sha>`. If the effective last `council_verdict` is `FAIL`, carries an unrecognized `mode`, or its `<sha>` differs from local `HEAD` or remote PR head, refuse to merge. For standalone runs outside oneshot (where no state artifact exists), allow a Phase 6 Council consensus PASS on the current `HEAD` `<sha>` in the current session (still passing `gh pr merge --squash --match-head-commit <sha>`). Never merge without verified Council consensus PASS.
 - Never merge on red tests or open review findings
 - Never create-PR-if-none when tests are red: verify first
 - Never commit to master directly; master advances only via PR merge

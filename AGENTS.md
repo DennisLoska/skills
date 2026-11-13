@@ -90,16 +90,16 @@ Walk each role's rungs in ladder order (`primary -> fallback -> last-resort`, th
   <finding-id>: accept | defer | reject: <one-line reason>
   Captain verdict: PASS | FAIL
   ```
-  `accept`: fix in this PR. `defer`: valid but unrelated, overengineering, not relevant, or out of scope (backlog). `reject`: wrong, with `path:line` evidence. PASS only if no red is accepted and every finding behind a FAIL vote is deferred or rejected.
+  `accept` (any severity): fixed before PASS in every mode. `defer`: valid but need not block this PR (unrelated, overengineering, out of scope; backlog). `reject`: wrong, with `path:line` evidence. PASS only if every finding is deferred or rejected.
 - **Captain limits:** a red the driver confirms in code as an in-scope correctness, security, or data-loss bug introduced by this diff is never deferred or rejected: the driver overrides it to `accept` (`captain overruled: <finding-id>`). The driver verifies accepted reds before fixing; fixers address only accepted findings; green tests are always required.
 - **Backlog:** each `defer` adds `backlog: <finding line> (<reason>)` to `oneshot-state.md` and the PR body's `## Backlog`; after merge `land` files one ticket each per `backlog_tracker`: `github` (`gh issue create`), `linear`/`jira` (MCP tools), `auto` (Linear MCP, else Jira MCP, else `gh` with issues, else `none`), `none` or failure (PR body list only).
 - **Verdict modes** (`council_verdict: PASS|FAIL round=<n> mode=<nominal|degraded|captain> head=<sha>`, `<n>` in `1..3`):
 
   | mode | PASS condition |
   | --- | --- |
-  | `nominal` | >= 2/3 seats PASS, zero accepted unresolved red findings, green tests (or the `no-tests` exception) |
-  | `degraded` | 2/2 healthy seats PASS (one seat lost), zero accepted unresolved red findings, green tests |
-  | `captain` | captain verdict PASS overriding FAIL votes (every finding behind a FAIL vote deferred or rejected), zero accepted unresolved red findings, green tests (no `no-tests` exception) |
+  | `nominal` | >= 2/3 seats PASS, zero unresolved accepted findings, green tests (or the `no-tests` exception) |
+  | `degraded` | 2/2 healthy seats PASS (one seat lost), zero unresolved accepted findings, green tests |
+  | `captain` | captain verdict PASS overriding FAIL votes (every finding behind a FAIL vote deferred or rejected), zero unresolved accepted findings, green tests (no `no-tests` exception) |
 
   Captain mode works in any round with 2 or 3 healthy seats.
 - **Author vote:** PASS needs >= 1 PASS from a non-author family or model-level independence (models outside `author_models`); in captain mode the captain's PASS counts. `author_families`/`author_models` are the rungs (`implementer*`, `tester`, `patch`, CI/council fixers) producing branch commits recorded in state.

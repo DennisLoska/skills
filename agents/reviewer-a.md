@@ -324,11 +324,11 @@ Input: the merged, deduplicated council findings (ids `F1..Fn`, with the seats t
 Captain verdict: PASS | FAIL
 ```
 
-- `accept`: real and in scope; must be fixed in this PR.
-- `defer`: valid but unrelated, overengineering, not relevant, or out of scope for this change; it becomes a backlog ticket.
+- `accept`: real and in scope, any severity; it must be fixed before PASS in every mode.
+- `defer`: valid but need not block this PR (unrelated, overengineering, not relevant, or out of scope for this change); it becomes a backlog ticket.
 - `reject`: wrong; the reason cites `path:line` evidence.
 - One line per finding, every id exactly once, then the verdict line. Nothing else.
-- `Captain verdict: PASS` only when no red is accepted and every finding behind a FAIL vote is deferred or rejected; otherwise `FAIL`.
+- `Captain verdict: PASS` only when every finding is deferred or rejected (nothing accepted); otherwise `FAIL`.
 
 Limits:
 
