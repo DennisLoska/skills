@@ -5,7 +5,7 @@ Goal: Give `scout` a Claude Code `claude-haiku-5-5` fallback and keep Antigravit
 
 ## 1. Problem
 
-`scout` (read-only locator) runs on OpenCode Go flash models. When OpenCode Go is exhausted (it hits its cap first in practice), the next rung in `quad` is `deepseek-v4.1-flash` on the same exhausted pool, then Antigravity. Anthropic's cheapest model, `claude-haiku-5-5`, is a fast, cheap fit for locating code. The Claude Code pool is not idle: it also carries the review captain, `implementer-deep`, the `implementer` same-model alternate, the `task-reviewer` fallback, and `compaction`. Haiku only runs once the OpenCode Go primary is exhausted, and that extra Claude Code load is an accepted trade-off (a `claude-code` soft-cap/reserve is deferred to the backlog).
+`scout` (read-only locator) runs on OpenCode Go flash models. When OpenCode Go is exhausted (it hits its cap first in practice), the next rung in `quad` is `deepseek-v4.1-flash` on the same exhausted pool, then Antigravity. Anthropic's cheapest model, `claude-haiku-5-5`, is a fast, cheap fit for locating code. The Claude Code pool is not idle: it also carries the review captain, `implementer-deep`, the `implementer` same-model alternate, the `task-reviewer` fallback, and `compaction`. Haiku runs when the mimo rung is ineligible (exhausted, unreachable, or transient after retry), and as scout's first reachable rung on hosts without OpenCode Go; that extra Claude Code load is an accepted trade-off (a `claude-code` soft-cap/reserve is deferred to the backlog).
 
 ## 2. Design
 

@@ -7,7 +7,7 @@ Spec: `docs/specs/2026-11-13-scout-haiku-fallback-design.md`. Branch: `feat/scou
 Files: `test/install.sh`, `providers/quad.md`, `install.sh`.
 
 1. `tester`: add assertions in `test/install.sh` that `providers/quad.md` has `| scout | fallback | claudeAgent | claude-haiku-5-5 | effort=low | anthropic | ok |` and `| scout | last-resort | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |`, and that the quad composition generator emits the same scout rows. Run, confirm red.
-2. `implementer`: edit `providers/quad.md` scout fallback row and the two prose bullets; in `install.sh` scout candidate block (~line 1634) move the `claude-haiku-5-5` `add_cand` line above `gemini-3.8-flash`. Run `./test/install.sh`, commit.
+2. `implementer`: edit `providers/quad.md` scout fallback row and the two prose bullets; in `install.sh` scout candidate block (~line 1634) gate the `claude-haiku-5-5` `add_cand` line on OpenCode Go: `if (has_oc) add_cand(haiku)` before `gemini-3.8-flash`, and `if (!has_oc) add_cand(haiku)` at its original position after `gpt-6-luna`, so compositions without OpenCode Go keep their previous scout order. Run `./test/install.sh`, commit.
 
 ## Task 2: Docs
 
