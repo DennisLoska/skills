@@ -68,7 +68,7 @@
     <text class="sans chip" x="1200" y="177" text-anchor="middle">codebase-design</text>
   </g>
 
-  <text class="sans sub" x="84" y="218">10 dispatched roles (9 role-contract seats + task-reviewer)</text>
+  <text class="sans sub" x="84" y="218">9 dispatched roles (8 role-contract seats + task-reviewer) · reviewer-a ★ is the review captain · seats run on distinct models</text>
 
   <g>
     <rect x="84" y="228" width="114" height="28" rx="7" fill="#0F2230" stroke="#1F4A56"/>
@@ -84,13 +84,13 @@
     <rect x="694" y="228" width="114" height="28" rx="7" fill="#142838" stroke="#25556E"/>
     <text class="mono seat" x="751" y="246" text-anchor="middle">task-rev</text>
     <rect x="816" y="228" width="114" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
-    <text class="mono seat" x="873" y="246" text-anchor="middle">reviewer-a</text>
+    <text class="mono seat" x="873" y="246" text-anchor="middle">reviewer-a ★</text>
     <rect x="938" y="228" width="114" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
     <text class="mono seat" x="995" y="246" text-anchor="middle">reviewer-b</text>
     <rect x="1060" y="228" width="114" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
     <text class="mono seat" x="1117" y="246" text-anchor="middle">reviewer-c</text>
-    <rect x="1182" y="228" width="114" height="28" rx="7" fill="#1A1B38" stroke="#3B3C6B"/>
-    <text class="mono seat" x="1239" y="246" text-anchor="middle">reviewer-esc</text>
+    <rect x="1182" y="228" width="114" height="28" rx="7" fill="#2A2210" stroke="#7A5C1E"/>
+    <text class="mono seat" x="1239" y="246" text-anchor="middle">captain ruling</text>
   </g>
 
   <!-- dispatch arrow -->
@@ -110,19 +110,19 @@
 
   <g class="mono">
     <text class="cell" x="84" y="412">implementer</text>
-    <text class="cell" x="224" y="412">antigravity / gemini-4-carbon · high</text>
-    <text class="cellMuted" x="600" y="412">antigravity / claude-sonnet-5-5 · medium</text>
-    <text class="cellMuted" x="960" y="412">codex / gpt-6.1-sol · medium</text>
+    <text class="cell" x="224" y="412">antigravity / claude-opus-5-5 · high</text>
+    <text class="cellMuted" x="600" y="412">antigravity / gemini-4-carbon · high</text>
+    <text class="cellMuted" x="960" y="412">codex / gpt-6.1-sol · high</text>
 
     <text class="cell" x="84" y="440">tester</text>
     <text class="cell" x="224" y="440">opencode / deepseek-v4.1-flash · high</text>
     <text class="cellMuted" x="600" y="440">codex / gpt-6-luna · medium</text>
     <text class="cellMuted" x="960" y="440">antigravity / gemini-3.8-flash · medium</text>
 
-    <text class="cell" x="84" y="468">reviewer-esc</text>
-    <text class="cell" x="224" y="468">opencode / mimo-v2.6-flash (or claudeAgent)</text>
-    <text class="cellMuted" x="600" y="468">opencode / glm-5.3-flash · high</text>
-    <text class="cellMuted" x="960" y="468">opencode / deepseek-v4.1-flash · high</text>
+    <text class="cell" x="84" y="468">reviewer-a ★</text>
+    <text class="cell" x="224" y="468">claudeAgent / claude-fable-5-2 · high</text>
+    <text class="cellMuted" x="600" y="468">codex / gpt-6.1-terra · high</text>
+    <text class="cellMuted" x="960" y="468">antigravity / gemini-4-argon · high</text>
   </g>
 
   <g>
@@ -133,7 +133,7 @@
     <rect x="354" y="482" width="180" height="24" rx="6" fill="#0F2230" stroke="#1F4A56"/>
     <text class="mono sub" x="444" y="498" text-anchor="middle">state/quota-ledger.tsv</text>
   </g>
-  <text class="sans sub" x="550" y="498">shared buckets + soft caps · profile backup safety net · machine-local ledger</text>
+  <text class="sans sub" x="550" y="498">shared buckets + soft caps · same-model + backup safety net · single-provider review · ledger</text>
 
   <!-- delegate arrow -->
   <line x1="690" y1="520" x2="690" y2="550" stroke="#94A3B8" stroke-width="1.75" marker-end="url(#arrow)"/>
@@ -165,8 +165,8 @@
 
     <rect x="1005" y="604" width="290" height="100" rx="12" fill="#0E1A2A" stroke="#3B4A63" stroke-dasharray="6 5"/>
     <text class="sans pname" x="1025" y="630">Claude Code</text>
-    <text class="sans pmeta" x="1025" y="648">quad profile only · claudeAgent</text>
-    <text class="mono pmodels" x="1025" y="668">claude-opus-5-5 (effort=high)</text>
+    <text class="sans pmeta" x="1025" y="648">optional (quad, claude) · claudeAgent · effort ≤ high</text>
+    <text class="mono pmodels" x="1025" y="668">claude-fable-5-2 · opus-5-5 (high)</text>
     <text class="mono pmodels" x="1025" y="686">claude-sonnet-5-5 · haiku-5-5</text>
   </g>
 
@@ -177,5 +177,5 @@
   <text class="sans sub" transform="translate(1415 438) rotate(-90)" text-anchor="middle" fill="#38BDF8">L1 Task · L2 Council · L3 CI · L4 Meta</text>
 
   <text class="sans foot" x="84" y="768">Hosts: OpenCode V2 · T3 Code · Codex · Antigravity · Claude Code</text>
-  <text class="sans foot" x="650" y="768">Fallback: exhausted or soft-capped rung → next rung → backup ladder → budget stop</text>
+  <text class="sans foot" x="650" y="768">Fallback: exhausted rung → same-model alternate → next rung / least-loaded pool → backup ladder → budget stop</text>
 </svg>

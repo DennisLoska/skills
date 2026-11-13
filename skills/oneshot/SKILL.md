@@ -5,7 +5,7 @@ description: Use when user says "oneshot", "use oneshot", "use the oneshot harne
 
 # Oneshot Pipeline
 
-Autonomous end-to-end SDLC: task -> spec -> plan -> implementation -> verification -> PR -> CI watch -> council consensus -> land.
+Autonomous end-to-end SDLC: task -> spec -> plan -> implementation -> verification -> PR -> CI watch -> council consensus (with review captain) -> land (plus backlog tickets).
 
 **Core principle:** Full autonomy once started. No pauses between phases. User consulted only at design approval (Gate 1), plan approval (Gate 2), and the final branch decision (Gate 3).
 
@@ -19,7 +19,7 @@ Autonomous end-to-end SDLC: task -> spec -> plan -> implementation -> verificati
 
 **Context hygiene:** Main orchestrates. Main never writes implementation code inline. Per-task and per-round work is dispatched to fresh subagents through the AGENTS.md Dispatch Adapter. Never delegate a whole phase or the whole pipeline to one subagent.
 
-**Model routing:** Skills never hardcode models. Role rows, optional `## Quota pools`, and optional `## Backup ladder` live in the active provider profile (`PROVIDERS.md`); the `HARNESS.md` (`AGENTS.md`) Routing Rules (quota pools & ledger `<dest>/state/quota-ledger.tsv`, failure classes, soft cap & reserve, backup ladder walk, and budget stop & resume) and Dispatch Adapter govern how a role becomes a running subagent. On a usage-limit or 429-style provider error (`exhausted`, written to the quota ledger), an `unreachable` rung, a failed `transient` retry, or a soft-cap reserved pool, re-dispatch the same role on the next eligible rung of its ladder (followed by sibling implementation hand-off and `## Backup ladder`), announce it (`backup: <role> -> <provider>/<model>` on backup rungs), or stop with `budget stop: <role>` when no eligible rung remains. Routing-file note: the installed copy of the harness rules is `HARNESS.md`; `<dest>/AGENTS.md` is the user's own file and is never overwritten.
+**Model routing:** Skills never hardcode models. Role rows, optional `## Quota pools`, and optional `## Backup ladder` live in the active provider profile (`PROVIDERS.md`); the `HARNESS.md` (`AGENTS.md`) Routing Rules (quota pools & ledger `<dest>/state/quota-ledger.tsv`, failure classes, soft cap & reserve, same-model alternate, balanced seat fallback, single-provider review, Anthropic effort cap, backup ladder walk, and budget stop & resume) and Dispatch Adapter govern how a role becomes a running subagent. On a usage-limit or 429-style provider error (`exhausted`, written to the quota ledger), an `unreachable` rung, a failed `transient` retry, or a soft-cap reserved pool, re-dispatch the same role on the next eligible rung (same-model alternate first, then its ladder, sibling implementation hand-off, and `## Backup ladder`), announce it (`backup: <role> -> <provider>/<model>` on backup rungs), or stop with `budget stop: <role>` when no eligible rung remains. Routing-file note: the installed copy of the harness rules is `HARNESS.md`; `<dest>/AGENTS.md` is the user's own file and is never overwritten.
 
 ## Step 0: Routing Bootstrap
 
@@ -27,7 +27,7 @@ Autonomous end-to-end SDLC: task -> spec -> plan -> implementation -> verificati
 Before entering Phase 1 or spawning ANY subagent, complete all three bootstrap checks:
 1. **Load `HARNESS.md` and `PROVIDERS.md` into context:** Verify that `# Cybernetic SDLC Harness` (`HARNESS.md`) AND the active provider profile routing table (`PROVIDERS.md`) are BOTH already loaded verbatim in this session. If either is missing, read `../_harness/HARNESS.md` and `../_harness/PROVIDERS.md` (or `../../HARNESS.md` and `../../PROVIDERS.md`) relative to this skill's directory NOW before taking any other action (quota ledger read/updated via shell at `../../state/quota-ledger.tsv`).
 2. **Select the `HARNESS.md` Dispatch Adapter path (including lazy MCP servers):** Inspect both eager tools and any lazy-loaded MCP server schemas in your environment before choosing a subagent tool. Run the one-time session capability check required by `HARNESS.md` `## Dispatch Adapter` Path 1 when cross-provider orchestration tools are present (reading their lazy MCP schema files first when needed), and NEVER fall back to native same-session subagent tools while Path 1 orchestration tools are available. Hold the active Dispatch Adapter path and resolved primary rungs in session memory until Phase 1 step 1 activates the feature branch or worktree.
-3. **Forbid same-model inheritance:** Every subagent (`scout`, `tester`, `implementer`, `implementer-deep`, `patch`, `task-reviewer`, `design`, `reviewer-a`, `reviewer-b`, `reviewer-c`, `reviewer-esc`) MUST resolve its exact `<provider>/<model> (<effort>)` rung from `PROVIDERS.md` per `HARNESS.md` `## Dispatch Adapter`: seat dispatches (`scout`, `tester`, `implementer`, `implementer-deep`, `patch`, `reviewer-*`) carry `Role contract:` + `Rung:` (or `Rung:` only on autoloaded pinned seats), while `task-reviewer` and `design` carry `Rung:` only (no `Role contract:`, as they have no agent file). Spawning native `inherit`/same-model subagents across roles when `PROVIDERS.md` routes those roles to distinct providers or models is a hard protocol violation.
+3. **Forbid same-model inheritance:** Every subagent (`scout`, `tester`, `implementer`, `implementer-deep`, `patch`, `task-reviewer`, `design`, `reviewer-a`, `reviewer-b`, `reviewer-c`, captain ruling) MUST resolve its exact `<provider>/<model> (<effort>)` rung from `PROVIDERS.md` per `HARNESS.md` `## Dispatch Adapter`: seat dispatches (`scout`, `tester`, `implementer`, `implementer-deep`, `patch`, `reviewer-*`) carry `Role contract:` + `Rung:` (or `Rung:` only on autoloaded pinned seats), while `task-reviewer` and `design` carry `Rung:` only (no `Role contract:`, as they have no agent file). Spawning native `inherit`/same-model subagents across roles when `PROVIDERS.md` routes those roles to distinct providers or models is a hard protocol violation.
 </HARD-GATE>
 
 ## Pipeline Overview
@@ -37,16 +37,25 @@ digraph oneshot {
     rankdir=TB;
     node [shape=box, style=rounded];
 
-    "1 SHAPE\nshape skill" -> "2 PLAN\nplan skill";
-    "2 PLAN\nplan skill" -> "3 DISPATCH\ndispatch skill + tdd";
-    "3 DISPATCH" -> "4 VERIFY\nverify skill";
-    "4 VERIFY" -> "5 LAND attempt\nland skill: push + file PR";
-    "5 LAND attempt" -> "6.5 MAKE-CI-GREEN";
-    "6.5 MAKE-CI-GREEN" -> "6 COUNCIL\ncouncil skill, max 3 rounds";
-    "6 COUNCIL" -> "7 FINISH\nland skill gate 3" [label="consensus + green"];
-    "6 COUNCIL" -> "6 COUNCIL" [label="FAIL -> fix -> re-review"];
-    "6 COUNCIL" -> "Escalate" [label="escalation model still fails"];
-    "3 DISPATCH" -> "debug skill" [label="task broken"];
+    shape [label="1 SHAPE\nshape skill"];
+    plan [label="2 PLAN\nplan skill"];
+    dispatch [label="3 DISPATCH\ndispatch skill + tdd"];
+    verify [label="4 VERIFY\nverify skill"];
+    pr [label="5 LAND attempt\nland skill: push + file PR"];
+    ci [label="6.5 MAKE-CI-GREEN"];
+    council [label="6 COUNCIL\n3 seats in parallel, max 3 rounds"];
+    ruling [label="6 CAPTAIN RULING\naccept | defer | reject"];
+    finish [label="7 FINISH\nland skill gate 3\n+ backlog tickets"];
+    stop [label="STOP: user"];
+    debug [label="debug skill"];
+
+    shape -> plan -> dispatch -> verify -> pr -> ci -> council;
+    council -> finish [label="all PASS, no red/yellow"];
+    council -> ruling [label="any FAIL or red/yellow"];
+    ruling -> finish [label="nominal | degraded | captain PASS + green"];
+    ruling -> council [label="FAIL -> fix accepted -> re-review"];
+    ruling -> stop [label="round 3 FAIL"];
+    dispatch -> debug [label="task broken"];
 }
 ```
 
@@ -118,7 +127,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 **Skill:** `land`
 
 1. Invoke `land` via the `skill` tool.
-2. Push the feature branch, create the PR: body leads with the problem, not the change inventory (`## Summary`, `## Changes`, `## Test plan`, `## Budget`). The `## Budget` block reports pools hit, demotions, backup rungs used, and any degraded seats (updated again in Phase 7 if CI or council rounds trigger further budget events). Reference local spec/plan paths when they are gitignored.
+2. Push the feature branch, create the PR: body leads with the problem, not the change inventory (`## Summary`, `## Changes`, `## Test plan`, `## Budget`; Phase 6 adds `## Backlog` when the captain defers findings). The `## Budget` block reports pools hit, demotions, backup rungs used, and any degraded seats (updated again in Phase 7 if CI or council rounds trigger further budget events). Reference local spec/plan paths when they are gitignored.
 3. Save the PR URL.
 
 ---
@@ -132,24 +141,25 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 
 ---
 
-## Phase 6: COUNCIL (consensus, max 3 rounds)
+## Phase 6: COUNCIL (consensus with review captain, max 3 rounds)
 
 **Skills:** `council`
-**Gate to Phase 7:** consensus PASS (`mode=nominal` >= 2/3, `mode=degraded` unanimous 2/2, or post-round-3 `mode=escalation` single `reviewer-esc` PASS with zero unresolved confirmed red findings and non-author family) **AND** tests green. Both required. The author-model skip (`reviewer-*` skips any rung matching `author_models:`, announcing `demote: <seat> -> <provider>/<model> (author model conflict)`) and author-family PASS rule apply as well (AGENTS.md Routing Rules and Council Contract): the state artifact holds `author_models:` and `author_families:` recorded per commit since Phase 3.
+**Gate to Phase 7:** council PASS in `mode=nominal` (>= 2/3 seats), `mode=degraded` (2/2 healthy seats), or `mode=captain` (captain verdict PASS overriding FAIL votes because every finding behind them is deferred or rejected), each with zero accepted unresolved red findings **AND** tests green (`mode=captain` has no `no-tests` exception). The author-model skip (`reviewer-*` skips any rung matching `author_models:`, announcing `demote: <seat> -> <provider>/<model> (author model conflict)`) and the author vote apply as well (AGENTS.md Routing Rules and Council Contract): the state artifact holds `author_models:` and `author_families:` recorded per commit since Phase 3.
 
 1. Invoke `council` via the `skill` tool.
-2. Dispatch three fresh reviewer subagents on three independent model families (`reviewer-a`, `reviewer-b`, `reviewer-c` roles, rungs from the active provider profile, skipping any rung whose model matches `author_models:` in `$(git rev-parse --git-dir)/info/oneshot-state.md`). Each assumes the code is broken, hunts for bugs: spec compliance, edges, error handling, security, diff-vs-plan, regressions.
-3. Findings merge into one line per item: `path:line: emoji severity: problem. fix.`
-4. Round loop (max 3 rounds, never stops mid-loop):
-   - FAIL -> record `council_verdict: FAIL round=<n> mode=<nominal|degraded> head=<sha>` (where `<sha>` is `git rev-parse HEAD`) in `$(git rev-parse --git-dir)/info/oneshot-state.md` -> dispatch fresh implementation-seat fixer subagents (`implementer`, or `implementer-deep` for hard clusters, one per problem cluster, max 2 files each; see `AGENTS.md` Review contracts for fixer seat routing; record each fixer commit's rung `<provider>/<model>` and family and update `author_models:` and `author_families:` in the state artifact) -> push -> re-review next round.
-   - PASS + green (after satisfying step 6 author-family vote and CI freshness below on final HEAD) -> record `council_verdict: PASS round=<n> mode=<nominal|degraded> head=<sha>` (where `<sha>` is `git rev-parse HEAD`) to `$(git rev-parse --git-dir)/info/oneshot-state.md`, break, proceed to Phase 7.
+2. Seat the council: check single-provider review (exactly one provider with an eligible pool -> `single-provider review: <provider>`, seats drawn from `## Single-provider review` rows), resolve the captain (`reviewer-a`, else the first healthy of `reviewer-b`, `reviewer-c`; record `captain: <seat> <provider>/<model>`), and dispatch `reviewer-a`, `reviewer-b`, `reviewer-c` in parallel as fresh subagents on pairwise-distinct models from the active provider profile, skipping any rung whose model matches `author_models:` in `$(git rev-parse --git-dir)/info/oneshot-state.md` and re-seating lost rungs by same-model alternate, then balanced seat fallback. Each assumes the code is broken, hunts for bugs: spec compliance, edges, error handling, security, diff-vs-plan, regressions.
+3. Findings merge into one numbered list (`F<n> [<seats>]: path:line: emoji severity: problem. fix.`).
+4. Captain ruling: when any seat voted FAIL or any red/yellow finding exists, dispatch a fresh captain ruling on the captain's rung (merged findings, diff, spec, plan) -> one `<finding-id>: accept | defer | reject: <reason>` line per finding plus `Captain verdict: PASS | FAIL`. The driver verifies every accepted red against code, and overrides to `accept` any deferred or rejected red it confirms as an in-scope correctness, security, or data-loss bug introduced by this diff (`captain overruled: <finding-id>`). Each `defer` writes `backlog: <finding line> (<reason>)` to the state artifact and the PR body's `## Backlog` section.
+5. Round loop (max 3 rounds, never stops mid-loop):
+   - FAIL -> record `council_verdict: FAIL round=<n> mode=<nominal|degraded> head=<sha>` (where `<sha>` is `git rev-parse HEAD`) -> dispatch fresh implementation-seat fixer subagents for accepted findings only (`implementer`, or `implementer-deep` for hard clusters, one per cluster, max 2 files each; see `AGENTS.md` Review contracts; record each fixer commit's rung `<provider>/<model>` and family and update `author_models:` and `author_families:`) -> push -> re-review next round with all active seats and a fresh ruling.
+   - PASS + green (after the author vote in step 6 and the CI freshness gate on final HEAD) -> record `council_verdict: PASS round=<n> mode=<nominal|degraded> head=<sha>` when the seat votes carry it, or `council_verdict: PASS round=<n> mode=captain head=<sha>` when only the captain verdict does (where `<sha>` is `git rev-parse HEAD`), break, proceed to Phase 7.
    - CI freshness gate: if any council fix round pushed commits after the last green `make-ci-green` receipt, re-enter Phase 6.5 on the final HEAD before Phase 7. A stale green receipt never satisfies the gate.
-   - If that 6.5 re-entry itself pushes further CI-repair commits, the final HEAD needs one delta council round on the changed files (counted against the 3-round budget, updating `council_verdict` for the new `HEAD` `<sha>`). If CI repairs occur after round 3 and no council rounds remain: route the green repaired `HEAD` through the single escalation review in step 5 (if escalation is not yet spent), or STOP and escalate to the user when escalation is already spent or CI stays red - never land unreviewed commits.
-5. Rounds exhausted -> one escalation review on the `reviewer-esc` rung of the active provider profile (non-author family, unused by council seats, model not in `author_models:`) -> if escalation reviewer passes with zero unresolved confirmed red findings and green tests (and fresh green CI on final `HEAD`; if subsequent CI repairs advance `HEAD` after escalation is spent, STOP and escalate to user), write `council_verdict: PASS round=esc mode=escalation head=<sha>` to `$(git rev-parse --git-dir)/info/oneshot-state.md` and proceed to Phase 7; if escalation fails -> record `council_verdict: FAIL round=esc mode=escalation head=<sha>`, STOP, and escalate to user with round count, findings, test output. Do not proceed.
-6. Author-family/model vote & non-blocking rule: before declaring PASS in nominal or degraded mode, verify the council non-blocking rule: Council shall not block if there are at least two different members who can review and are not the same model as the implementer. Check that at least one PASS comes from a non-author family or model distinct from `author_models:`. If all active seats share an author family, accept model-level independence (each seat's reviewer model distinct from `author_models:`) and record in state: `degraded council author vote: model-level independence (<model1>, <model2>)`; only if fewer than 2 distinct non-author models can review does council stop with `yellow: degraded council`.
-7. No test suite: see `AGENTS.md` Review contracts for the `no-tests` gate rule (`mode=nominal` only; `mode=degraded` and `mode=escalation` require green tests). Label a `no-tests` PASS `provisional: no-tests` in the verdict, and have the reviewer flag `no tests` as yellow. Record any `no-tests decision: proceed` in the state artifact; for a standalone council run the state artifact is `$(git rev-parse --git-dir)/info/oneshot-state.md` in the target repo or worktree, created if missing (`mkdir -p "$(git rev-parse --git-dir)/info"`).
+   - If that 6.5 re-entry pushes further CI-repair commits, the final HEAD needs one delta council round on the changed files (counted against the 3-round budget, updating `council_verdict` for the new `HEAD` `<sha>`). If CI repairs land after round 3 with no rounds left, STOP and report to the user - never land unreviewed commits.
+   - Round 3 FAIL (no nominal, degraded, or captain PASS) -> record `council_verdict: FAIL round=3 mode=<nominal|degraded> head=<sha>`, STOP, and report to the user with round count, findings, rulings, backlog entries, and test output. There is no escalation seat. Do not proceed.
+6. Author vote & non-blocking rule: before declaring PASS, check that at least one PASS comes from a non-author family or a model distinct from `author_models:` (in `mode=captain`, the captain's PASS is that vote). If all active seats share an author family, accept model-level independence and record `degraded council author vote: model-level independence (<model1>, <model2>)`; only if fewer than 2 distinct non-author models can review does council stop with `yellow: degraded council`.
+7. No test suite: see `AGENTS.md` Review contracts for the `no-tests` gate rule (`mode=nominal` only; `mode=degraded` and `mode=captain` require green tests). Label a `no-tests` PASS `provisional: no-tests` in the verdict, and have the reviewer flag `no tests` as yellow. Record any `no-tests decision: proceed` in the state artifact; for a standalone council run the state artifact is `$(git rev-parse --git-dir)/info/oneshot-state.md` in the target repo or worktree, created if missing (`mkdir -p "$(git rev-parse --git-dir)/info"`).
 
-**Rules:** Reviewer never fixes, fixer never reviews. Fresh subagents every round. Rounds 1-2 never pause for user input; stream results in passing. Verify every finding against real code before acting.
+**Rules:** Reviewer never fixes, fixer never reviews. Fresh subagents every round. Rounds 1-2 never pause for user input; stream results in passing. Verify every finding against real code before acting; fixers touch accepted findings only.
 
 ---
 
@@ -157,16 +167,16 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 
 **Skill:** `land` (Gate 3)
 
-1. Verify tests pass on final state (or satisfy the `no-tests` gate rule in `AGENTS.md` Review contracts for `mode=nominal`) AND verify Phase 6 Council consensus PASS is recorded on the effective last `council_verdict` line in `$(git rev-parse --git-dir)/info/oneshot-state.md` (`council_verdict: PASS round=<n> mode=<nominal|degraded|escalation> head=<sha>`, where `<n>` is `1..3` or `esc`) with `mode` in `nominal|degraded|escalation` and `head=<sha>` matching both local `git rev-parse HEAD` and remote PR head (`gh pr merge --squash --match-head-commit <sha>`). Land checks the effective last `council_verdict` line in state; never merge or land without verified Council consensus PASS on the current HEAD.
+1. Verify tests pass on final state (or satisfy the `no-tests` gate rule in `AGENTS.md` Review contracts for `mode=nominal`) AND verify Phase 6 Council consensus PASS is recorded on the effective last `council_verdict` line in `$(git rev-parse --git-dir)/info/oneshot-state.md` (`council_verdict: PASS round=<n> mode=<nominal|degraded|captain> head=<sha>`, where `<n>` is `1..3`) with `mode` in `nominal|degraded|captain` and `head=<sha>` matching both local `git rev-parse HEAD` and remote PR head (`gh pr merge --squash --match-head-commit <sha>`). Land checks the effective last `council_verdict` line in state; never merge or land without verified Council consensus PASS on the current HEAD.
 2. Refresh the PR body's `## Budget` block and include a **Budget** summary block in the final report (pools hit, demotions, backup rungs used, and any degraded seats; `AGENTS.md` Routing Rules, budget stop & resume). Landed options: merge PR and clean up, keep PR open, keep branch, discard. Present options (skip under bypass: default keep PR open).
-3. `land` executes the user choice. It reuses the standard flow: create-PR-if-none, merge open PR, checkout default, pull (the "next feature" handoff).
+3. `land` executes the user choice. It reuses the standard flow: create-PR-if-none, merge open PR, checkout default, pull (the "next feature" handoff). After a merge, `land` files one backlog ticket per `backlog:` line in the state artifact according to `backlog_tracker` (`## Project management` in `PROVIDERS.md`); with `none`, no merge, or a filing failure, the PR body's `## Backlog` list stays and the final report lists the entries.
 4. Record it with the memory tool: mode "add", content "oneshot completed: [task] on [branch]". Remove the state artifact at the end of the run.
 
 ---
 
 ## State Artifact
 
-Once the feature branch or worktree is active (Phase 1 step 1, or Phase 3 step 2 when resuming directly into Phase 3), and at every phase transition or budget event thereafter, run `mkdir -p "$(git rev-parse --git-dir)/info"` (so both standard checkouts where `.git` is a directory and linked git worktrees where `.git` is a file work cleanly) and record or update `$(git rev-parse --git-dir)/info/oneshot-state.md` (append or rewrite in place): active Dispatch Adapter path, resolved primary rungs, phase, branch, PR URL, `author_models:` (deduplicated authoring `model` IDs), `author_families:` (deduplicated authoring `family` IDs), author commit log (`<sha> <task> <provider>/<model> <family>`), tests status, council round count, `council_verdict: PASS|FAIL round=<n> mode=<nominal|degraded|escalation> head=<sha>` (where `<n>` is `1..3` or `esc`, `head=<sha>` must match `git rev-parse HEAD`, and consumers evaluate the effective last `council_verdict` line), standing red findings (one line each), `soft_cap_counts` (per-pool dispatch counts in this pipeline run for soft-cap enforcement), and `earliest_resume` (earliest reset timestamp across exhausted pools when stopped on `budget stop: <role>`). On interrupt or after a budget stop, resume from the state artifact plus `<dest>/state/quota-ledger.tsv`, the spec, and the plan; the state file is the truth for round counters, `council_verdict`, `author_models:`, `author_families:`, `soft_cap_counts`, `earliest_resume`, and standing findings - never re-open a closed round or re-spend a burnt budget. `$(git rev-parse --git-dir)/info/oneshot-state.md` is the only per-run state location: it is machine-local and worktree-local, never committed, never `git add -f`'d, and removed at the end of Phase 7.
+Once the feature branch or worktree is active (Phase 1 step 1, or Phase 3 step 2 when resuming directly into Phase 3), and at every phase transition or budget event thereafter, run `mkdir -p "$(git rev-parse --git-dir)/info"` (so both standard checkouts where `.git` is a directory and linked git worktrees where `.git` is a file work cleanly) and record or update `$(git rev-parse --git-dir)/info/oneshot-state.md` (append or rewrite in place): active Dispatch Adapter path, resolved primary rungs, phase, branch, PR URL, `author_models:` (deduplicated authoring `model` IDs), `author_families:` (deduplicated authoring `family` IDs), author commit log (`<sha> <task> <provider>/<model> <family>`), tests status, council round count, `council_verdict: PASS|FAIL round=<n> mode=<nominal|degraded|captain> head=<sha>` (where `<n>` is `1..3`, `head=<sha>` must match `git rev-parse HEAD`, and consumers evaluate the effective last `council_verdict` line), `captain: <seat> <provider>/<model>`, `captain overruled: <finding-id>` lines, `backlog: <finding line> (<reason>)` lines (one per deferred finding, filed by `land` after merge), `single-provider review: <provider>` (while active), standing findings (one line each), `soft_cap_counts` (per-pool dispatch counts in this pipeline run, every pool; drives soft caps and balanced seat fallback), and `earliest_resume` (earliest reset timestamp across exhausted pools when stopped on `budget stop: <role>`). On interrupt or after a budget stop, resume from the state artifact plus `<dest>/state/quota-ledger.tsv`, the spec, and the plan; the state file is the truth for round counters, `council_verdict`, `captain:`, `backlog:`, `author_models:`, `author_families:`, `soft_cap_counts`, `earliest_resume`, and standing findings - never re-open a closed round or re-spend a burnt budget. `$(git rev-parse --git-dir)/info/oneshot-state.md` is the only per-run state location: it is machine-local and worktree-local, never committed, never `git add -f`'d, and removed at the end of Phase 7.
 
 ## Error Handling
 
@@ -175,7 +185,8 @@ Once the feature branch or worktree is active (Phase 1 step 1, or Phase 3 step 2
 | Task fails during execution | debug | Root cause, fix, retry |
 | Unfixable bug | User | Report phase + error + context |
 | Council FAIL (rounds 1-2) | council loop | Fix -> re-review automatically |
-| Council FAIL (round 3+ or escalation fails) | User | Stop, present findings + test output |
+| Council FAIL (round 3, no nominal, degraded, or captain PASS) | User | Stop, present findings, rulings, backlog + test output |
+| Captain defers a finding | Backlog | `backlog:` line in state + PR `## Backlog`; `land` files the ticket after merge |
 | Spec incomplete | Phase 1 | Fix gaps, re-approve |
 | Plan has gaps | Phase 2 | Add missing tasks |
 | Model / pool exhausted or soft-capped | Active provider profile ladder + `## Backup ladder` (`AGENTS.md` Routing Rules) | Record pool in `quota-ledger.tsv` on exhaustion, demote or walk backup ladder (`backup: <role> -> <provider>/<model>`), announce, continue; if no rung left, report `budget stop: <role>` with `earliest_resume` |
@@ -192,7 +203,9 @@ Once the feature branch or worktree is active (Phase 1 step 1, or Phase 3 step 2
 - Hardcode a model ID; route by role through the active provider profile and AGENTS.md routing rules
 - Run the council on 1 healthy reviewer and call it consensus
 - `git add -f` a gitignored path
-- Exceed caps: 3 council rounds, silence after escalation
+- Exceed caps: 3 council rounds, 15 reviewer dispatches; continuing after a round-3 FAIL
+- Let the captain defer or reject a confirmed in-scope correctness, security, or data-loss red
+- Run an `anthropic`-family dispatch above `high` effort
 
 ## Key Principles
 
@@ -201,5 +214,5 @@ Once the feature branch or worktree is active (Phase 1 step 1, or Phase 3 step 2
 - **Context-clean:** implementation only via fresh per-task subagents
 - **Visible:** every phase change and subagent result announced in main
 - **TDD always:** failing test before production code, per task
-- **Consensus over single gatekeeper:** council, independent families, honest degradation
+- **Consensus over single gatekeeper:** council on distinct models, a captain who rules but cannot waive real bugs, honest degradation
 - **Model-agnostic skills:** routing rules live only in AGENTS.md and the model table only in the provider profile
