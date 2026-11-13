@@ -13,7 +13,7 @@ Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code
 
 - **Driver:** Codex `gpt-6.1-sol` at `medium`, with `claudeAgent` `claude-sonnet-5-5` (`effort=medium`) as fallback.
 - **Architecture & Design (`shape`, `domain-modeling`, `codebase-design`):** advisory recommendation for `claudeAgent` `claude-fable-5-2` (or `claude-fable-5-1`) in Phase 1 sessions.
-- **Discovery (`scout`):** OpenCode Go flash models (`mimo-v2.6-flash`, `deepseek-v4.1-flash` at `low`) with Antigravity `gemini-3.8-flash` as last resort.
+- **Discovery (`scout`):** OpenCode Go `mimo-v2.6-flash`, then Claude Code `claude-haiku-5-5` (`low`), with Antigravity `gemini-3.8-flash` as last resort; `deepseek-v4.1-flash` stays reachable through the `## Backup ladder`.
 - **Testing & script running (`tester`, `patch`):** OpenCode Go `deepseek-v4.1-flash` (`high`), falling back to Codex `gpt-6-luna` (`medium`) and Antigravity `gemini-3.8-flash` (`medium`).
 - **Implementation:** `implementer` runs on Antigravity `claude-opus-5-5` (`high`), then Antigravity `gemini-4-carbon` and Codex `gpt-6.1-sol` (`high`); backup row 1 is the same-model alternate on `claudeAgent` `claude-opus-5-5`. `implementer-deep` runs on `claudeAgent` `claude-fable-5-2` (`high`), then `gemini-4-hydrogen` and `gpt-6.1-sol`.
 - **Per-task review (`task-reviewer`):** Codex `gpt-6.1-terra` (`high`), falling back to `claudeAgent` `claude-sonnet-5-5` (`effort=high`) and Antigravity `gemini-3.8-flash` (`high`), skipping any rung whose family authored the task.
@@ -23,16 +23,16 @@ Four subscriptions: `tri` (Antigravity + Codex + OpenCode Go) plus **Claude Code
 
 No Anthropic (`claude-*`), Google (`gemini-*`), or OpenAI (`gpt-*`) model routes through OpenCode Go in `quad`.
 - **Antigravity:** isolates `gemini-*` (`antigravity-gemini`) from `claude-*` (`antigravity-claude`); `implementer` starts there and moves to Claude Code when the pool is exhausted.
-- **Claude Code (`claudeAgent`):** carries `implementer-deep`, the review captain, the `implementer` alternate, the `task-reviewer` fallback, and `compaction`.
+- **Claude Code (`claudeAgent`):** carries `implementer-deep`, the review captain, the `implementer` alternate, the `scout` and `task-reviewer` fallbacks, and `compaction`.
 - **Codex:** carries `driver`, `task-reviewer`, Seat B (`gpt-6-astra`), and workhorse fallbacks.
-- **OpenCode Go:** carries `scout`, `tester`, `patch`, and non-reviewer backup rows (`deepseek-v4.1-flash`).
+- **OpenCode Go:** carries the `scout` primary, `tester`, `patch`, and non-reviewer backup rows (`deepseek-v4.1-flash`).
 
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
 | driver | primary | codex | gpt-6.1-sol | reasoningEffort=medium | openai | ok |
 | driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |
 | scout | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
-| scout | fallback | opencode | opencode-go/deepseek-v4.1-flash | variant=low | deepseek | ok |
+| scout | fallback | claudeAgent | claude-haiku-5-5 | effort=low | anthropic | ok |
 | scout | last-resort | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |
 | implementer | primary | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
 | implementer | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |

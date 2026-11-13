@@ -298,6 +298,7 @@ Every profile now shares the same implementation and review ladders (see [Defaul
 - **`quad` (The 4-Subscription Powerhouse: `tri` + Dedicated Claude Code)**:
   - **What it adds**: Claude Code (T3 Code provider instance `claudeAgent`) serves the captain and `implementer-deep` on `claude-fable-5-2`, and a same-model alternate for `implementer`: when Antigravity's Claude pool runs dry, `implementer` stays on `claude-opus-5-5` through Claude Code before falling to Gemini.
   - **Load balancing**: Antigravity's Claude pool is no longer reserved for a review seat, since no seat's primary runs there.
+  - **Scout fallback**: `scout` falls back from OpenCode Go `mimo-v2.6-flash` to Claude Code `claude-haiku-5-5` (`low`), then Antigravity `gemini-3.8-flash`.
 
 #### 2. The Council: Three Seats and a Review Captain (Phase 6)
 

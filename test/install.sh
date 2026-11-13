@@ -2552,6 +2552,28 @@ for non_oc_combo in antigravity,codex antigravity,claude claude,codex; do
 done
 pass "--providers enforces pool independence across rungs and orders antigravity Claude Opus before claudeAgent"
 
+# 77b. scout ladder: quad ships and the full quad composition generates
+# mimo -> claudeAgent haiku -> gemini-3.8-flash; the tri composition is unchanged.
+SCOUT_PRIMARY='| scout | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |'
+SCOUT_HAIKU='| scout | fallback | claudeAgent | claude-haiku-5-5 | effort=low | anthropic | ok |'
+SCOUT_GEMINI='| scout | last-resort | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |'
+SCOUT_DEEPSEEK='| scout | fallback | opencode | opencode-go/deepseek-v4.1-flash | variant=low | deepseek | ok |'
+grep -qxF "$SCOUT_PRIMARY" "$ROOT/providers/quad.md" || fail "quad.md scout primary is mimo-v2.6-flash"
+grep -qxF "$SCOUT_HAIKU" "$ROOT/providers/quad.md" || fail "quad.md scout fallback is claudeAgent claude-haiku-5-5"
+grep -qxF "$SCOUT_GEMINI" "$ROOT/providers/quad.md" || fail "quad.md scout last-resort is antigravity gemini-3.8-flash"
+! grep -qF '| scout | fallback | opencode |' "$ROOT/providers/quad.md" || fail "quad.md has no opencode scout fallback row"
+quad_gen_md="$TMPROOT/prov-home-2/.config/opencode/PROVIDERS.md"
+[ -f "$quad_gen_md" ] || fail "77b: full quad generator output exists"
+grep -qxF "$SCOUT_PRIMARY" "$quad_gen_md" || fail "generated antigravity,claude,codex,opencode scout primary is mimo-v2.6-flash"
+grep -qxF "$SCOUT_HAIKU" "$quad_gen_md" || fail "generated antigravity,claude,codex,opencode scout fallback is claudeAgent haiku"
+grep -qxF "$SCOUT_GEMINI" "$quad_gen_md" || fail "generated antigravity,claude,codex,opencode scout last-resort is gemini-3.8-flash"
+tri_gen_md="$TMPROOT/prov-home-1/.config/opencode/PROVIDERS.md"
+[ -f "$tri_gen_md" ] || fail "77b: tri generator output exists"
+grep -qxF "$SCOUT_PRIMARY" "$tri_gen_md" || fail "generated tri scout primary unchanged (mimo)"
+grep -qxF "$SCOUT_DEEPSEEK" "$tri_gen_md" || fail "generated tri scout fallback unchanged (deepseek)"
+grep -qxF "$SCOUT_GEMINI" "$tri_gen_md" || fail "generated tri scout last-resort unchanged (gemini-3.8-flash)"
+pass "scout ladder: quad ships haiku fallback, generator matches, tri unchanged"
+
 # Single-provider alias claude (and claudeAgent) canonicalizes to claudeAgent in PROVIDERS.md.
 for cld_alias in claude claudeAgent; do
   prov_case=$((prov_case + 1))
