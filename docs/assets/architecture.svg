@@ -98,46 +98,56 @@
   <text class="sans sub" x="706" y="305">dispatch adapter resolves the role's rung, in ladder order</text>
 
   <!-- ============ LAYER 2: PROFILE ============ -->
-  <rect x="60" y="322" width="1260" height="196" rx="16" fill="#111C2E" stroke="#2A3B57" stroke-width="1.5"/>
-  <text class="sans title" x="84" y="354">2 · PROVIDER PROFILE</text>
-  <text class="sans sub" x="266" y="354">PROVIDERS.md · primary → fallback → last-resort per role · validated before install writes</text>
+  <rect x="60" y="322" width="1260" height="208" rx="16" fill="#111C2E" stroke="#2A3B57" stroke-width="1.5"/>
+  <text class="sans title" x="84" y="352">2 · PROVIDER PROFILE</text>
+  <text class="sans sub" x="266" y="352">PROVIDERS.md · primary → fallback → last-resort per role · validated before install writes</text>
 
-  <text class="sans col" x="84" y="382">ROLE</text>
-  <text class="sans col" x="224" y="382">PRIMARY</text>
-  <text class="sans col" x="600" y="382">FALLBACK</text>
-  <text class="sans col" x="960" y="382">LAST RESORT</text>
-  <line x1="84" y1="390" x2="1296" y2="390" stroke="#243450" stroke-width="1"/>
+  <text class="sans col" x="84" y="378">ROLE</text>
+  <text class="sans col" x="224" y="378">PRIMARY</text>
+  <text class="sans col" x="600" y="378">FALLBACK</text>
+  <text class="sans col" x="960" y="378">LAST RESORT</text>
+  <line x1="84" y1="386" x2="1296" y2="386" stroke="#243450" stroke-width="1"/>
 
   <g class="mono">
-    <text class="cell" x="84" y="412">implementer</text>
-    <text class="cell" x="224" y="412">antigravity / claude-opus-5-5 · high</text>
-    <text class="cellMuted" x="600" y="412">antigravity / gemini-4-carbon · high</text>
-    <text class="cellMuted" x="960" y="412">codex / gpt-6.1-sol · high</text>
+    <text class="cell" x="84" y="406">implementer</text>
+    <text class="cell" x="224" y="406">antigravity / claude-opus-5-5 · high</text>
+    <text class="cellMuted" x="600" y="406">antigravity / gemini-4-carbon · high</text>
+    <text class="cellMuted" x="960" y="406">codex / gpt-6.1-sol · high</text>
 
-    <text class="cell" x="84" y="440">tester</text>
-    <text class="cell" x="224" y="440">opencode / deepseek-v4.1-flash · high</text>
-    <text class="cellMuted" x="600" y="440">codex / gpt-6-luna · medium</text>
-    <text class="cellMuted" x="960" y="440">antigravity / gemini-3.8-flash · medium</text>
+    <text class="cell" x="84" y="426">impl-deep</text>
+    <text class="cell" x="224" y="426">claudeAgent / claude-fable-5-2 · high</text>
+    <text class="cellMuted" x="600" y="426">antigravity / gemini-4-hydrogen · high</text>
+    <text class="cellMuted" x="960" y="426">codex / gpt-6.1-sol · high</text>
 
-    <text class="cell" x="84" y="468">reviewer-a ★</text>
-    <text class="cell" x="224" y="468">claudeAgent / claude-fable-5-2 · high</text>
-    <text class="cellMuted" x="600" y="468">codex / gpt-6.1-terra · high</text>
-    <text class="cellMuted" x="960" y="468">antigravity / gemini-4-argon · high</text>
+    <text class="cell" x="84" y="446">tester</text>
+    <text class="cell" x="224" y="446">opencode / deepseek-v4.1-flash · high</text>
+    <text class="cellMuted" x="600" y="446">codex / gpt-6-luna · medium</text>
+    <text class="cellMuted" x="960" y="446">antigravity / gemini-3.8-flash · medium</text>
+
+    <text class="cell" x="84" y="466">reviewer-a ★</text>
+    <text class="cell" x="224" y="466">claudeAgent / claude-fable-5-2 · high</text>
+    <text class="cellMuted" x="600" y="466">codex / gpt-6.1-terra · high</text>
+    <text class="cellMuted" x="960" y="466">antigravity / gemini-4-carbon · high</text>
+
+    <text class="cell" x="84" y="486">reviewer-c</text>
+    <text class="cell" x="224" y="486">antigravity / gemini-4-hydrogen · high</text>
+    <text class="cellMuted" x="600" y="486">antigravity / claude-sonnet-5-5 · high</text>
+    <text class="cellMuted" x="960" y="486">codex / gpt-6.1-terra · high</text>
   </g>
 
   <g>
-    <rect x="84" y="482" width="120" height="24" rx="6" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono sub" x="144" y="498" text-anchor="middle">## Quota pools</text>
-    <rect x="214" y="482" width="130" height="24" rx="6" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono sub" x="279" y="498" text-anchor="middle">## Backup ladder</text>
-    <rect x="354" y="482" width="180" height="24" rx="6" fill="#0F2230" stroke="#1F4A56"/>
-    <text class="mono sub" x="444" y="498" text-anchor="middle">state/quota-ledger.tsv</text>
+    <rect x="84" y="496" width="120" height="24" rx="6" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono sub" x="144" y="512" text-anchor="middle">## Quota pools</text>
+    <rect x="214" y="496" width="130" height="24" rx="6" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono sub" x="279" y="512" text-anchor="middle">## Backup ladder</text>
+    <rect x="354" y="496" width="180" height="24" rx="6" fill="#0F2230" stroke="#1F4A56"/>
+    <text class="mono sub" x="444" y="512" text-anchor="middle">state/quota-ledger.tsv</text>
   </g>
-  <text class="sans sub" x="550" y="498">shared buckets + soft caps · same-model + backup safety net · single-provider review · ledger</text>
+  <text class="sans sub" x="550" y="512">shared buckets + soft caps · same-model + backup safety net · single-provider review · ledger</text>
 
   <!-- delegate arrow -->
-  <line x1="690" y1="520" x2="690" y2="550" stroke="#94A3B8" stroke-width="1.75" marker-end="url(#arrow)"/>
-  <text class="sans sub" x="706" y="541">native pin on OpenCode, or T3 Code delegate_task(provider, model, effort)</text>
+  <line x1="690" y1="532" x2="690" y2="556" stroke="#94A3B8" stroke-width="1.75" marker-end="url(#arrow)"/>
+  <text class="sans sub" x="706" y="548">native pin on OpenCode, or T3 Code delegate_task(provider, model, effort)</text>
 
   <!-- ============ LAYER 3: PROVIDER INSTANCES ============ -->
   <rect x="60" y="558" width="1260" height="178" rx="16" fill="#111C2E" stroke="#2A3B57" stroke-width="1.5"/>
@@ -148,7 +158,7 @@
     <rect x="84" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
     <text class="sans pname" x="104" y="630">Antigravity</text>
     <text class="sans pmeta" x="104" y="648">google · anthropic · thinking_level</text>
-    <text class="mono pmodels" x="104" y="668">gemini-4-carbon · argon (high)</text>
+    <text class="mono pmodels" x="104" y="668">gemini-4-hydrogen · carbon (high)</text>
     <text class="mono pmodels" x="104" y="686">claude-opus-5-5 · sonnet-5-5</text>
 
     <rect x="391" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>

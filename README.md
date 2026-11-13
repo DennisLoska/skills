@@ -291,10 +291,10 @@ Every profile now shares the same implementation and review ladders (see [Defaul
 - **`tri` (The 3-Subscription Foundation: Antigravity + Codex + OpenCode Go Plus)**:
   - **Philosophy**: Spend frontier tokens where judgment matters most (implementation and review), and run high-volume pipeline phases on high-allowance open-weight models.
   - **Workload Split**:
-    - **Antigravity**: `implementer` on Anthropic `claude-opus-5-5` (`high`), then Google `gemini-4-carbon`; Council Seat C (`gemini-4-carbon`); the `implementer-deep` fallback.
+    - **Antigravity**: `implementer` on Anthropic `claude-opus-5-5` (`high`), then Google `gemini-4-carbon`; Council Seat C (`gemini-4-hydrogen`); the `implementer-deep` fallback (`gemini-4-hydrogen`).
     - **Codex**: Council Seat B (`gpt-6-astra`), the captain fallback (`gpt-6.1-terra`), `gpt-6.1-sol` for the driver and implementation last-resorts, `gpt-6.1-terra` for task reviews, and `gpt-6-luna` for fast testing/compaction.
     - **OpenCode Go Plus**: open-weight models with large 5-hour allowances for `scout`, `tester`, `patch`, and non-review backup rows. No council seat runs here except in single-provider review.
-  - **Claude Code rungs**: the captain (`reviewer-a`) and `implementer-deep` prefer `claude-fable-5-2` on Claude Code; without that subscription those rungs are unreachable and demote (captain to `gpt-6.1-terra`, `implementer-deep` to `gemini-4-carbon`).
+  - **Claude Code rungs**: the captain (`reviewer-a`) and `implementer-deep` prefer `claude-fable-5-2` on Claude Code; without that subscription those rungs are unreachable and demote (captain to `gpt-6.1-terra`, `implementer-deep` to `gemini-4-hydrogen`).
 - **`quad` (The 4-Subscription Powerhouse: `tri` + Dedicated Claude Code)**:
   - **What it adds**: Claude Code (T3 Code provider instance `claudeAgent`) serves the captain and `implementer-deep` on `claude-fable-5-2`, and a same-model alternate for `implementer`: when Antigravity's Claude pool runs dry, `implementer` stays on `claude-opus-5-5` through Claude Code before falling to Gemini.
   - **Load balancing**: Antigravity's Claude pool is no longer reserved for a review seat, since no seat's primary runs there.
@@ -305,7 +305,7 @@ Every profile now shares the same implementation and review ladders (see [Defaul
 - **Council Seats**:
   - **Seat A (`reviewer-a`), review captain**: Anthropic `claude-fable-5-2` via Claude Code. If Seat A has no eligible rung, captaincy passes to Seat B, then Seat C.
   - **Seat B (`reviewer-b`)**: OpenAI `gpt-6-astra` via Codex.
-  - **Seat C (`reviewer-c`)**: Google `gemini-4-carbon` via Antigravity.
+  - **Seat C (`reviewer-c`)**: Google `gemini-4-hydrogen` via Antigravity.
 - **Captain ruling**: the captain reviews like every seat. When any seat votes FAIL or raises a red/yellow finding, a fresh captain ruling labels each merged finding `accept` (fix in this PR), `defer` (valid but unrelated, overengineering, or out of scope: it becomes a backlog ticket), or `reject` (wrong, with `path:line` evidence), then votes `Captain verdict: PASS | FAIL`.
 - **Captain limits**: a red the driver confirms as an in-scope correctness, security, or data-loss bug introduced by the diff can never be deferred or rejected (`captain overruled: <finding-id>`). Green tests are always required. Fixers address only accepted findings.
 - **Verdict modes**:
@@ -353,7 +353,7 @@ Every profile now shares the same implementation and review ladders (see [Defaul
 | Provider | Instance ID | Effort Option ID & Values | Example Model IDs | Limit Inspection |
 | --- | --- | --- | --- | --- |
 | **OpenCode Go** | `opencode` | `variant` (`low\|medium\|high\|xhigh\|max`, or `-`) | `muse-spark-1.3-contributor`, `deepseek-v4.1-flash`, `mimo-v2.6-flash`, `glm-5.3-flash` | `opencode.ai/docs/go` console (monthly $ allowance + 5h rolling cap) |
-| **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-carbon`, `gemini-4-argon`, `gemini-3.8-flash`, `claude-opus-5-5`, `claude-sonnet-5-5` | `/status` in Antigravity (rolling 5-hour window) |
+| **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-hydrogen`, `gemini-4-carbon`, `gemini-3.8-flash`, `claude-opus-5-5`, `claude-sonnet-5-5` | `/status` in Antigravity (rolling 5-hour window) |
 | **Codex** | `codex` | `reasoningEffort` (`low\|medium\|high\|xhigh`) | `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-luna`, `gpt-6-sol` | `/status` in Codex (rolling 5-hour window) |
 | **Claude Code** | `claudeAgent` | `effort` (`low\|medium\|high`; the harness caps every Anthropic model at `high`) | `claude-fable-5-2`, `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` | `/status` in Claude Code (rolling 5-hour window) |
 
@@ -400,10 +400,10 @@ Every shipped profile and the `--providers` generator share these implementation
 | role | primary | fallback | last-resort |
 | --- | --- | --- | --- |
 | `implementer` | `claude-opus-5-5` (Antigravity; Claude Code in `claude`) | `gemini-4-carbon` | `gpt-6.1-sol` |
-| `implementer-deep` | `claude-fable-5-2` (Claude Code) | `gemini-4-carbon` | `gpt-6.1-sol` |
-| `reviewer-a` (captain) | `claude-fable-5-2` (Claude Code) | `gpt-6.1-terra` | `gemini-4-argon` |
-| `reviewer-b` | `gpt-6-astra` (Codex) | `gemini-4-argon` | `claude-sonnet-5-5` (Claude Code) |
-| `reviewer-c` | `gemini-4-carbon` (Antigravity) | `claude-sonnet-5-5` (Antigravity) | `gpt-6.1-terra` |
+| `implementer-deep` | `claude-fable-5-2` (Claude Code) | `gemini-4-hydrogen` | `gpt-6.1-sol` |
+| `reviewer-a` (captain) | `claude-fable-5-2` (Claude Code) | `gpt-6.1-terra` | `gemini-4-carbon` |
+| `reviewer-b` | `gpt-6-astra` (Codex) | `gemini-4-carbon` | `claude-sonnet-5-5` (Claude Code) |
+| `reviewer-c` | `gemini-4-hydrogen` (Antigravity) | `claude-sonnet-5-5` (Antigravity) | `gpt-6.1-terra` |
 
 - Profiles with Claude Code (`quad`, `claude`) add a backup row that keeps `implementer` on `claude-opus-5-5` through Claude Code (same-model alternate).
 - No reviewer rung or reviewer-covering backup row uses OpenCode Go; it serves review only through single-provider review.
@@ -422,12 +422,12 @@ cp providers/tri.md ~/.config/oneshot/my-profile.md
 ./install.sh --force --profile-file ~/.config/oneshot/my-profile.md
 ```
 
-**One-row override example** (swapping `reviewer-c` primary to `gemini-4-argon`):
+**One-row override example** (swapping `reviewer-c` primary to `gemini-4-carbon`):
 
 ```text
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
-| reviewer-c | primary | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| reviewer-c | primary | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 ```
 
 - Each profile must define a `primary` row for all nine dispatched roles (`scout`, `tester`, `implementer`, `implementer-deep`, `patch`, `task-reviewer`, `reviewer-a`, `reviewer-b`, `reviewer-c`), with pairwise-distinct council primary families.
