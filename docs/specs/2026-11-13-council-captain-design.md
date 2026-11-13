@@ -73,9 +73,9 @@ Status: approved (2026-11-13, user decisions recorded below).
 
 | mode | PASS condition |
 | --- | --- |
-| `nominal` | >= 2/3 seats PASS, zero accepted unresolved red findings, green tests (or the `no-tests` exception) |
-| `degraded` | 2/2 healthy seats PASS (one seat lost), zero accepted unresolved red findings, green tests |
-| `captain` | captain verdict PASS overriding FAIL votes: every finding behind a FAIL vote is `defer`red or `reject`ed, zero accepted unresolved red findings, green tests (no `no-tests` exception) |
+| `nominal` | >= 2/3 seats PASS, zero unresolved accepted findings (any severity), green tests (or the `no-tests` exception) |
+| `degraded` | 2/2 healthy seats PASS (one seat lost), zero unresolved accepted findings (any severity), green tests |
+| `captain` | captain PASS; every finding behind a FAIL vote deferred or rejected; zero unresolved accepted findings (any severity); green tests (no `no-tests` exception) |
 
 - State line: `council_verdict: PASS|FAIL round=<1..3> mode=<nominal|degraded|captain> head=<sha>`. `mode=escalation` and `round=esc` are retired. `land` accepts `nominal`, `degraded` and `captain`.
 - Captain mode is available in any round, and with 2 or 3 healthy seats.
@@ -111,7 +111,7 @@ Status: approved (2026-11-13, user decisions recorded below).
   ```
   The profile validator treats `## Project management` as a non-table section.
 - Semantics (`land`, filing deferred findings after merge):
-  - `github`: `gh issue create --title "<short>" --body "<finding + reason + PR link>" --label backlog`, retrying without `--label` if the label is missing.
+  - `github`: never inline model-written text into the shell command. Write the body (finding line, captain reason, PR link) to a temp file through a quoted heredoc (`<<'EOF'`) and pass it with `--body-file`; pass the title as a quoted variable (`--title "$title"`, set the same way); run `gh issue create --title "$title" --body-file "$body" --label backlog`, and retry without `--label` only when the error mentions the label (any other error is a filing failure).
   - `linear` / `jira`: create one issue per deferred finding through the user's connected Linear/Jira MCP tools (team/project inferred from context or asked once).
   - `auto`: Linear MCP tools present -> `linear`; else Jira MCP tools present -> `jira`; else a GitHub remote with `gh` authenticated and issues enabled -> `github`; else `none`.
   - `none` (or any filing failure): keep the `## Backlog` list in the PR body and report it.

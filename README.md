@@ -312,9 +312,9 @@ Every profile now shares the same implementation and review ladders (see [Defaul
 
   | mode | PASS condition |
   | --- | --- |
-  | `nominal` | &ge;2/3 seats PASS, zero accepted unresolved red findings, green tests (or the `no-tests` exception) |
-  | `degraded` | 2/2 healthy seats PASS (one seat lost), zero accepted unresolved red findings, green tests |
-  | `captain` | captain PASS overriding FAIL votes (every finding behind them deferred or rejected), zero accepted unresolved red findings, green tests |
+  | `nominal` | &ge;2/3 seats PASS, zero unresolved accepted findings, green tests (or the `no-tests` exception) |
+  | `degraded` | 2/2 healthy seats PASS (one seat lost), zero unresolved accepted findings, green tests |
+  | `captain` | captain PASS; every finding behind a FAIL vote deferred or rejected; zero unresolved accepted findings; green tests |
 
 - **Core Council Invariants**:
   - **Author-Reviewer Independence**: a model that authored code (`implementer`, `tester`, `patch`, or fixers) never reviews it. Seats run on pairwise-distinct models outside `author_models`.

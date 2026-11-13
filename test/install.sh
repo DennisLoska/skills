@@ -2643,6 +2643,19 @@ grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$ROOT/providers/quad.md"
 grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$ROOT/providers/opencode-go.md" || fail "opencode-go carries opencode-go pool row"
 grep -qF '| 8 | scout,implementer,implementer-deep,tester,patch,task-reviewer | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |' "$ROOT/providers/tri.md" || fail "tri backup ladder carries an antigravity Claude fallback rung"
 grep -qF '| 11 | scout,implementer,implementer-deep,tester,patch,task-reviewer | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |' "$ROOT/providers/quad.md" || fail "quad backup ladder carries an antigravity Claude fallback rung"
+# opencode-go: backup row 1 (variant=high) excludes implementer-deep, so the
+# first opencode backup row matching implementer-deep is the variant=max one.
+grep -qF '| 1 | implementer,tester,patch | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |' "$ROOT/providers/opencode-go.md" || fail "opencode-go backup row 1 omits implementer-deep"
+oc_deep_first="$(awk -F '|' '
+  /^## / { inb = ($0 ~ /^## Backup ladder[[:space:]]*$/); next }
+  inb && /^[|] *[0-9]+ *[|]/ {
+    roles = $3; prov = $4; eff = $6
+    gsub(/^ +| +$/, "", roles); gsub(/^ +| +$/, "", prov); gsub(/^ +| +$/, "", eff)
+    if (prov != "opencode") next
+    if (roles == "*" || ("," roles ",") ~ /,implementer-deep,/) { print eff; exit }
+  }
+' "$ROOT/providers/opencode-go.md")"
+[ "$oc_deep_first" = "variant=max" ] || fail "opencode-go implementer-deep first opencode backup row is variant=max (got '$oc_deep_first')"
 
 seat_cell() {
   awk -F '|' -v seat="$2" -v col="$3" '$2 == " " seat " " && $3 == " primary " { v = $col; gsub(/^ +| +$/, "", v); print v }' "$1"
@@ -2901,11 +2914,14 @@ if script -qec true /dev/null >/dev/null 2>&1; then
   PM_MIX_OC="$TMPROOT/pm-mix-tty-oc"
   PM_MIX_CX="$TMPROOT/pm-mix-tty-codex"
   OPENCODE_CONFIG="$PM_MIX_OC" "$INSTALL" --pm linear </dev/null >"$TMPROOT/pm-mix-seed.out" 2>&1 || { cat "$TMPROOT/pm-mix-seed.out" >&2; fail "80d: seeding a linear root exits 0"; }
-  printf '\n' | OPENCODE_CONFIG="$PM_MIX_OC" CODEX_HOME="$PM_MIX_CX" script -qec "$INSTALL --force --target opencode,codex" /dev/null >"$TMPROOT/pm-mix-tty.out" 2>&1 || true
+  printf 'github\n' | OPENCODE_CONFIG="$PM_MIX_OC" CODEX_HOME="$PM_MIX_CX" script -qec "$INSTALL --force --target opencode,codex" /dev/null >"$TMPROOT/pm-mix-tty.out" 2>&1 || true
   [ "$(grep -c 'Backlog tracker \[' "$TMPROOT/pm-mix-tty.out")" -eq 1 ] || { cat "$TMPROOT/pm-mix-tty.out" >&2; fail "80d: a mixed-state multi-target TTY run prompts exactly once"; }
   grep -qxF '# pm linear' "$PM_MIX_OC/.harness-manifest" || fail "80d: a multi-target prompt keeps a root's recorded tracker"
   grep -qxF 'backlog_tracker: linear' "$PM_MIX_OC/PROVIDERS.md" || fail "80d: a multi-target prompt keeps the recorded root's rendered tracker"
-  grep -qxF '# pm auto' "$PM_MIX_CX/.harness-manifest" || fail "80d: a multi-target prompt default applies to the unrecorded root"
+  # The answer differs from the child default (auto), so this pins the
+  # parent-to-child hand-off of the prompt answer.
+  grep -qxF '# pm github' "$PM_MIX_CX/.harness-manifest" || fail "80d: a multi-target prompt answer is handed to the unrecorded root"
+  grep -qxF 'backlog_tracker: github' "$PM_MIX_CX/PROVIDERS.md" || fail "80d: a multi-target prompt answer renders on the unrecorded root"
   pass "a multi-target TTY prompt only defaults unrecorded roots and keeps recorded trackers"
 fi
 # The parent-to-child default hand-off (HARNESS_PM_DEFAULT) never overrides a
