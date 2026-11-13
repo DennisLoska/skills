@@ -678,7 +678,10 @@ if [ "${#job_targets[@]}" -gt 1 ]; then
   [ "$force" -eq 1 ] && sub_args+=("--force")
   [ "$prune" -eq 1 ] && sub_args+=("--prune")
   # Children never prompt (stdin is /dev/null); the parent asks once on a TTY
-  # when some root has no recorded backlog tracker, and forwards the answer.
+  # when some root has no recorded backlog tracker and hands the answer down
+  # as an internal default (HARNESS_PM_DEFAULT), which a child applies only
+  # when its own root records no tracker. Only an explicit --pm overrides
+  # every root.
   if [ "$pm_given" -eq 0 ] && [ "$preflight_only" -eq 0 ] && [ -t 0 ]; then
     pm_unrecorded=0
     for idx in "${!job_targets[@]}"; do
@@ -700,7 +703,8 @@ if [ "${#job_targets[@]}" -gt 1 ]; then
     done
     if [ "$pm_unrecorded" -eq 1 ]; then
       prompt_pm
-      pm_given=1
+      HARNESS_PM_DEFAULT="$pm_arg"
+      export HARNESS_PM_DEFAULT
     fi
   fi
   [ "$pm_given" -eq 1 ] && sub_args+=("--pm" "$pm_arg")
@@ -2139,13 +2143,17 @@ fi
 # Recognized required and advisory rows are validated; fenced examples are prose.
 PROFILE_ROWS="$(PROFILE_WARN="$((1 - preflight_only))" validate_profile "$PROFILE_FILE" "$PROFILE_LABEL")" || exit 1
 
-# Backlog tracker: explicit --pm, else the recorded binding, else a one-time
-# prompt on an interactive stdin, else auto.
+# Backlog tracker: explicit --pm, else the recorded binding, else the default
+# a multi-target parent prompted for (internal HARNESS_PM_DEFAULT), else a
+# one-time prompt on an interactive stdin, else auto.
 if [ "$pm_given" -eq 1 ]; then
   pm_value="$pm_arg"
 elif [ "$prev_pm_present" -eq 1 ]; then
   valid_pm "$prev_pm" || unknown_pm "$prev_pm"
   pm_value="$prev_pm"
+elif [ -n "${HARNESS_PM_DEFAULT:-}" ]; then
+  valid_pm "$HARNESS_PM_DEFAULT" || unknown_pm "$HARNESS_PM_DEFAULT"
+  pm_value="$HARNESS_PM_DEFAULT"
 elif [ "$preflight_only" -eq 0 ] && [ -t 0 ]; then
   prompt_pm
   pm_value="$pm_arg"

@@ -2896,7 +2896,30 @@ if script -qec true /dev/null >/dev/null 2>&1; then
   if grep -qF 'Backlog tracker [' "$TMPROOT/pm-tty2.out"; then fail "80d: a recorded tracker suppresses the prompt"; fi
   grep -qxF '# pm linear' "$PM_TTY_DEST/.harness-manifest" || fail "80d: an interactive refresh keeps the recorded tracker"
   pass "--pm prompts once on a TTY when no tracker is recorded"
+  # Mixed-state multi-target TTY run: the prompt answer is only a default for
+  # roots without a recorded tracker; a recorded tracker is never overwritten.
+  PM_MIX_OC="$TMPROOT/pm-mix-tty-oc"
+  PM_MIX_CX="$TMPROOT/pm-mix-tty-codex"
+  OPENCODE_CONFIG="$PM_MIX_OC" "$INSTALL" --pm linear </dev/null >"$TMPROOT/pm-mix-seed.out" 2>&1 || { cat "$TMPROOT/pm-mix-seed.out" >&2; fail "80d: seeding a linear root exits 0"; }
+  printf '\n' | OPENCODE_CONFIG="$PM_MIX_OC" CODEX_HOME="$PM_MIX_CX" script -qec "$INSTALL --force --target opencode,codex" /dev/null >"$TMPROOT/pm-mix-tty.out" 2>&1 || true
+  [ "$(grep -c 'Backlog tracker \[' "$TMPROOT/pm-mix-tty.out")" -eq 1 ] || { cat "$TMPROOT/pm-mix-tty.out" >&2; fail "80d: a mixed-state multi-target TTY run prompts exactly once"; }
+  grep -qxF '# pm linear' "$PM_MIX_OC/.harness-manifest" || fail "80d: a multi-target prompt keeps a root's recorded tracker"
+  grep -qxF 'backlog_tracker: linear' "$PM_MIX_OC/PROVIDERS.md" || fail "80d: a multi-target prompt keeps the recorded root's rendered tracker"
+  grep -qxF '# pm auto' "$PM_MIX_CX/.harness-manifest" || fail "80d: a multi-target prompt default applies to the unrecorded root"
+  pass "a multi-target TTY prompt only defaults unrecorded roots and keeps recorded trackers"
 fi
+# The parent-to-child default hand-off (HARNESS_PM_DEFAULT) never overrides a
+# recorded tracker, fills an unrecorded root, and yields to an explicit --pm.
+PM_HO_OC="$TMPROOT/pm-handoff-oc"
+PM_HO_CX="$TMPROOT/pm-handoff-codex"
+OPENCODE_CONFIG="$PM_HO_OC" "$INSTALL" --pm linear </dev/null >"$TMPROOT/pm-handoff-seed.out" 2>&1 || { cat "$TMPROOT/pm-handoff-seed.out" >&2; fail "80d: seeding a linear root exits 0"; }
+HARNESS_PM_DEFAULT=github OPENCODE_CONFIG="$PM_HO_OC" CODEX_HOME="$PM_HO_CX" "$INSTALL" --force --target opencode,codex </dev/null >"$TMPROOT/pm-handoff.out" 2>&1 || { cat "$TMPROOT/pm-handoff.out" >&2; fail "80d: a mixed-state multi-target refresh exits 0"; }
+grep -qxF '# pm linear' "$PM_HO_OC/.harness-manifest" || fail "80d: the default hand-off keeps a recorded tracker"
+grep -qxF '# pm github' "$PM_HO_CX/.harness-manifest" || fail "80d: the default hand-off fills an unrecorded root"
+grep -qxF 'backlog_tracker: github' "$PM_HO_CX/PROVIDERS.md" || fail "80d: the default hand-off renders on the unrecorded root"
+HARNESS_PM_DEFAULT=github OPENCODE_CONFIG="$PM_HO_OC" CODEX_HOME="$PM_HO_CX" "$INSTALL" --force --target opencode,codex --pm none </dev/null >"$TMPROOT/pm-handoff2.out" 2>&1 || { cat "$TMPROOT/pm-handoff2.out" >&2; fail "80d: an explicit multi-target --pm exits 0"; }
+grep -qxF '# pm none' "$PM_HO_OC/.harness-manifest" && grep -qxF '# pm none' "$PM_HO_CX/.harness-manifest" || fail "80d: an explicit --pm overrides every root"
+pass "the multi-target default hand-off fills only unrecorded roots and yields to an explicit --pm"
 pass "--pm records # pm, renders backlog_tracker:, reuses it on refresh, forwards it across targets, and rejects unknown values"
 
 # 80e. Every shipped profile: Opus/Fable implementers with carbon/sol

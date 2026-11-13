@@ -54,7 +54,7 @@ Each OpenCode Go model has its own per-model monthly dollar limit and 5-hour cap
 
 | order | roles | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | implementer,implementer-deep,tester,patch | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
+| 1 | implementer,tester,patch | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | 2 | implementer-deep | opencode | opencode-go/deepseek-v4.1-flash | variant=max | deepseek | ok |
 | 3 | implementer,implementer-deep | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
 | 4 | task-reviewer | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
