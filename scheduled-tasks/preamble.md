@@ -16,7 +16,7 @@ A run may produce both a merged PR and tickets. In that case, write `outcome: pr
 
 ## Ground rules
 
-1. **Preflight.** `cd` into the project workspace. Run `git fetch origin --prune`. Detect the default branch with `gh repo view {{REPO}} --json defaultBranchRef -q .defaultBranchRef.name`. Never commit to `main` or `master`. If `gh`, the Linear tools, or the `oneshot` skill are unavailable, stop with `outcome: blocked`.
+1. **Preflight.** `cd` into the project workspace. Run `git fetch --all --prune`. `{{REPO}}` is the PR target. If `origin` is a fork of it, push branches to the fork and open PRs against `{{REPO}}`. Detect the default branch with `gh repo view {{REPO}} --json defaultBranchRef -q .defaultBranchRef.name`, and compare against the remote that tracks `{{REPO}}`, not the fork. Never commit to `main` or `master`. If `gh`, the Linear tools, or the `oneshot` skill are unavailable, stop with `outcome: blocked`.
 2. **Read-only discovery.** Inspect and audit before you change anything. Follow the harness context-hygiene rules: scout searches that span more than one file.
 3. **Dedupe.** Before you create anything, search Linear (team `{{LINEAR_TEAM}}`, label `sched:{{JOB_ID}}`, open and recently closed issues) and open PRs (`gh pr list --repo {{REPO}} --search "head:sched/{{JOB_ID}}"`). Update an existing issue or PR instead of opening a duplicate. Never reopen an issue that a human closed as canceled or won't-fix, unless its severity has increased since then.
 4. **Fix or ticket.** Fix with a PR only when **all** of these hold:
