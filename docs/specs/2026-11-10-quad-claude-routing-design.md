@@ -1,5 +1,7 @@
 # Quad Provider Profile Refactor for Claude Code Integration
 
+> Superseded routing history: this document records an earlier design, not active dispatch guidance. Retired Google model references are normalized to Argon; historical effort settings are capped at high. Current routing and review eligibility are defined by [skill-model-routing.md](../skill-model-routing.md), AGENTS.md, and the active PROVIDERS.md. Never use historical rows to bypass the universal ceiling or the quad review allowlist.
+
 Date: 2026-11-10. Branch: `feat/quad-claude-routing`.
 Status: Approved.
 
@@ -73,7 +75,7 @@ Claude Code is now installed and verified on the machine with T3 Code integratio
 | reviewer-b | primary | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |
 | reviewer-b | fallback | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
 | reviewer-b | last-resort | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
-| reviewer-c | primary | opencode | opencode-go/muse-spark-1.3-contributor | variant=xhigh | meta | trains |
+| reviewer-c | primary | opencode | opencode-go/muse-spark-1.3-contributor | variant=high | meta | trains |
 | reviewer-c | fallback | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
 | reviewer-c | last-resort | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
 | reviewer-esc | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |

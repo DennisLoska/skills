@@ -1,5 +1,7 @@
 # Harness Compliance and Council Integrity Implementation Plan
 
+> Superseded routing history: this document records an earlier design, not active dispatch guidance. Retired Google model references are normalized to Argon; historical effort settings are capped at high. Current routing and review eligibility are defined by [skill-model-routing.md](../skill-model-routing.md), AGENTS.md, and the active PROVIDERS.md. Never use historical rows to bypass the universal ceiling or the quad review allowlist.
+
 > **For agentic workers:** REQUIRED SKILL: invoke the dispatch skill via the skill tool (recommended) to implement this plan task-by-task. For standalone plans only, inline execution with batch checkpoints is also allowed. Under oneshot or `auto-approve: true`, execution is subagent-driven only: never execute inline. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Eliminate protocol bypasses, enforce strict subagent context hygiene in dispatch, prevent single-seat council review loops, enforce author-family independence in council, and require audited council consensus before merging in land.
@@ -50,7 +52,7 @@ Run: `./test/install.sh`
 Expected: FAIL with missing council assertion.
 
 - [ ] **Step 3: Update `skills/council/SKILL.md`**
-- In Step 0 `<HARD-GATE>`: Expand Check 3 to forbid self-review: no council seat may share a family or model with an author of branch commits recorded in state. In degraded dual-family mode where authoring cannot be avoided, require model-level divergence (e.g., `gemini-4-carbon` reviewing `gemini-3.8-flash`).
+- In Step 0 `<HARD-GATE>`: Expand Check 3 to forbid self-review: no council seat may share a family or model with an author of branch commits recorded in state. In degraded dual-family mode where authoring cannot be avoided, require model-level divergence (e.g., `gemini-4-argon` reviewing `gemini-3.8-flash`).
 - In Section 4 (Request phase) and Fallback mechanics: Clarify that *"Rerun only that seat"* applies exclusively to mid-round provider infrastructure failures (`exhausted`, `unreachable`, `transient`). For code re-reviews in Round N+1 after implementation fixes, all active seats (all 3 in nominal, all 2 in degraded) MUST be re-dispatched against the new commit. Forbid single-seat review loops across rounds.
 
 - [ ] **Step 4: Run test to verify it passes**

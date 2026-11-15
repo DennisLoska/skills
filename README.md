@@ -15,13 +15,13 @@
   <img src="https://img.shields.io/badge/Skills-12%20Pipeline%20Units-1AD1A5?style=flat-square" alt="12 Pipeline Skills" />
   <img src="https://img.shields.io/badge/Council-3%20Seats%20%2B%20Review%20Captain-FF6B35?style=flat-square" alt="3-Seat Council with Review Captain" />
   <img src="https://img.shields.io/badge/Bash-%3E%3D3.2-4EAA25?style=flat-square&logo=gnubash&logoColor=white" alt="Bash >=3.2" />
-  <img src="https://img.shields.io/badge/Tests-166%2F166%20Passing-2ECC71?style=flat-square" alt="166/166 Tests Passing" />
+  <img src="https://img.shields.io/badge/Tests-167%2F167%20Passing-2ECC71?style=flat-square" alt="167/167 Tests Passing" />
   <img src="https://img.shields.io/badge/Profiles-tri%20%7C%20quad%20%7C%20opencode--go%20%7C%20codex%20%7C%20antigravity%20%7C%20claude%20%7C%20--providers-8B5CF6?style=flat-square" alt="Profiles: tri, quad, opencode-go, codex, antigravity, claude, or dynamic --providers" />
 </p>
 
 Autonomous software delivery for **T3 Code** and standalone **OpenCode V2**, **Codex**, **Antigravity**, and **Claude Code**. Orchestrates **12 composable pipeline skills** and **8 role-contract subagent seats** across four closed feedback loops (**L1 Task**, **L2 Branch Council**, **L3 CI**, **L4 Meta**).
 
-The harness is provider-neutral: which provider, model, and effort runs each role comes from a swappable provider profile (default `tri`, `quad` with Claude Code, standalone single-provider `opencode-go`, `codex`, `antigravity`, `claude`, dynamic composition via `--providers <list>`, or any custom file via `--profile-file`). Every dispatch names an explicit rung so subagents never inherit the main session model. Every seat enforces last-match-wins permission guardrails so subagents never leak secrets.
+The harness is provider-neutral: which provider, model, and effort runs each role comes from a swappable provider profile (default `tri`, `quad` with Claude Code, portable host-oriented `opencode-go`, `codex`, `antigravity`, `claude`, dynamic composition via `--providers <list>`, or any custom file via `--profile-file`). Every dispatch names an explicit rung so subagents never inherit the main session model. Every seat enforces last-match-wins permission guardrails so subagents never leak secrets.
 
 ---
 
@@ -89,7 +89,7 @@ Exit code `0` confirms a complete, healthy installation.
 | --- | --- | --- |
 | `--target <targets>` | Comma-separated host targets: `opencode`, `codex`, `antigravity`, `claude`, or `all`. | `opencode` |
 | `--profile <name>` | Shipped profile: `tri` (default), `quad`, `opencode-go`, `codex`, `antigravity`, `claude`. | `tri` |
-| `--providers <list>` | Dynamically generate profile from active providers: `antigravity`, `codex`, `claude`, `opencode`. | None |
+| `--providers <list>` | Compose the fixed policy with selected connection preferences: `antigravity`, `codex`, `claude`, `opencode`. | None |
 | `--profile-file <path>` | Bind to a custom external profile file. Recorded in manifest and preserved on updates. | None |
 | `--pm <tracker>` | Backlog tracker for findings the review captain defers: `auto`, `github` (`gh` CLI), `linear` or `jira` (via MCP), `none`. Recorded as `# pm <value>` and reused on refresh; interactive installs without a recorded value ask once. | `auto` |
 | `--verify`, `--doctor` | Non-destructive health check (checks manifests, files, symlinks, state). | - |
@@ -125,7 +125,7 @@ git pull
 | --- | --- |
 | **What is it?** | A gated SDLC controller (`oneshot`) plus 12 pipeline skills and 8 role-contract subagent seats, wired by four closed feedback loops. |
 | **What runs where?** | Every role resolves to a *rung* (`primary` &rarr; `fallback` &rarr; `last-resort`) in a swappable provider profile, then to a provider instance, model, and effort. No harness file names a model. |
-| **What does it guarantee?** | Tests-first task loops, evidence-before-claims verification, a three-seat council on distinct models with a review captain who defers out-of-scope findings to the backlog (but can never waive a real bug), author-independent PASS, no Anthropic dispatch above `high` effort, and hard budget stops instead of silent model downgrades. |
+| **What does it guarantee?** | Tests-first task loops, evidence-before-claims verification, a three-seat council on distinct models with a review captain who defers out-of-scope findings to the backlog (but can never waive a real bug), author-independent PASS, no reasoning above `high` for any model/provider/role, and hard budget stops instead of silent model downgrades. |
 | **Where does it install?** | OpenCode, Codex, Antigravity, and Claude Code, one profile bound at install time (`--target all` for every host). |
 | **How do I start?** | Run the track command for your host in [Installation & Setup](#️-installation--setup), then prompt `oneshot <task>`. |
 
@@ -154,7 +154,7 @@ flowchart LR
     P_AG["Antigravity (Google + Anthropic)"]
     P_CX["Codex (OpenAI)"]
     P_GO["OpenCode Go (open-weight + high-volume flash)"]
-    P_CC["Claude Code / claudeAgent (Anthropic, optional / quad)"]
+    P_CC["Claude Code / claudeAgent (Fable roles and Opus alternate)"]
   end
 
   R_DRV --> SLOTS
@@ -286,27 +286,21 @@ The harness separates concerns into three decoupled layers:
 
 #### 1. `tri` vs `quad` Profiles: The Multi-Subscription Strategy
 
-Every profile now shares the same implementation and review ladders (see [Default ladders](#default-ladders-all-profiles) below); profiles differ in which providers can actually serve them and in their quota pools and backup ladders.
+All six shipped profiles and all 15 `--providers` combinations use the same model policy, documented in [the complete 12-skill routing map](docs/skill-model-routing.md). Names record connection preferences and preserve portable cross-provider roles; they do not limit dispatch to a provider subset.
 
-- **`tri` (The 3-Subscription Foundation: Antigravity + Codex + OpenCode Go Plus)**:
-  - **Philosophy**: Spend frontier tokens where judgment matters most (implementation and review), and run high-volume pipeline phases on high-allowance open-weight models.
-  - **Workload Split**:
-    - **Antigravity**: `implementer` on Anthropic `claude-opus-5-5` (`high`), then Google `gemini-4-carbon`; Council Seat C (`gemini-4-hydrogen`); the `implementer-deep` fallback (`gemini-4-hydrogen`).
-    - **Codex**: Council Seat B (`gpt-6-astra`), the captain fallback (`gpt-6.1-terra`), `gpt-6.1-sol` for the driver and implementation last-resorts, `gpt-6.1-terra` for task reviews, and `gpt-6-luna` for fast testing/compaction.
-    - **OpenCode Go Plus**: open-weight models with large 5-hour allowances for `scout`, `tester`, `patch`, and non-review backup rows. No council seat runs here except in single-provider review.
-  - **Claude Code rungs**: the captain (`reviewer-a`) and `implementer-deep` prefer `claude-fable-5-2` on Claude Code; without that subscription those rungs are unreachable and demote (captain to `gpt-6.1-terra`, `implementer-deep` to `gemini-4-hydrogen`).
-- **`quad` (The 4-Subscription Powerhouse: `tri` + Dedicated Claude Code)**:
-  - **What it adds**: Claude Code (T3 Code provider instance `claudeAgent`) serves the captain and `implementer-deep` on `claude-fable-5-2`, and a same-model alternate for `implementer`: when Antigravity's Claude pool runs dry, `implementer` stays on `claude-opus-5-5` through Claude Code before falling to Gemini.
-  - **Load balancing**: Antigravity's Claude pool is no longer reserved for a review seat, since no seat's primary runs there.
-  - **Scout fallback**: `scout` falls back from OpenCode Go `mimo-v2.6-flash` to Claude Code `claude-haiku-5-5` (`low`), then Antigravity `gemini-3.8-flash`.
+- **Drafts:** `designer` and `planner` use Fable 5.2 with Sol fallback only. Workers return read-only drafts; the driver owns conversation, approvals, canonical documents and phase advancement.
+- **Cheap work:** scout, tester and patch use Deepseek V4.1 Flash, then Gemini 3.8 Flash, then Luna. Compaction uses Gemini Flash then Luna at low effort. OpenCode routes only Deepseek Flash.
+- **Implementation:** Opus 5.5 primary and Fable 5.2 deep; Gemini Argon/Hydrogen and Sol remain implementation fallbacks. Claude-first selection prefers Claude Code for Opus; Antigravity-first selection prefers Antigravity, with the other same-model path retained.
+- **Reviews:** task review starts on Sol; council A/captain is Fable, B Astra, C Sol. All review fallbacks, backups and recovery stay within those three models. Author independence applies across providers.
+- **Unavailable providers:** mark rungs unreachable and walk permitted ladders. Codex-only review uses Astra and Sol if both are healthy non-authors. Other provider-only hosts cannot form a panel; exact draft ladders can also be unavailable. No excluded model fills the gap.
 
 #### 2. The Council: Three Seats and a Review Captain (Phase 6)
 
-- **Why multiple models?** Single-model reviews suffer from self-confirmation bias, hallucinated validations, and identical blind spots. The council runs three distinct models in parallel before any branch can merge, and only on Anthropic, OpenAI, and Google models.
+- **Why multiple models?** Single-model reviews suffer from self-confirmation bias, hallucinated validations, and identical blind spots. The council runs three distinct models in parallel before any branch can merge, using the active profile's allowed review models. Every shipped/generated policy permits only Fable, Astra, and Sol.
 - **Council Seats**:
   - **Seat A (`reviewer-a`), review captain**: Anthropic `claude-fable-5-2` via Claude Code. If Seat A has no eligible rung, captaincy passes to Seat B, then Seat C.
   - **Seat B (`reviewer-b`)**: OpenAI `gpt-6-astra` via Codex.
-  - **Seat C (`reviewer-c`)**: Google `gemini-4-hydrogen` via Antigravity.
+  - **Seat C (`reviewer-c`) in every shipped profile**: OpenAI `gpt-6.1-sol` via Codex.
 - **Captain ruling**: the captain reviews like every seat. When any seat votes FAIL or raises a red/yellow finding, a fresh captain ruling labels each merged finding `accept` (fix in this PR), `defer` (valid but unrelated, overengineering, or out of scope: it becomes a backlog ticket), or `reject` (wrong, with `path:line` evidence), then votes `Captain verdict: PASS | FAIL`.
 - **Captain limits**: a red the driver confirms as an in-scope correctness, security, or data-loss bug introduced by the diff can never be deferred or rejected (`captain overruled: <finding-id>`). Green tests are always required. Fixers address only accepted findings.
 - **Verdict modes**:
@@ -327,15 +321,17 @@ Every profile now shares the same implementation and review ladders (see [Defaul
 
 - **Per-Role 3-Tier Ladder**: Every role in `PROVIDERS.md` defines `primary` &rarr; `fallback` &rarr; `last-resort`. Crucially, fallbacks swap provider quota pools so a single provider 429 never deadlocks a task.
 - **Same-Model Alternate**: before leaving an exhausted rung, the driver uses a `## Backup ladder` row with the identical model on another pool (for example `claude-opus-5-5` through Claude Code when Antigravity's Claude pool is exhausted).
-- **Balanced Seat Fallback**: a council seat that loses its primary takes the eligible rung whose quota pool has the fewest dispatches this run, so review load spreads across Anthropic, OpenAI, and Google.
-- **Single-Provider Review**: when only one provider has budget left, every seat draws distinct models from that provider's `## Single-provider review` rows at `high` effort. The mode ends as soon as a second provider recovers.
-- **Anthropic Effort Cap**: no `anthropic`-family dispatch ever runs above `high` effort; the installer rejects such rows (`anthropic effort above high`).
+- **Balanced Seat Fallback**: a council seat that loses its primary takes the eligible rung whose quota pool has the fewest dispatches this run, within the active profile review allowlist; no shipped/generated profile adds a Gemini reviewer.
+- **Single-Provider Review**: only Codex has a recovery pair (Astra and Sol), both healthy non-authors. Other provider-only review stops. The mode ends as soon as a second provider recovers.
+- **Universal High Effort Ceiling**: never request or inherit reasoning above `high` for any model/provider/role, including driver, advisory/design, reviews, fallbacks, and ad-hoc calls. `xhigh`, `max`, `ultra`, `ultrathink`, `ultracode`, and equivalents are forbidden without exceptions. Use explicit safe options; `-`/omitted defaults require verification at most high, otherwise set high or mark unreachable.
 - **Shared Quota Pools & Soft Caps**: Models sharing an underlying subscription pool (e.g. `antigravity-claude`) are grouped into pools. Soft caps prevent workhorse tasks from consuming tokens reserved for critical seats.
 - **Machine-Local Quota Ledger (`state/quota-ledger.tsv`)**: When a 429 or rate limit occurs, the pool and its cooldown timestamp are recorded in the ledger. Subsequent dispatches immediately skip dead pools without burning API calls or latency.
 - **Sibling Hand-Off & Backup Ladder**: If a role exhausts all 3 ladder rungs, implementation seats attempt sibling hand-off (`implementer-deep` &harr; `implementer`), followed by ascending traversal of `## Backup ladder`.
 - **Hard Budget Stops**: When all eligible rungs are exhausted, the harness stops cleanly with `budget stop: <role>` and reports the earliest reset time, refusing to silently downgrade to an inferior model or hallucinate.
 
 ---
+
+`--providers` records and reuses the selected connection list on refresh. It prefers selected paths for the same required model (Claude Code Opus when Claude is selected without Antigravity). It retains cross-provider roles, including Fable on Claude Code and Deepseek on OpenCode, even if those providers were not selected. It is not an exclusive provider allowlist. The three profile selection flags remain mutually exclusive.
 
 ### Which profile do I pick?
 
@@ -353,10 +349,10 @@ Every profile now shares the same implementation and review ladders (see [Defaul
 
 | Provider | Instance ID | Effort Option ID & Values | Example Model IDs | Limit Inspection |
 | --- | --- | --- | --- | --- |
-| **OpenCode Go** | `opencode` | `variant` (`low\|medium\|high\|xhigh\|max`, or `-`) | `muse-spark-1.3-contributor`, `deepseek-v4.1-flash`, `mimo-v2.6-flash`, `glm-5.3-flash` | `opencode.ai/docs/go` console (monthly $ allowance + 5h rolling cap) |
-| **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-hydrogen`, `gemini-4-carbon`, `gemini-3.8-flash`, `claude-opus-5-5`, `claude-sonnet-5-5` | `/status` in Antigravity (rolling 5-hour window) |
-| **Codex** | `codex` | `reasoningEffort` (`low\|medium\|high\|xhigh`) | `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-luna`, `gpt-6-sol` | `/status` in Codex (rolling 5-hour window) |
-| **Claude Code** | `claudeAgent` | `effort` (`low\|medium\|high`; the harness caps every Anthropic model at `high`) | `claude-fable-5-2`, `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` | `/status` in Claude Code (rolling 5-hour window) |
+| **OpenCode Go** | `opencode` | `variant` (`low\|medium\|high`, or verified safe `-`) | `muse-spark-1.3-contributor`, `deepseek-v4.1-flash`, `mimo-v2.6-flash`, `glm-5.3-flash` | `opencode.ai/docs/go` console (monthly $ allowance + 5h rolling cap) |
+| **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-hydrogen`, `gemini-4-argon`, `gemini-3.8-flash`, `claude-opus-5-5`, `claude-sonnet-5-5` | `/status` in Antigravity (rolling 5-hour window) |
+| **Codex** | `codex` | `reasoningEffort` (`low\|medium\|high`) | `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-luna`, `gpt-6-sol` | `/status` in Codex (rolling 5-hour window) |
+| **Claude Code** | `claudeAgent` | `effort` (`low\|medium\|high`; the harness caps every model at `high`) | `claude-fable-5-2`, `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` | `/status` in Claude Code (rolling 5-hour window) |
 
 ### Dispatch Adapter Paths
 
@@ -394,21 +390,21 @@ flowchart TD
   ```
 - **Profiles Summary:** See [`providers/tri.md`](./providers/tri.md) (default multi-provider), [`providers/quad.md`](./providers/quad.md) (with Claude Code), [`providers/opencode-go.md`](./providers/opencode-go.md), [`providers/codex.md`](./providers/codex.md), [`providers/antigravity.md`](./providers/antigravity.md), and [`providers/claude.md`](./providers/claude.md) for full routing tables, quota pools, and backup ladders.
 
-### Default ladders (all profiles)
+### Default ladders (all shipped/generated profiles)
 
-Every shipped profile and the `--providers` generator share these implementation and council ladders (all at `high` effort; rungs on a provider you do not have are unreachable and demote):
+All delegated work is at most high. See [skill-model-routing.md](docs/skill-model-routing.md) for every skill, advisory role, fallback, and review eligibility rule.
 
 | role | primary | fallback | last-resort |
 | --- | --- | --- | --- |
-| `implementer` | `claude-opus-5-5` (Antigravity; Claude Code in `claude`) | `gemini-4-carbon` | `gpt-6.1-sol` |
-| `implementer-deep` | `claude-fable-5-2` (Claude Code) | `gemini-4-hydrogen` | `gpt-6.1-sol` |
-| `reviewer-a` (captain) | `claude-fable-5-2` (Claude Code) | `gpt-6.1-terra` | `gemini-4-carbon` |
-| `reviewer-b` | `gpt-6-astra` (Codex) | `gemini-4-carbon` | `claude-sonnet-5-5` (Claude Code) |
-| `reviewer-c` | `gemini-4-hydrogen` (Antigravity) | `claude-sonnet-5-5` (Antigravity) | `gpt-6.1-terra` |
+| `scout`, `tester`, `patch` | Deepseek V4.1 Flash (high) | Gemini 3.8 Flash | GPT6 Luna |
+| `implementer` | Opus 5.5 | Gemini 4 Argon | Sol |
+| `implementer-deep` | Fable 5.2 | Gemini 4 Hydrogen | Sol |
+| `designer` (optional draft) | Fable 5.2 | Sol | — |
+| `planner` (optional draft) | Fable 5.2 | Sol | — |
+| `task-reviewer` | Sol | Astra | Fable 5.2 |
+| Council A / B / C | Fable 5.2 / Astra / Sol | Only eligible models from the same three-model set | Stop if fewer than two independent models remain |
 
-- Profiles with Claude Code (`quad`, `claude`) add a backup row that keeps `implementer` on `claude-opus-5-5` through Claude Code (same-model alternate).
-- No reviewer rung or reviewer-covering backup row uses OpenCode Go; it serves review only through single-provider review.
-- Each profile lists its `## Single-provider review` models (&ge;2 per provider, 3 where available).
+Claude Code provides the Opus same-model alternate. Review backups and single-provider rows cannot widen the closed review set. Codex-only review uses Astra and Sol; Claude-only review cannot form a council. Every shipped profile contains the complete policy tables.
 
 ---
 
@@ -423,17 +419,17 @@ cp providers/tri.md ~/.config/oneshot/my-profile.md
 ./install.sh --force --profile-file ~/.config/oneshot/my-profile.md
 ```
 
-**One-row override example** (swapping `reviewer-c` primary to `gemini-4-carbon`):
+**One-row override example** (setting an implementation fallback to Gemini 4 Argon; reviews keep their closed allowlist):
 
 ```text
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
-| reviewer-c | primary | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| implementer | fallback | antigravity | gemini-4-argon | thinking_level=high | google | ok |
 ```
 
-- Each profile must define a `primary` row for all nine dispatched roles (`scout`, `tester`, `implementer`, `implementer-deep`, `patch`, `task-reviewer`, `reviewer-a`, `reviewer-b`, `reviewer-c`), with pairwise-distinct council primary families.
+- Each profile must define a `primary` row for all nine dispatched roles (`scout`, `tester`, `implementer`, `implementer-deep`, `patch`, `task-reviewer`, `reviewer-a`, `reviewer-b`, `reviewer-c`), with pairwise-distinct council primary models (families may overlap).
 - Optional sections: `## Quota pools` (bucket definitions), `## Backup ladder` (safety net rungs), and `## Single-provider review` (`provider | model | effort | family | privacy` review models per provider). `## Project management` is rendered by `--pm`.
-- `anthropic`-family rows must use `low`, `medium`, `high`, or `-` effort; anything above `high` fails install with `anthropic effort above high`.
+- Every model/provider row, advisory row, fallback, and ad-hoc call must stay at or below `high`. A `-` default is usable only when verified safe; otherwise explicitly set `high` or mark unreachable.
 - Rows for the retired escalation role are ignored with a warning, so older custom profiles keep installing.
 
 ---
@@ -450,9 +446,9 @@ cp providers/tri.md ~/.config/oneshot/my-profile.md
 
 **Invariants:**
 - Harness files (`skills/**`, `agents/*.md`, `AGENTS.md`) contain **no** concrete model IDs or provider quotas.
-- Every profile defines a `primary` row for all nine dispatched roles; advisory rows (`driver`, `compaction`) remain optional.
+- Every profile defines a `primary` row for all nine dispatched roles; advisory rows (`driver`, `compaction`) remain optional. Optional ad-hoc `designer`/`planner` require a primary only when mentioned and never create native agent files. Shape/design skills and plan own these handoffs; workers return drafts without edits, commits, execution or child delegation. Already-dispatched workers draft directly without skill recursion. Profiles without these roles retain legacy driver drafting.
 - Council seats run on pairwise-distinct models outside `author_models` and require &ge;2 distinct non-author reviewer models. The captain may defer out-of-scope findings but never a confirmed in-scope bug. Identical-model author self-review is strictly forbidden.
-- No `anthropic`-family dispatch runs above `high` effort.
+- No model/provider/role may request or inherit reasoning above `high`; unknown defaults require an explicit safe option or an unreachable rung.
 - In T3 Code, Path 1 (`delegate_task`) dispatches every provider; standalone OpenCode uses Path 2 only when the rung matches its installed pin, or Path 3 same-provider dispatch.
 - Never commit or push to `main`/`master`; work on `feat/<topic>` and land through a PR.
 

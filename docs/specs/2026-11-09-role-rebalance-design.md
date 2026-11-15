@@ -1,5 +1,7 @@
 # Role rebalance and profile parameterization (addendum)
 
+> Superseded routing history: this document records an earlier design, not active dispatch guidance. Retired Google model references are normalized to Argon; historical effort settings are capped at high. Current routing and review eligibility are defined by [skill-model-routing.md](../skill-model-routing.md), AGENTS.md, and the active PROVIDERS.md. Never use historical rows to bypass the universal ceiling or the quad review allowlist.
+
 Date: 2026-11-09. Branch: `feat/provider-decoupling` (PR #6). Amends `2026-11-09-provider-decoupling-design.md`; everything not mentioned there stays.
 
 ## Why
@@ -116,7 +118,7 @@ Supersedes the council rows, seat-A rationale and pins above where they conflict
    - Escalation moves to the best open-weight family, unused by any council seat.
 3. **Claude Code (Anthropic subscription) is a supported provider:**
    - T3 provider instance id: `claudeAgent`.
-   - Effort option id: `effort`, with values `low|medium|high|xhigh|max|ultracode|ultrathink`.
+   - Effort option id: `effort`, with values `low|medium|high`.
    - Models: `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5`, `claude-fable-5-1`.
    - The installer accepts provider ids matching `^[A-Za-z0-9][A-Za-z0-9-]*$`, so camelCase ids such as `claudeAgent` are valid. Family stays lowercase.
    - New profile `providers/quad.md` = `tri` plus Claude Code. Anthropic roles run primarily on `claudeAgent`, with Antigravity's Claude as fallback, because Antigravity's Claude limits are low.

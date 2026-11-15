@@ -5,9 +5,11 @@ description: Use when a PR should be watched through CI and review bots until gr
 
 # Make CI Green
 
+**Universal high effort ceiling:** Never request or inherit reasoning above `high` for any model, provider, role, driver session, advisory/design work, review, fallback, or ad-hoc call. No exceptions or effort escalation: `xhigh`, `max`, `ultra`, `ultrathink`, `ultracode`, and equivalent levels are forbidden. Use explicit provider options at `low`, `medium`, or `high`; use `-`/an omitted option only after verifying the effective default is at most `high`. Otherwise set `high` explicitly or mark the rung unreachable. Switching to a deeper seat never raises this ceiling. Models come from the active provider profile (`PROVIDERS.md`); invoking a skill does not switch the driver session.
+
 Watch a PR through CI checks and bot reviews. Fix real findings. Kill flakes with evidence, not reruns.
 
-**Model routing:** `tester` (script runner) reads CI logs and reruns checks locally to return a compressed pass/fail report; fixer subagents come from the implementation seats (`implementer`, or `implementer-deep` for hard clusters) in the active provider profile (`PROVIDERS.md`), dispatched through the AGENTS.md Dispatch Adapter (same-model alternate and backup ladder on exhausted rungs; an `anthropic`-family rung never above `high` effort). This skill never calls a model directly.
+**Model routing:** `tester` (script runner) reads CI logs and reruns checks locally to return a compressed pass/fail report; fixer subagents come from the implementation seats (`implementer`, or `implementer-deep` for hard clusters) in the active provider profile (`PROVIDERS.md`), dispatched through the AGENTS.md Dispatch Adapter (same-model alternate and backup ladder on exhausted rungs; every rung at or below `high` effort). This skill never calls a model directly.
 
 ## Loop
 

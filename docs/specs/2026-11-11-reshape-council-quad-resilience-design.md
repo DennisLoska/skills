@@ -1,10 +1,12 @@
 # Reshape Council: Quad Profile Resilience & Model-Level Non-Blocking Review - Design
 
+> Superseded routing history: this document records an earlier design, not active dispatch guidance. Retired Google model references are normalized to Argon; historical effort settings are capped at high. Current routing and review eligibility are defined by [skill-model-routing.md](../skill-model-routing.md), AGENTS.md, and the active PROVIDERS.md. Never use historical rows to bypass the universal ceiling or the quad review allowlist.
+
 Status: proposed (2026-11-11).
 Goal: Reshape the council and provider fallbacks:
 1. In `providers/quad.md` (and related profiles where applicable), replace `mimo` and `glm` fallback rungs with `deepseek-v4.1-flash`.
 2. Make `claude-sonnet-5-5` from Anthropic provider (`claudeAgent` / `antigravity`) the primary `reviewer-esc`.
-3. Make `gemini-4-carbon` the first fallback for `reviewer-a` in `quad.md`.
+3. Make `gemini-4-argon` the first fallback for `reviewer-a` in `quad.md`.
 4. Set the primary implementer to `gemini-4-argon`.
 5. Update Council blocking rules in `HARNESS.md`, `AGENTS.md`, and `skills/council/SKILL.md`: The council shall not block as long as there are at least two distinct members who can review and are not the same model as the implementer (`gemini-4-argon`).
 
@@ -17,9 +19,9 @@ Goal: Reshape the council and provider fallbacks:
 2. **Escalation Reviewer Authority:**
    `reviewer-esc` serves as the authoritative single reviewer after rounds 1-3 or when breaking deadlocks. Designating `claude-sonnet-5-5` (Anthropic provider) as `reviewer-esc` provides strong reasoning capabilities on escalation.
 3. **Seat A Fallback:**
-   `reviewer-a` is primary on Codex (`gpt-6-astra`). Setting `gemini-4-carbon` (`antigravity`, `thinking_level=high`) as its first fallback provides immediate frontier-grade reasoning if Codex hits rate limits or outages, ahead of open-weight fallbacks.
+   `reviewer-a` is primary on Codex (`gpt-6-astra`). Setting `gemini-4-argon` (`antigravity`, `thinking_level=high`) as its first fallback provides immediate frontier-grade reasoning if Codex hits rate limits or outages, ahead of open-weight fallbacks.
 4. **Implementer Model & Council Independence:**
-   With `gemini-4-argon` as the primary implementer (`google` family), strict family-level independence previously risked blocking reviews if another Google model (such as `gemini-4-carbon`) participated in review, or if Anthropic seats (`claude-opus-5-5` and `claude-sonnet-5-5`) were involved. The user rule requires: **Council shall not block if there are at least two different members who can review and are not the same model as the implementer (`gemini-4-argon`)**. Model-level independence ensures that distinct models from the same family (e.g. `gemini-4-carbon` reviewing `gemini-4-argon`, or `claude-sonnet-5-5` alongside `claude-opus-5-5`) can participate in consensus review without halting the pipeline.
+   With `gemini-4-argon` as the primary implementer (`google` family), strict family-level independence previously risked blocking reviews if another Google model (such as `gemini-4-argon`) participated in review, or if Anthropic seats (`claude-opus-5-5` and `claude-sonnet-5-5`) were involved. The user rule requires: **Council shall not block if there are at least two different members who can review and are not the same model as the implementer (`gemini-4-argon`)**. Model-level independence ensures that distinct models from the same family (e.g. `gemini-4-argon` reviewing `gemini-4-argon`, or `claude-sonnet-5-5` alongside `claude-opus-5-5`) can participate in consensus review without halting the pipeline.
 
 ---
 
@@ -27,7 +29,7 @@ Goal: Reshape the council and provider fallbacks:
 
 ### Approach A: Strict Model-Level Independence with Preserved Diversity Preference (Recommended)
 - **Design:** Keep the preference for cross-family review in nominal 3-seat operation, but relax hard-blocking gates: council continues whenever at least 2 distinct reviewer models are active and neither matches the author/implementer model (`gemini-4-argon`). Reviewer-esc is permitted to share a family with a council seat or author as long as its concrete model is distinct from the author model.
-- **Pros:** Prevents false-positive blocks and unnecessary stops when frontier models like `gemini-4-carbon` and `claude-sonnet-5-5` are available; fully satisfies the user requirement.
+- **Pros:** Prevents false-positive blocks and unnecessary stops when frontier models like `gemini-4-argon` and `claude-sonnet-5-5` are available; fully satisfies the user requirement.
 - **Cons:** Requires updating wording in `HARNESS.md`, `AGENTS.md`, and `council/SKILL.md`.
 
 ### Approach B: Completely Abolish Model Families Across the Harness
@@ -47,16 +49,16 @@ Goal: Reshape the council and provider fallbacks:
   - `implementer-deep`: primary `antigravity` / `gemini-4-argon` (`thinking_level=high`, `google`). Fallback: `claudeAgent` / `claude-opus-5-5`. Last-resort: `codex` / `gpt-6-astra`.
 - **`reviewer-a`:**
   - Primary: `codex` / `gpt-6-astra` (`reasoningEffort=high`, `openai`).
-  - Fallback (first fallback): `antigravity` / `gemini-4-carbon` (`thinking_level=high`, `google`).
+  - Fallback (first fallback): `antigravity` / `gemini-4-argon` (`thinking_level=high`, `google`).
   - Last-resort: `opencode` / `opencode-go/deepseek-v4.1-flash` (`variant=high`, `deepseek`).
 - **`reviewer-b`:**
   - Primary: `antigravity` / `claude-opus-5-5` (`thinking_level=high`, `anthropic`).
   - Fallback: `claudeAgent` / `claude-opus-5-5` (`effort=high`, `anthropic`).
   - Last-resort: `opencode` / `opencode-go/deepseek-v4.1-flash` (`variant=high`, `deepseek`).
 - **`reviewer-c`:**
-  - Primary: `opencode` / `opencode-go/muse-spark-1.3-contributor` (`variant=xhigh`, `meta`, `trains`).
+  - Primary: `opencode` / `opencode-go/muse-spark-1.3-contributor` (`variant=high`, `meta`, `trains`).
   - Fallback: `opencode` / `opencode-go/deepseek-v4.1-flash` (`variant=high`, `deepseek`, `ok`).
-  - Last-resort: `opencode` / `opencode-go/deepseek-v4.1-flash` (`variant=max`, `deepseek`, `ok`).
+  - Last-resort: `opencode` / `opencode-go/deepseek-v4.1-flash` (`variant=high`, `deepseek`, `ok`).
 - **`reviewer-esc`:**
   - Primary: `claudeAgent` / `claude-sonnet-5-5` (`effort=high`, `anthropic`, `ok`).
   - Fallback: `antigravity` / `claude-sonnet-5-5` (`thinking_level=high`, `anthropic`, `ok`).
@@ -71,7 +73,7 @@ Goal: Reshape the council and provider fallbacks:
 ### 3.3 Council Rules (`HARNESS.md`, `AGENTS.md`, `skills/council/SKILL.md`)
 - Update Step 0 Routing Bootstrap, Request phase Step 6, and Degraded council rules:
   - Council does not block if at least two distinct members can review and are not the same model as the author/implementer (`gemini-4-argon`).
-  - Intra-family model-level independence is accepted whenever distinct models participate (e.g. Carbon reviewing Argon, or Sonnet reviewing alongside Opus).
+  - Intra-family model-level independence is accepted whenever distinct models participate (e.g. Argon reviewing Argon, or Sonnet reviewing alongside Opus).
   - Clarify that `reviewer-esc` may run on a distinct model from the author and active seats even if it shares a family.
 
 ### 3.4 Installer & Tests (`install.sh`, `test/install.sh`)
