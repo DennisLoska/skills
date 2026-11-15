@@ -143,7 +143,7 @@
     <rect x="354" y="496" width="180" height="24" rx="6" fill="#0F2230" stroke="#1F4A56"/>
     <text class="mono sub" x="444" y="512" text-anchor="middle">state/quota-ledger.tsv</text>
   </g>
-  <text class="sans sub" x="550" y="512">shared buckets + soft caps · same-model + backup safety net · single-provider review · ledger</text>
+  <text class="sans sub" x="550" y="512">shared buckets + soft caps · terminal operations · review backups · single-provider review · ledger</text>
 
   <!-- delegate arrow -->
   <line x1="690" y1="532" x2="690" y2="556" stroke="#94A3B8" stroke-width="1.75" marker-end="url(#arrow)"/>
@@ -157,27 +157,27 @@
   <g>
     <rect x="84" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
     <text class="sans pname" x="104" y="630">Antigravity</text>
-    <text class="sans pmeta" x="104" y="648">google · anthropic · thinking_level</text>
-    <text class="mono pmodels" x="104" y="668">gemini-4-hydrogen · argon (high)</text>
-    <text class="mono pmodels" x="104" y="686">claude-opus-5-5 · sonnet-5-5</text>
+    <text class="sans pmeta" x="104" y="648">google · thinking_level</text>
+    <text class="mono pmodels" x="104" y="668">gemini-4-argon (terminal high)</text>
+    <text class="mono pmodels" x="104" y="686">gemini-3.8-flash (terminal)</text>
 
     <rect x="391" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
     <text class="sans pname" x="411" y="630">Codex</text>
     <text class="sans pmeta" x="411" y="648">openai · reasoningEffort</text>
     <text class="mono pmodels" x="411" y="668">gpt-6-astra (high) · gpt-6.1-sol</text>
-    <text class="mono pmodels" x="411" y="686">gpt-6.1-terra · gpt-6-luna</text>
+    <text class="mono pmodels" x="411" y="686">gpt-6-luna (operations fallback)</text>
 
     <rect x="698" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
     <text class="sans pname" x="718" y="630">OpenCode Go Plus</text>
-    <text class="sans pmeta" x="718" y="648">deepseek · xiaomi · meta · zhipu</text>
-    <text class="mono pmodels" x="718" y="668">muse-spark-1.3 · deepseek-v4.1</text>
-    <text class="mono pmodels" x="718" y="686">mimo-v2.6-flash · glm-5.3-flash</text>
+    <text class="sans pmeta" x="718" y="648">deepseek · variant ≤ high</text>
+    <text class="mono pmodels" x="718" y="668">deepseek-v4.1-flash (primary)</text>
+    <text class="mono pmodels" x="718" y="686">scout · tester · patch</text>
 
     <rect x="1005" y="604" width="290" height="100" rx="12" fill="#0E1A2A" stroke="#3B4A63" stroke-dasharray="6 5"/>
     <text class="sans pname" x="1025" y="630">Claude Code</text>
-    <text class="sans pmeta" x="1025" y="648">optional (quad, claude) · claudeAgent · effort ≤ high</text>
+    <text class="sans pmeta" x="1025" y="648">claudeAgent · effort ≤ high</text>
     <text class="mono pmodels" x="1025" y="668">claude-fable-5-2 · opus-5-5 (high)</text>
-    <text class="mono pmodels" x="1025" y="686">claude-sonnet-5-5 · haiku-5-5</text>
+    <text class="mono pmodels" x="1025" y="686">claude-sonnet-5-5 (driver fallback)</text>
   </g>
 
   <!-- ============ FEEDBACK LOOP CHANNEL ============ -->
@@ -187,5 +187,5 @@
   <text class="sans sub" transform="translate(1415 438) rotate(-90)" text-anchor="middle" fill="#38BDF8">L1 Task · L2 Council · L3 CI · L4 Meta</text>
 
   <text class="sans foot" x="84" y="768">Hosts: OpenCode V2 · T3 Code · Codex · Antigravity · Claude Code</text>
-  <text class="sans foot" x="650" y="768">Fallback: exhausted rung → same-model alternate → next rung / least-loaded pool → backup ladder → budget stop</text>
+  <text class="sans foot" x="650" y="768">Operations: primary → fallback → terminal last-resort → stop · reviews: balanced backup ladder</text>
 </svg>

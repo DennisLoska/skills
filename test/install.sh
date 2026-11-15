@@ -1994,15 +1994,11 @@ backup_ladder() {
 }
 NONREVIEW_ROLES='scout,implementer,implementer-deep,tester,patch'
 backup_ladder "$ROOT/providers/tri.md" >"$TMPROOT/tri-backup-74.txt"
-grep -qF "| $NONREVIEW_ROLES | codex |" "$TMPROOT/tri-backup-74.txt" || fail "tri backup ladder carries an explicit non-reviewer codex fallback rung"
-grep -qF "| $NONREVIEW_ROLES | antigravity |" "$TMPROOT/tri-backup-74.txt" || fail "tri backup ladder carries an explicit non-reviewer antigravity fallback rung"
+if grep -qE '^[|] [0-9]+ [|] ([*]|[^|]*(scout|tester|patch|implementer)[^|]*) [|]' "$TMPROOT/tri-backup-74.txt"; then fail "tri forbids operational backups"; fi
 grep -qF '| task-reviewer,reviewer-a,reviewer-b,reviewer-c | codex |' "$TMPROOT/tri-backup-74.txt" || fail "tri backup ladder carries a codex reviewer rung"
 backup_ladder "$ROOT/providers/quad.md" >"$TMPROOT/quad-backup-74.txt"
-# Quad separates all task/council review from cheap implementation backups.
-QUAD_NONREVIEW_ROLES='scout,implementer,implementer-deep,tester,patch'
-for impl_prov in opencode antigravity codex; do
-  grep -qF "| $QUAD_NONREVIEW_ROLES | $impl_prov |" "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries a $impl_prov non-review fallback"
-done
+# Quad ships only task/council review backups.
+if grep -qE '^[|] [0-9]+ [|] ([*]|[^|]*(scout|tester|patch|implementer)[^|]*) [|]' "$TMPROOT/quad-backup-74.txt"; then fail "quad forbids operational backups"; fi
 for rv_prov in codex claudeAgent; do
   grep -qF "| task-reviewer,reviewer-a,reviewer-b,reviewer-c | $rv_prov |" "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries a $rv_prov review-only rung"
 done
@@ -2011,8 +2007,8 @@ for needle in '<skills-dir>/_harness/agents/<seat>.md' spawn_agent invoke_subage
   grep -qF "$needle" "$ROOT/AGENTS.md" || fail "AGENTS.md documents the standalone dispatch adapter via $needle"
 done
 grep -qF 'grandparent of `oneshot/SKILL.md`' "$ROOT/AGENTS.md" || fail "AGENTS.md documents <skills-dir> as grandparent of oneshot/SKILL.md"
-grep -qF 'in your `<skills>` list' "$ROOT/AGENTS.md" || fail "AGENTS.md passes literal <skills-dir> instruction to antigravity children"
-grep -qE 'never substitut(e|ing) the driver'\''s path' "$ROOT/AGENTS.md" || fail "AGENTS.md forbids substituting the driver's path for antigravity <contract-path>"
+grep -qF 'parent of `oneshot/` in `<skills>`' "$ROOT/AGENTS.md" || fail "AGENTS.md passes literal <skills-dir> instruction to antigravity children"
+grep -qF 'never the driver'\''s path' "$ROOT/AGENTS.md" || fail "AGENTS.md forbids substituting the driver's path for antigravity <contract-path>"
 [ "$(wc -c <"$ROOT/AGENTS.md")" -lt 24000 ] || fail "AGENTS.md stays under the 24000-byte rule limit (rendered headers checked above)"
 [ "$(wc -c <"$TMPROOT/prof-home-tri/.codex/AGENTS.md")" -lt 32768 ] || fail "rendered combined tri instructions stay within the 32768-byte host limit"
 
@@ -2569,10 +2565,10 @@ for non_oc_combo in antigravity,codex antigravity,claude claude,codex; do
       ;;
   esac
   if [ "$non_oc_combo" = "antigravity,claude" ]; then
-    [ "$(prov_role_rung_pool "$prov_md" implementer primary)" = "antigravity-claude" ] || fail "--providers antigravity,claude orders antigravity Claude Opus before claudeAgent in implementer"
-    [ "$(prov_role_rung_pool "$prov_md" implementer fallback)" = "antigravity-gemini" ] || fail "--providers antigravity,claude implementer fallback is gemini-4-argon"
+    [ "$(prov_role_rung_pool "$prov_md" implementer primary)" = "claude-code" ] || fail "--providers implementer primary uses Claude Code"
+    [ "$(prov_role_rung_pool "$prov_md" implementer fallback)" = "codex" ] || fail "--providers implementer fallback is Sol"
     [ "$(prov_role_rung_pool "$prov_md" implementer-deep primary)" = "claude-code" ] || fail "--providers antigravity,claude implementer-deep primary is claudeAgent Fable"
-    grep -qF '| implementer | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |' "$prov_md" || fail "--providers antigravity,claude carries the claudeAgent Opus same-model backup row"
+    grep -qF '| implementer | primary | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |' "$prov_md" || fail "--providers implementer uses Claude Code Opus"
   fi
   case "$non_oc_combo" in
     *claude*)
@@ -2585,7 +2581,7 @@ for non_oc_combo in antigravity,codex antigravity,claude claude,codex; do
   [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-verify-$prov_case.out" >&2; fail "--verify accepts the --providers $non_oc_combo install (got $rc)"; }
   pass "--providers $non_oc_combo composes without opencode and canonicalizes claude to claudeAgent"
 done
-pass "--providers enforces pool independence across rungs and orders antigravity Claude Opus before claudeAgent"
+pass "--providers enforces pool independence across rungs and keeps Claude Code primary and Codex fallback"
 
 # 77b/c. Scout policy remains fixed even when OpenCode was not selected.
 for sc_list in antigravity,claude,opencode claude,codex,opencode claude,opencode antigravity,claude claude,codex antigravity,claude,codex codex,opencode antigravity,opencode antigravity,codex; do
@@ -2595,8 +2591,8 @@ for sc_list in antigravity,claude,opencode claude,codex,opencode claude,opencode
   prov_md="$prov_home/.config/opencode/PROVIDERS.md"
   for sc_row in \
     '| scout | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |' \
-    '| scout | fallback | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |' \
-    '| scout | last-resort | codex | gpt-6-luna | reasoningEffort=low | openai | ok |'; do
+    '| scout | last-resort | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |' \
+    '| scout | fallback | codex | gpt-6-luna | reasoningEffort=low | openai | ok |'; do
     grep -qxF "$sc_row" "$prov_md" || fail "$sc_list missing $sc_row"
   done
   pass "--providers $sc_list preserves fixed scout policy"
@@ -2691,21 +2687,11 @@ pass "shipped tri and quad tables carry no Pro models and no third-party models 
 grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$ROOT/providers/tri.md" || fail "tri carries opencode-go pool row"
 grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$ROOT/providers/quad.md" || fail "quad carries opencode-go pool row"
 grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$ROOT/providers/opencode-go.md" || fail "opencode-go carries opencode-go pool row"
-grep -qF '| 6 | scout,implementer,implementer-deep,tester,patch | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |' "$ROOT/providers/tri.md" || fail "tri backup ladder carries an antigravity Claude fallback rung"
-grep -qF '| 6 | scout,implementer,implementer-deep,tester,patch | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |' "$ROOT/providers/quad.md" || fail "quad backup ladder carries a cheap non-review Gemini fallback rung"
-# opencode-go: backup row 1 (variant=high) excludes implementer-deep, so the
-# first opencode backup row matching implementer-deep is the variant=high one (the ceiling also applies to deep seats).
-grep -qF '| 2 | scout,implementer,implementer-deep,tester,patch | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |' "$ROOT/providers/opencode-go.md" || fail "opencode-go backup row 1 omits implementer-deep"
-oc_deep_first="$(awk -F '|' '
-  /^## / { inb = ($0 ~ /^## Backup ladder[[:space:]]*$/); next }
-  inb && /^[|] *[0-9]+ *[|]/ {
-    roles = $3; prov = $4; eff = $6
-    gsub(/^ +| +$/, "", roles); gsub(/^ +| +$/, "", prov); gsub(/^ +| +$/, "", eff)
-    if (prov != "opencode") next
-    if (roles == "*" || ("," roles ",") ~ /,implementer-deep,/) { print eff; exit }
-  }
-' "$ROOT/providers/opencode-go.md")"
-[ "$oc_deep_first" = "variant=high" ] || fail "opencode-go implementer-deep first opencode backup row is variant=high (got '$oc_deep_first')"
+for profile in tri quad opencode-go; do
+  if backup_ladder "$ROOT/providers/$profile.md" | grep -qE '^[|] [0-9]+ [|] ([*]|[^|]*(scout|tester|patch|implementer)[^|]*) [|]'; then
+    fail "$profile must ship review-only backups"
+  fi
+done
 
 seat_cell() {
   awk -F '|' -v seat="$2" -v col="$3" '$2 == " " seat " " && $3 == " primary " { v = $col; gsub(/^ +| +$/, "", v); print v }' "$1"
@@ -2752,7 +2738,7 @@ awk -F '|' '
   }
 ' "$oc_md" || fail "claude,opencode violates per-role pool distinctness"
 
-awk '/^## Backup ladder/,0' "$oc_md" | grep -qF '| opencode |' || fail "dynamic backup ladder carries opencode"
+if backup_ladder "$oc_md" | grep -qF '| opencode |'; then fail "dynamic backups must be review-only"; fi
 awk '/^## Backup ladder/,0' "$oc_md" | grep -qF '| claudeAgent |' || fail "dynamic backup ladder carries claudeAgent"
 
 grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$prov_oc_home/.config/opencode/PROVIDERS.md" || fail "dynamic profile with opencode carries opencode-go pool row"
@@ -2875,8 +2861,8 @@ for cap_effort in effort=xhigh effort=max effort=ultrathink effort=ultracode thi
   awk -v e="$cap_effort" '{ if ($0 == "| driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |") print "| driver | fallback | claudeAgent | claude-sonnet-5-5 | " e " | anthropic | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
   cap_reject "role row $cap_effort" "install.sh: profile $CAP_ABS invalid row: driver fallback: effort above high"
 done
-awk '{ if ($0 == "| 1 | implementer | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |") print "| 1 | implementer | claudeAgent | claude-opus-5-5 | effort=max | anthropic | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
-cap_reject "backup row effort=max" "install.sh: profile $CAP_ABS invalid backup row: 1: effort above high"
+awk '{ if ($0 == "| 3 | task-reviewer,reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |") print "| 3 | task-reviewer,reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.1-sol | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
+cap_reject "backup row effort=max" "install.sh: profile $CAP_ABS invalid backup row: 3: effort above high"
 awk '{ if ($0 == "| codex | gpt-6-astra | reasoningEffort=high | openai | ok |") print "| codex | gpt-6-astra | reasoningEffort=xhigh | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
 cap_reject "single-provider row reasoningEffort=xhigh" "install.sh: profile $CAP_ABS invalid single-provider row: codex gpt-6-astra: effort above high"
 for cap_ok in - effort=low effort=medium effort=high; do
@@ -3045,10 +3031,10 @@ for shipped in quad tri opencode-go codex antigravity claude; do
   shipped_md="$ROOT/providers/$shipped.md"
   check_council_profile "$shipped_md" "providers/$shipped.md" 1 1 1 1
     for quad_spec in \
-      'implementer|fallback|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
-      'implementer|last-resort|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
-      'implementer-deep|fallback|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
-      'implementer-deep|last-resort|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
+      'implementer|last-resort|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
+      'implementer|fallback|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
+      'implementer-deep|last-resort|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
+      'implementer-deep|fallback|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
       'task-reviewer|primary|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
       'task-reviewer|fallback|codex|gpt-6-astra|reasoningEffort=high|openai|ok' \
       'task-reviewer|last-resort|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
@@ -3060,14 +3046,14 @@ for shipped in quad tri opencode-go codex antigravity claude; do
     done
     for quad_cheap in \
       'scout|primary|opencode|opencode-go/deepseek-v4.1-flash|variant=high|deepseek|ok' \
-      'scout|fallback|antigravity|gemini-3.8-flash|thinking_level=low|google|ok' \
-      'scout|last-resort|codex|gpt-6-luna|reasoningEffort=low|openai|ok' \
+      'scout|last-resort|antigravity|gemini-3.8-flash|thinking_level=low|google|ok' \
+      'scout|fallback|codex|gpt-6-luna|reasoningEffort=low|openai|ok' \
       'tester|primary|opencode|opencode-go/deepseek-v4.1-flash|variant=high|deepseek|ok' \
-      'tester|fallback|antigravity|gemini-3.8-flash|thinking_level=medium|google|ok' \
-      'tester|last-resort|codex|gpt-6-luna|reasoningEffort=medium|openai|ok' \
+      'tester|last-resort|antigravity|gemini-3.8-flash|thinking_level=medium|google|ok' \
+      'tester|fallback|codex|gpt-6-luna|reasoningEffort=medium|openai|ok' \
       'patch|primary|opencode|opencode-go/deepseek-v4.1-flash|variant=high|deepseek|ok' \
-      'patch|fallback|antigravity|gemini-3.8-flash|thinking_level=medium|google|ok' \
-      'patch|last-resort|codex|gpt-6-luna|reasoningEffort=medium|openai|ok'; do
+      'patch|last-resort|antigravity|gemini-3.8-flash|thinking_level=medium|google|ok' \
+      'patch|fallback|codex|gpt-6-luna|reasoningEffort=medium|openai|ok'; do
       profile_rows "$shipped_md" roles | grep -qxF "$quad_cheap" || fail "80e: providers/$shipped.md carries cheap seat row $quad_cheap"
     done
     awk -F '|' '
@@ -3083,19 +3069,13 @@ for shipped in quad tri opencode-go codex antigravity claude; do
         print "forbidden policy model in single-provider review: " $0
       }' "$TMPROOT/cp-single.txt" >>"$TMPROOT/cp-bad.txt"
     if [ -s "$TMPROOT/cp-bad.txt" ]; then cat "$TMPROOT/cp-bad.txt" >&2; fail "80e: providers/$shipped.md reviewer whitelist"; fi
-  if [ "$shipped" = claude ]; then
-    impl_row='implementer|primary|claudeAgent|claude-opus-5-5|effort=high|anthropic|ok'
-  else
-    impl_row='implementer|primary|antigravity|claude-opus-5-5|thinking_level=high|anthropic|ok'
-  fi
+  impl_row='implementer|primary|claudeAgent|claude-opus-5-5|effort=high|anthropic|ok'
   profile_rows "$shipped_md" roles | grep -qxF "$impl_row" || fail "80e: providers/$shipped.md implementer primary is Opus 5.5 high"
 done
-for alt_profile in quad; do
-  profile_rows "$ROOT/providers/$alt_profile.md" "Backup ladder" | grep -qE '^[0-9]+\|implementer\|claudeAgent\|claude-opus-5-5\|effort=high\|anthropic\|ok$' || fail "80e: providers/$alt_profile.md carries the claudeAgent Opus implementer backup row"
+for shipped in quad tri opencode-go codex antigravity claude; do
+  if profile_rows "$ROOT/providers/$shipped.md" "Backup ladder" | grep -qE '\|(\*|[^|]*(scout|tester|patch|implementer)[^|]*)\|'; then fail "$shipped operational backup forbidden"; fi
+  if profile_rows "$ROOT/providers/$shipped.md" "Quota pools" | grep -q 'antigravity-claude'; then fail "$shipped Claude pool forbidden on Antigravity"; fi
 done
-profile_rows "$ROOT/providers/quad.md" "Quota pools" | grep -qxF 'antigravity-claude|antigravity|claude-*|5h|-|-' || fail "80e: quad antigravity-claude pool carries no reviewer-b reserve"
-# Claude-first profile must retain the alternate path for the same Opus model.
-profile_rows "$ROOT/providers/claude.md" "Backup ladder" | grep -qE '^[0-9]+\|implementer\|antigravity\|claude-opus-5-5\|' || fail "claude profile retains Antigravity Opus alternate"
 pass "shipped profiles carry Opus/Fable implementers, the captain council, no OpenCode review, the universal effort cap and single-provider review tables"
 
 # 80f. Every composition retains the policy even for unselected providers.
@@ -3116,9 +3096,7 @@ for pv_combo in antigravity claude codex opencode antigravity,claude antigravity
       case ",$pv_combo," in *,antigravity,*) pv_agy=1 ;; esac
       case ",$pv_combo," in *,opencode,*) pv_oc=1 ;; esac
       check_council_profile "$pv_md" "--providers $pv_combo" "$pv_cld" "$pv_cdx" "$pv_agy" "$pv_oc"
-      if [ "$pv_agy" -eq 1 ] && [ "$pv_cld" -eq 1 ]; then
-        profile_rows "$pv_md" "Backup ladder" | grep -qE '^[0-9]+\|implementer\|claudeAgent\|claude-opus-5-5\|effort=high\|anthropic\|ok$' || fail "80f: --providers $pv_combo carries the same-model Opus backup row"
-      fi
+      profile_rows "$pv_md" roles | grep -qxF 'implementer|primary|claudeAgent|claude-opus-5-5|effort=high|anthropic|ok' || fail "80f: fixed Claude Code primary"
       if profile_rows "$pv_md" "Quota pools" | grep -qE '\|[0-9]+\|reviewer-b$'; then fail "80f: --providers $pv_combo reserves no pool for reviewer-b"; fi
       ;;
   esac

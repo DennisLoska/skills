@@ -1461,17 +1461,12 @@ validate_profile() {
 }
 
 # Reuse canonical policy tables rather than maintaining a second model catalog.
-# Selection prefers a supported path for the SAME model; it never filters roles
-# or substitutes a different model. Fable remains on its Claude Code path.
+# Connection selection never changes the canonical model/provider policy.
 generate_dynamic_profile() {
   local prov_list="$1" policy="$SRC/providers/quad.md"
-  case ",$prov_list," in
-    *,antigravity,*) ;;
-    *,claude,*) policy="$SRC/providers/claude.md" ;;
-  esac
   printf '# Composable provider profile (%s)\n\n' "$prov_list"
   printf 'Selected connection preference: `%s` (preserved on refresh).\n\n' "$prov_list"
-  printf 'Selection prefers supported provider paths for the same required model; it is not an exclusive provider allowlist. Cross-provider roles retain the fixed shipped policy. Unavailable rungs are unreachable; never substitute excluded review or draft models.\n\n'
+  printf 'Selection records connection preference without changing required provider paths; it is not an exclusive provider allowlist. Cross-provider roles retain the fixed shipped policy. Unavailable rungs are unreachable; never substitute excluded review or draft models.\n\n'
   # Skip only the shipped title, retaining its self-contained policy and tables.
   sed '1d' "$policy"
 }

@@ -45,6 +45,12 @@ def invoke(text, expected, diagnostic=''):
     if expected:
         assert not (home / '.codex').exists(), count
 
+# Guard replacement fixtures so profile migrations cannot make negative tests no-ops.
+for fixture in (
+    '| 3 | task-reviewer,reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.1-sol | reasoningEffort=high |',
+    '| implementer | primary | claudeAgent | claude-opus-5-5 | effort=high |',
+):
+    assert fixture in base, f'missing live mutation fixture: {fixture}'
 for effort in ('xhigh', 'max', 'ultra', 'ultrathink', 'ultracode', 'unknown'):
     diagnostic = 'invalid effort' if effort == 'unknown' else 'effort above high'
     for role in ('driver', 'compaction', 'tester'):
@@ -55,14 +61,14 @@ for effort in ('xhigh', 'max', 'ultra', 'ultrathink', 'ultracode', 'unknown'):
                 cells[4] = 'reasoningEffort=' + effort
                 lines[i] = '| ' + ' | '.join(cells) + ' |'
         invoke('\n'.join(lines), 1, diagnostic)
-    invoke(base.replace('| 1 | implementer | claudeAgent | claude-opus-5-5 | effort=high |', f'| 1 | implementer | claudeAgent | claude-opus-5-5 | effort={effort} |'), 1, diagnostic)
+    invoke(base.replace('| 3 | task-reviewer,reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.1-sol | reasoningEffort=high |', f'| 3 | task-reviewer,reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.1-sol | reasoningEffort={effort} |'), 1, diagnostic)
     invoke(base.replace('| codex | gpt-6-astra | reasoningEffort=high |', f'| codex | gpt-6-astra | reasoningEffort={effort} |'), 1, diagnostic)
 for effort in ('-', 'reasoningEffort=none', 'reasoningEffort=minimal', 'reasoningEffort=low', 'reasoningEffort=medium', 'reasoningEffort=high'):
     invoke(base.replace('| driver | primary | codex | gpt-6.1-sol | reasoningEffort=medium |', f'| driver | primary | codex | gpt-6.1-sol | {effort} |'), 0)
 invoke(base.replace('| reviewer-c | primary | codex | gpt-6.1-sol |', '| reviewer-c | primary | codex | gpt-6-astra |'), 1, 'share primary model gpt-6-astra')
 # The preferred captain can be an implementation model in a profile; runtime
 # author exclusions must instead choose independent reviewers and a GPT captain.
-invoke(base.replace('| implementer | primary | antigravity | claude-opus-5-5 | thinking_level=high |', '| implementer | primary | claudeAgent | claude-fable-5-2 | effort=high |'), 0)
+invoke(base.replace('| implementer | primary | claudeAgent | claude-opus-5-5 | effort=high |', '| implementer | primary | claudeAgent | claude-fable-5-2 | effort=high |'), 0)
 allowed = {'gpt-6.1-sol', 'gpt-6-astra', 'claude-fable-5-2'}
 section = 'roles'
 for line in base.splitlines():
