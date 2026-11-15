@@ -19,7 +19,7 @@ Use explicit provider-native options at `low`, `medium`, or `high`. A `-` defaul
 | `tester` | Deepseek V4.1 Flash, OpenCode Go | High; fallback Gemini 3.8 Flash, then GPT6 Luna. |
 | `patch` | Deepseek V4.1 Flash, OpenCode Go | High; fallback Gemini 3.8 Flash, then GPT6 Luna; 1–2 file edits without test runs. |
 | `implementer` | Opus 5.5 (`claude-opus-5-5`), Antigravity | High; same-model alternate on Claude Code before leaving Opus; generic Google fallback uses Gemini 4 Argon, then Sol. |
-| `implementer-deep` | Fable 5.2, Claude Code | High; Gemini 4 Hydrogen then Sol for implementation fallback. |
+| `implementer-deep` | Fable 5.2, Claude Code | High; Gemini 4 Argon then Sol for implementation fallback. |
 | `task-reviewer` (ad-hoc) | Sol, Codex | High; Astra then Fable, subject to author independence. Both task stages and final task review use this role. |
 | `reviewer-a` (preferred captain) | Fable 5.2, Claude Code | High; eligible review backups only from the three-model review set below. |
 | `reviewer-b` | Astra (`gpt-6-astra`), Codex | High; same allowlist and independence checks. |

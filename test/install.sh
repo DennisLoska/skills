@@ -3042,7 +3042,7 @@ for shipped in quad tri opencode-go codex antigravity claude; do
     for quad_spec in \
       'implementer|fallback|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
       'implementer|last-resort|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
-      'implementer-deep|fallback|antigravity|gemini-4-hydrogen|thinking_level=high|google|ok' \
+      'implementer-deep|fallback|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
       'implementer-deep|last-resort|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
       'task-reviewer|primary|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
       'task-reviewer|fallback|codex|gpt-6-astra|reasoningEffort=high|openai|ok' \

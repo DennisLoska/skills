@@ -290,7 +290,7 @@ All six shipped profiles and all 15 `--providers` combinations use the same mode
 
 - **Drafts:** `designer` and `planner` use Fable 5.2 with Sol fallback only. Workers return read-only drafts; the driver owns conversation, approvals, canonical documents and phase advancement.
 - **Cheap work:** scout, tester and patch use Deepseek V4.1 Flash, then Gemini 3.8 Flash, then Luna. Compaction uses Gemini Flash then Luna at low effort. OpenCode routes only Deepseek Flash.
-- **Implementation:** Opus 5.5 primary and Fable 5.2 deep; Gemini Argon/Hydrogen and Sol remain implementation fallbacks. Claude-first selection prefers Claude Code for Opus; Antigravity-first selection prefers Antigravity, with the other same-model path retained.
+- **Implementation:** Opus 5.5 primary and Fable 5.2 deep; Gemini Argon and Sol remain implementation fallbacks. Claude-first selection prefers Claude Code for Opus; Antigravity-first selection prefers Antigravity, with the other same-model path retained.
 - **Reviews:** task review starts on Sol; council A/captain is Fable, B Astra, C Sol. All review fallbacks, backups and recovery stay within those three models. Author independence applies across providers.
 - **Unavailable providers:** mark rungs unreachable and walk permitted ladders. Codex-only review uses Astra and Sol if both are healthy non-authors. Other provider-only hosts cannot form a panel; exact draft ladders can also be unavailable. No excluded model fills the gap.
 
@@ -398,7 +398,7 @@ All delegated work is at most high. See [skill-model-routing.md](docs/skill-mode
 | --- | --- | --- | --- |
 | `scout`, `tester`, `patch` | Deepseek V4.1 Flash (high) | Gemini 3.8 Flash | GPT6 Luna |
 | `implementer` | Opus 5.5 | Gemini 4 Argon | Sol |
-| `implementer-deep` | Fable 5.2 | Gemini 4 Hydrogen | Sol |
+| `implementer-deep` | Fable 5.2 | Gemini 4 Argon | Sol |
 | `designer` (optional draft) | Fable 5.2 | Sol | — |
 | `planner` (optional draft) | Fable 5.2 | Sol | — |
 | `task-reviewer` | Sol | Astra | Fable 5.2 |

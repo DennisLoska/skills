@@ -131,6 +131,38 @@ def validate_profile_policy(name, text):
         f"[{name}] implementer-deep primary must be claude-fable-5-2, got {deep_primary[0]['model']}"
     )
 
+    # Structural guard: forbid gemini-4-hydrogen across all implementation/direct deep rungs
+    for r in roles_table:
+        if r['role'] in ('implementer', 'implementer-deep'):
+            assert r['base_model'] != 'gemini-4-hydrogen' and 'gemini-4-hydrogen' not in r['model'], (
+                f"[{name}] implementation role {r['role']} (rung {r['rung']}) has forbidden model gemini-4-hydrogen: {r['line']}"
+            )
+
+    # Explicit deep fallback Argon check and Sol last-resort retention
+    deep_fallback = [r for r in get_role_rows('implementer-deep') if r['rung'] == 'fallback']
+    assert deep_fallback, f"[{name}] missing fallback implementer-deep row"
+    assert deep_fallback[0]['base_model'] == 'gemini-4-argon', (
+        f"[{name}] implementer-deep fallback must be gemini-4-argon, got {deep_fallback[0]['model']}"
+    )
+
+    deep_last = [r for r in get_role_rows('implementer-deep') if r['rung'] in ('last-resort', 'final')]
+    if deep_last:
+        assert deep_last[0]['base_model'] == 'gpt-6.1-sol', (
+            f"[{name}] implementer-deep final must be gpt-6.1-sol, got {deep_last[0]['model']}"
+        )
+
+    imp_fallback = [r for r in get_role_rows('implementer') if r['rung'] == 'fallback']
+    if imp_fallback:
+        assert imp_fallback[0]['base_model'] == 'gemini-4-argon', (
+            f"[{name}] implementer fallback must be gemini-4-argon, got {imp_fallback[0]['model']}"
+        )
+
+    imp_last = [r for r in get_role_rows('implementer') if r['rung'] in ('last-resort', 'final')]
+    if imp_last:
+        assert imp_last[0]['base_model'] == 'gpt-6.1-sol', (
+            f"[{name}] implementer final must be gpt-6.1-sol, got {imp_last[0]['model']}"
+        )
+
     # 3. Shipped policy requires both draft roles; custom legacy profiles are tested separately.
     # New test script should not assume all profiles lack optional roles.
     for opt_role in ('designer', 'planner'):
@@ -226,6 +258,12 @@ def validate_profile_policy(name, text):
                 assert not other, (
                     f"[{name}] backup ladder mixes designer/planner with other roles: {row['line']}"
                 )
+
+        # Forbid gemini-4-hydrogen in wildcard or implementation-matching backup rows
+        if '*' in roles or any(r in ('implementer', 'implementer-deep') for r in roles):
+            assert row['base_model'] != 'gemini-4-hydrogen' and 'gemini-4-hydrogen' not in row['model'], (
+                f"[{name}] implementation/wildcard backup ladder row has forbidden model gemini-4-hydrogen: {row['line']}"
+            )
 
     # Single-provider review: only codex with Astra / Sol
     for row in single_provider_review:
