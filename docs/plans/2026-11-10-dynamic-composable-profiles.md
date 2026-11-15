@@ -1,5 +1,7 @@
 # Dynamic Composable Profiles & Cross-Provider Routing Implementation Plan
 
+> Superseded routing history: this document records an earlier design, not active dispatch guidance. Retired Google model references are normalized to Argon; historical effort settings are capped at high. Current routing and review eligibility are defined by [skill-model-routing.md](../skill-model-routing.md), AGENTS.md, and the active PROVIDERS.md. Never use historical rows to bypass the universal ceiling or the quad review allowlist.
+
 > **For agentic workers:** REQUIRED SKILL: invoke the dispatch skill via the skill tool (recommended) to implement this plan task-by-task. For standalone plans only, inline execution with batch checkpoints is also allowed. Under oneshot or `auto-approve: true`, execution is subagent-driven only: never execute inline. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make provider profiles dynamic and composable via `./install.sh --providers`, eliminate same-provider fallback quota traps, purge expensive OpenCode Go Pro models, enforce official providers for Claude/ChatGPT/Gemini, and configure Muse Spark 1.3 as Reviewer C primary with DeepSeek V4.1 Flash fallback.
@@ -14,7 +16,7 @@
 - Modify: `providers/quad.md`
 
 - [ ] **Step 1:** In `providers/tri.md` and `providers/quad.md`:
-  - Set Seat C primary to `opencode-go/muse-spark-1.3-contributor` (`variant=xhigh`, `meta`, `trains`).
+  - Set Seat C primary to `opencode-go/muse-spark-1.3-contributor` (`variant=high`, `meta`, `trains`).
   - Set Seat C fallback to `opencode-go/deepseek-v4.1-flash` (`variant=high`, `deepseek`, `ok`).
   - Set Seat B: default Claude from `antigravity` (`claude-opus-5-5`), fallback from `claudeAgent` (Anthropic in quad) or non-Anthropic fallback, eliminating same-pool traps.
   - Purge all expensive Pro models (`deepseek-v4-pro`, `kimi-k3.1-pro`, `mimo-v2.6-pro`, `minimax-m3`, `qwen3.8-max`). Use only flash/spark models.

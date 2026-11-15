@@ -1,5 +1,7 @@
 # Great Refactor Implementation Plan
 
+> Superseded routing history: this document records an earlier design, not active dispatch guidance. Retired Google model references are normalized to Argon; historical effort settings are capped at high. Current routing and review eligibility are defined by [skill-model-routing.md](../skill-model-routing.md), AGENTS.md, and the active PROVIDERS.md. Never use historical rows to bypass the universal ceiling or the quad review allowlist.
+
 > Historical plan. Tasks 9 to 11 and the Validation record below were superseded by Revision 7; anything they say about a `commands/` tree, `skills/craft`, or importing twelve domain skills no longer describes this repository. Agents pin `model:` per seat; the early `model: inherit` wording in Tasks 3 and 13 was corrected before merge and is not current.
 
 > **For agentic workers:**
@@ -301,8 +303,8 @@ Revision 6 (same branch, before merge), user model/effort and request-limit alig
 14. Removed `agents/reviewer-local.md` and all `lmstudio` routing: the harness now uses exclusively `opencode-go/*` models.
 15. Expanded implementation to three dedicated seats (`implementer` = `deepseek-v4.1-flash`, `implementer-b` = `muse-spark-1.3-contributor#medium`, `implementer-deep` = `gemini-4-argon#high` for complex tasks and difficult bugs). Note: `deepseek-v4.1-flash` catalog supports `low|high|max` only (no `medium`), so it runs at provider default effort to avoid a model-resolution error while `implementer-b` pins `#medium`.
 16. Rebuilt the Council and Model Tank around the OpenCode Go 5-hour request allowance table so normal workflows never hit rate limits:
-    - `reviewer-a`: `opencode-go/muse-spark-1.3-contributor#xhigh` (45,300 req/5h)
-    - `reviewer-b`: `opencode-go/deepseek-v4.1-flash#max` (43,330 req/5h)
+    - `reviewer-a`: `opencode-go/muse-spark-1.3-contributor#high` (45,300 req/5h)
+    - `reviewer-b`: `opencode-go/deepseek-v4.1-flash#high` (43,330 req/5h)
     - `reviewer-c`: `opencode-go/glm-5.3-flash#high` (6,320 req/5h)
     - Reviewer fallbacks: `opencode-go/claude-haiku-5-5#high` (3,850 req/5h) and `opencode-go/gpt-6-luna#high` (4,230 req/5h)
     - Last resort / escalation (`reviewer-esc`): `opencode-go/kimi-k3.1-pro#high` (147 req/5h), fallback `opencode-go/gemini-4-argon#high` (440 req/5h).

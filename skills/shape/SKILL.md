@@ -5,6 +5,17 @@ description: Use when doing any creative work - creating features, building comp
 
 # Shape: Ideas Into Approved Designs
 
+**Universal high effort ceiling:** Never request or inherit reasoning above `high` for any model, provider, role, driver session, advisory/design work, review, fallback, or ad-hoc call. No exceptions or effort escalation: `xhigh`, `max`, `ultra`, `ultrathink`, `ultracode`, and equivalent levels are forbidden. Use explicit provider options at `low`, `medium`, or `high`; use `-`/an omitted option only after verifying the effective default is at most `high`. Otherwise set `high` explicitly or mark the rung unreachable. Switching to a deeper seat never raises this ceiling. Models come from the active provider profile (`PROVIDERS.md`); invoking a skill does not switch the driver session.
+
+## Profile-driven draft handoff
+
+**Worker recursion guard:** If already executing a `designer` or `planner` draft brief, perform only the scoped read-only draft directly and return draft text + decisions. No repository edits, commits, execution, child delegation or recursive skill invocation; skip this skill's driver gates and downstream handoffs.
+
+After context exploration and clarification, before proposing approaches, the driver reads `../dispatch/SKILL.md` **Draft Delegation Adapter** and executes its procedure for `designer` from the active `PROVIDERS.md`. This is mandatory delegation when the role exists, not an advisory recommendation or a session switch. Ask the worker for 2–3 approaches with trade-offs and a recommendation, then a design covering architecture, data flow, errors, testing, assumptions and glossary/ADR proposals. Supply the relevant context and constraints; do not delegate conversation or the workflow. When the role is absent, retain this skill's existing legacy driver path.
+
+The driver reads/applies the returned draft against canonical docs and owns conversation, approvals, artifact edits/commits, self-review and phase advancement. Under shape, domain/module guidance can be included in the same designer brief; do not dispatch a second worker for the same draft. A new substantive design question may use a separate scoped draft. In design-it-twice, the alternatives are the design draft dispatches, not an extra duplicate draft.
+
+
 Turn ideas into validated specs through collaborative dialogue. Understand the project, ask questions one at a time, present the design, get approval (or record auto-approval when `auto-approve: true` is set), then hand off to planning.
 
 <HARD-GATE>

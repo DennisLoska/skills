@@ -5,6 +5,8 @@ description: Use when a branch is done and needs push, PR, merge decision, backl
 
 # Land
 
+**Universal high effort ceiling:** Never request or inherit reasoning above `high` for any model, provider, role, driver session, advisory/design work, review, fallback, or ad-hoc call. No exceptions or effort escalation: `xhigh`, `max`, `ultra`, `ultrathink`, `ultracode`, and equivalent levels are forbidden. Use explicit provider options at `low`, `medium`, or `high`; use `-`/an omitted option only after verifying the effective default is at most `high`. Otherwise set `high` explicitly or mark the rung unreachable. Switching to a deeper seat never raises this ceiling. Models come from the active provider profile (`PROVIDERS.md`); invoking a skill does not switch the driver session.
+
 Finish a development branch: PR body that leads with the problem, then the merge decision, the backlog tickets for deferred council findings, and the handoff back to default.
 
 **Model routing:** no model calls of its own; it coordinates. Subagents come from the implementation roles (active provider profile, AGENTS.md Dispatch Adapter) when needed for fixes.

@@ -5,6 +5,17 @@ description: Use when you have a spec or requirements for a multi-step task, bef
 
 # Plan: Specs Into Bite-Sized Tasks
 
+**Universal high effort ceiling:** Never request or inherit reasoning above `high` for any model, provider, role, driver session, advisory/design work, review, fallback, or ad-hoc call. No exceptions or effort escalation: `xhigh`, `max`, `ultra`, `ultrathink`, `ultracode`, and equivalent levels are forbidden. Use explicit provider options at `low`, `medium`, or `high`; use `-`/an omitted option only after verifying the effective default is at most `high`. Otherwise set `high` explicitly or mark the rung unreachable. Switching to a deeper seat never raises this ceiling. Models come from the active provider profile (`PROVIDERS.md`); invoking a skill does not switch the driver session.
+
+## Profile-driven draft handoff
+
+**Worker recursion guard:** If already executing a `designer` or `planner` draft brief, perform only the scoped read-only draft directly and return draft text + decisions. No repository edits, commits, execution, child delegation or recursive skill invocation; skip this skill's driver gates and downstream handoffs.
+
+After reading the approved spec and mapping relevant files, before decomposing tasks, the driver reads `../dispatch/SKILL.md` **Draft Delegation Adapter** and executes its procedure for `planner` from the active `PROVIDERS.md`. This is mandatory delegation when the role exists, not an advisory recommendation or a session switch. Ask the worker for a complete implementation-plan draft in this skill’s header and task format, exact paths, test/code steps, commands, expected results and commit points; no placeholders. Supply the relevant context and constraints; do not delegate conversation or the workflow. When the role is absent, retain this skill's existing legacy driver path.
+
+The driver reads/applies the returned draft against canonical docs and owns conversation, approvals, artifact edits/commits, self-review and phase advancement. Plan returns to oneshot after drafting; the planner never invokes dispatch or executes its plan.
+
+
 ## Overview
 
 Write comprehensive implementation plans assuming the engineer has zero context for the codebase and questionable taste. Document everything they need: which files each task touches, code, testing, docs to check, how to verify. Deliver the whole thing as bite-sized tasks. DRY. YAGNI. TDD. Frequent commits.

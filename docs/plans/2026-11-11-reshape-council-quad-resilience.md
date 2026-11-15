@@ -1,8 +1,10 @@
 # Reshape Council: Quad Profile Resilience & Model-Level Non-Blocking Review Implementation Plan
 
+> Superseded routing history: this document records an earlier design, not active dispatch guidance. Retired Google model references are normalized to Argon; historical effort settings are capped at high. Current routing and review eligibility are defined by [skill-model-routing.md](../skill-model-routing.md), AGENTS.md, and the active PROVIDERS.md. Never use historical rows to bypass the universal ceiling or the quad review allowlist.
+
 > **For agentic workers:** REQUIRED SKILL: invoke the dispatch skill via the skill tool to implement this plan task-by-task. Execution is subagent-driven only: never execute inline. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Reshape council review and quad profile routing to prioritize DeepSeek 4.1 flash over mimo/glm, set Sonnet 5.5 as escalation reviewer, set Carbon as first fallback for reviewer-a, set Argon as implementer, and allow council to proceed without blocking whenever >= 2 distinct reviewer models differ from the implementer.
+**Goal:** Reshape council review and quad profile routing to prioritize DeepSeek 4.1 flash over mimo/glm, set Sonnet 5.5 as escalation reviewer, set Argon as first fallback for reviewer-a, set Argon as implementer, and allow council to proceed without blocking whenever >= 2 distinct reviewer models differ from the implementer.
 
 **Architecture:** Update `providers/quad.md` (and related `tri.md` / `antigravity.md`), update harness and council rules in `AGENTS.md`, `HARNESS.md`, and `skills/council/SKILL.md`, and align `install.sh` dynamic generation and `test/install.sh` assertions.
 
@@ -23,9 +25,9 @@
 - [ ] **Step 2: Update `providers/quad.md`**
   - Set `implementer` primary to `antigravity` / `gemini-4-argon` (`thinking_level=high`, `google`).
   - Set `implementer-deep` primary to `antigravity` / `gemini-4-argon` (`thinking_level=high`, `google`).
-  - Set `reviewer-a` fallbacks: 1st fallback `antigravity` / `gemini-4-carbon` (`thinking_level=high`, `google`), last-resort `opencode` / `opencode-go/deepseek-v4.1-flash` (`variant=high`, `deepseek`).
+  - Set `reviewer-a` fallbacks: 1st fallback `antigravity` / `gemini-4-argon` (`thinking_level=high`, `google`), last-resort `opencode` / `opencode-go/deepseek-v4.1-flash` (`variant=high`, `deepseek`).
   - Set `reviewer-b` last-resort: `opencode` / `opencode-go/deepseek-v4.1-flash` (`variant=high`, `deepseek`).
-  - Set `reviewer-c` fallbacks: `deepseek-v4.1-flash` for fallback and last-resort (`variant=high` and `variant=max`).
+  - Set `reviewer-c` fallbacks: `deepseek-v4.1-flash` for fallback and last-resort (`variant=high` and `variant=high`).
   - Set `reviewer-esc`: primary `claudeAgent` / `claude-sonnet-5-5` (`effort=high`, `anthropic`), fallback `antigravity` / `claude-sonnet-5-5` (`thinking_level=high`, `anthropic`), last-resort `opencode` / `opencode-go/deepseek-v4.1-flash` (`variant=high`, `deepseek`).
   - Set `## Backup ladder`: replace mimo and glm rows with `deepseek-v4.1-flash`.
   - Update prose in `providers/quad.md` to match.
@@ -66,7 +68,7 @@
 - Modify: `test/install.sh`
 
 - [ ] **Step 1: Update `install.sh`**
-  - In `generate_dynamic_profile`, update candidate ordering for `reviewer-a` (place `gemini-4-carbon` as first fallback after `gpt-6-astra`), `reviewer-esc` (place `claude-sonnet-5-5` as primary), and `implementer` (place `gemini-4-argon` as primary).
+  - In `generate_dynamic_profile`, update candidate ordering for `reviewer-a` (place `gemini-4-argon` as first fallback after `gpt-6-astra`), `reviewer-esc` (place `claude-sonnet-5-5` as primary), and `implementer` (place `gemini-4-argon` as primary).
   - Update backup ladder generation in `install.sh` to use `deepseek-v4.1-flash` instead of mimo/glm.
 
 - [ ] **Step 2: Update `test/install.sh`**

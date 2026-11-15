@@ -1,5 +1,7 @@
 # Implementation Plan: Quad Provider Profile Refactor
 
+> Superseded routing history: this document records an earlier design, not active dispatch guidance. Retired Google model references are normalized to Argon; historical effort settings are capped at high. Current routing and review eligibility are defined by [skill-model-routing.md](../skill-model-routing.md), AGENTS.md, and the active PROVIDERS.md. Never use historical rows to bypass the universal ceiling or the quad review allowlist.
+
 Date: 2026-11-10. Branch: `feat/quad-claude-routing`.
 Spec: `docs/specs/2026-11-10-quad-claude-routing-design.md`.
 
@@ -11,7 +13,7 @@ Spec: `docs/specs/2026-11-10-quad-claude-routing-design.md`.
   - Update model catalog references to include `claude-fable-5-2` (T3 Code catalog ID) alongside `claude-fable-5-1`.
   - Update role distribution prose: Fable for advisory Architecture & Design; Sonnet 5.5 for implementer fallback and cross-family task-reviewer; Opus 5.5 for deep implementation and Seat B primary; Haiku 5.5 for compaction primary.
   - Purge expensive OpenCode models (`kimi-k3.1-pro`, `qwen3.8-max`, `deepseek-v4-pro`, `mimo-v2.6-pro`).
-  - Wire Seat C primary to `opencode-go/muse-spark-1.3-contributor` (`variant=xhigh`, `meta`, `trains`, ~90k req/5h).
+  - Wire Seat C primary to `opencode-go/muse-spark-1.3-contributor` (`variant=high`, `meta`, `trains`, ~90k req/5h).
   - Wire `reviewer-esc` to high-volume OpenCode flash rungs: `mimo-v2.6-flash`, `glm-5.3-flash`, `deepseek-v4.1-flash`.
   - Update the table:
     - `task-reviewer` fallback: `claudeAgent` `claude-sonnet-5-5` (`effort=high`, `anthropic`).
@@ -26,7 +28,7 @@ Spec: `docs/specs/2026-11-10-quad-claude-routing-design.md`.
 - **File:** `test/install.sh`, `README.md`
 - **Actions:**
   - Assert that `quad.md` contains no expensive `kimi` or `qwen3.8-max` models.
-  - Assert that `quad` pins `reviewer-c` to `opencode-go/muse-spark-1.3-contributor#xhigh` and `reviewer-esc` to `opencode-go/mimo-v2.6-flash`.
+  - Assert that `quad` pins `reviewer-c` to `opencode-go/muse-spark-1.3-contributor#high` and `reviewer-esc` to `opencode-go/mimo-v2.6-flash`.
   - Assert that `task-reviewer` fallback is wired to `claudeAgent` `claude-sonnet-5-5`.
   - Update `README.md` quad summary table to reflect all seats.
   - Verify all 123+ tests in `./test/install.sh` pass.

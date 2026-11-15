@@ -1,39 +1,41 @@
 # Council Captain, Anthropic Implementers & Single-Provider Review - Design
 
+> Superseded routing history: this document records an earlier design, not active dispatch guidance. Retired Google model references are normalized to Argon; historical effort settings are capped at high. Current routing and review eligibility are defined by [skill-model-routing.md](../skill-model-routing.md), AGENTS.md, and the active PROVIDERS.md. Never use historical rows to bypass the universal ceiling or the quad review allowlist.
+
 Status: approved (2026-11-13, user decisions recorded below).
 
 ## Goal
 
-1. Every profile defaults `implementer` to Claude Opus 5.5 (`high`) and `implementer-deep` to Claude Fable 5.2 (`high`), with `gemini-4-carbon` and `gpt-6.1-sol` as fallbacks everywhere.
+1. Every profile defaults `implementer` to Claude Opus 5.5 (`high`) and `implementer-deep` to Claude Fable 5.2 (`high`), with `gemini-4-argon` and `gpt-6.1-sol` as fallbacks everywhere.
 2. Replace the escalation reviewer (`reviewer-esc`) with a **review captain**: one of the three council seats who reviews like any other seat and then rules on every finding. The captain may approve over two FAIL votes when the blocking findings are unrelated, overengineering, not relevant, or out of scope. Those findings become backlog tickets.
-3. Council seats: Seat A = captain on `claude-fable-5-2`, Seat B = `gpt-6-astra`, Seat C = `gemini-4-carbon`. Review runs only on Anthropic, OpenAI and Google models. Fallbacks are balanced dynamically across those three providers based on quota.
+3. Council seats: Seat A = captain on `claude-fable-5-2`, Seat B = `gpt-6-astra`, Seat C = `gemini-4-argon`. Review runs only on Anthropic, OpenAI and Google models. Fallbacks are balanced dynamically across those three providers based on quota.
 4. **Single-provider review:** when only one provider has budget, review runs on that provider's models at `high` effort (or the provider's equivalent). This is a fallback condition, never a standing restriction.
-5. **Anthropic effort cap:** no `anthropic`-family dispatch ever uses an effort above `high`.
+5. **Universal high effort ceiling:** no model/provider/role ever requests or inherits reasoning above `high`.
 6. **Project-management setting:** the installer exposes a backlog tracker (`github` via `gh`, `linear` or `jira` via MCP, `auto`, `none`) that the harness uses to file deferred findings as tickets.
 
 ## User decisions (2026-11-13)
 
-- Captain = Seat A (`reviewer-a`) on Fable 5.2. Seat B = `gpt-6-astra`, Seat C = `gemini-4-carbon`. No OpenCode models in review ladders.
+- Captain = Seat A (`reviewer-a`) on Fable 5.2. Seat B = `gpt-6-astra`, Seat C = `gemini-4-argon`. No OpenCode models in review ladders.
 - Fallbacks for reviewer seats can come from any of the three review providers, chosen dynamically by remaining limits to balance load.
 - When only one provider is left, review uses that provider's models at high effort. Review is not limited to one provider merely because it is the only one with budget at the moment.
 - Backlog tracker is an install-time setting: `gh` CLI for GitHub issues, MCP for Linear or Jira. `auto` derives it from the user's context. The maintainer's reinstall uses `linear`.
-- All profiles: implementer Opus 5.5 high, implementer-deep Fable 5.2 high, fallbacks `gemini-4-carbon` and `gpt-6.1-sol`.
-- No Anthropic agent ever runs above `high` effort.
+- All profiles: implementer Opus 5.5 high, implementer-deep Fable 5.2 high, fallbacks `gemini-4-argon` and `gpt-6.1-sol`.
+- No model/provider/role ever requests or inherits reasoning above `high` effort.
 
 ## 1. Implementer ladders (all six profiles + `--providers` generator)
 
 | role | rung | provider | model | effort | family |
 | --- | --- | --- | --- | --- | --- |
 | implementer | primary | antigravity (`claude` profile: claudeAgent) | claude-opus-5-5 | thinking_level=high (claudeAgent: effort=high) | anthropic |
-| implementer | fallback | antigravity | gemini-4-carbon | thinking_level=high | google |
+| implementer | fallback | antigravity | gemini-4-argon | thinking_level=high | google |
 | implementer | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai |
 | implementer-deep | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic |
-| implementer-deep | fallback | antigravity | gemini-4-carbon | thinking_level=high | google |
+| implementer-deep | fallback | antigravity | gemini-4-argon | thinking_level=high | google |
 | implementer-deep | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai |
 
 - Profiles with `claudeAgent` (quad, claude) add a `## Backup ladder` row for `implementer` on `claudeAgent claude-opus-5-5 effort=high` (the same-model alternate below makes it the first stop when Antigravity's Claude pool is exhausted).
 - Single-provider profiles keep their provider's own implementation rows in `## Backup ladder` so standalone hosts still work. Cross-provider rungs are `unreachable` there and demote per the Dispatch Adapter.
-- **Same-model alternate (new routing rule):** before advancing past an ineligible rung, the driver uses a `## Backup ladder` row that matches the role and carries the identical `model` on another eligible pool. Example: Antigravity's `claude-opus-5-5` is exhausted, so the driver uses `claudeAgent` `claude-opus-5-5` before falling to `gemini-4-carbon`.
+- **Same-model alternate (new routing rule):** before advancing past an ineligible rung, the driver uses a `## Backup ladder` row that matches the role and carries the identical `model` on another eligible pool. Example: Antigravity's `claude-opus-5-5` is exhausted, so the driver uses `claudeAgent` `claude-opus-5-5` before falling to `gemini-4-argon`.
 - quad `## Quota pools`: `antigravity-claude` loses its `reviewer-b` reserve (`soft-cap -`, `reserve -`), because Seat B no longer runs on Antigravity Claude.
 
 ## 2. Council seats (all profiles)
@@ -46,7 +48,7 @@ Status: approved (2026-11-13, user decisions recorded below).
 | reviewer-b | primary | codex | gpt-6-astra | reasoningEffort=high | openai |
 | reviewer-b | fallback | antigravity | gemini-4-argon | thinking_level=high | google |
 | reviewer-b | last-resort | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic |
-| reviewer-c | primary | antigravity | gemini-4-carbon | thinking_level=high | google |
+| reviewer-c | primary | antigravity | gemini-4-argon | thinking_level=high | google |
 | reviewer-c | fallback | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic |
 | reviewer-c | last-resort | codex | gpt-6.1-terra | reasoningEffort=high | openai |
 
@@ -90,13 +92,13 @@ Status: approved (2026-11-13, user decisions recorded below).
 - Model-level independence satisfies the author vote. With fewer than 2 distinct non-author models the council stops with `yellow: degraded council` as before.
 - The mode ends as soon as a second provider becomes eligible again. It never changes profile rows and is re-evaluated each council round.
 
-## 5. Anthropic effort cap
+## 5. Universal high effort ceiling
 
-- Rule (HARNESS): no `anthropic`-family dispatch may use effort above `high`. That covers `effort`/`thinking_level`/`variant` values outside `low|medium|high`, and `ultracode`/`ultrathink`/`xhigh`/`max`. Applies to ladder rows, backup rows, single-provider rows, the `--providers` generator, and ad-hoc dispatches.
-- Installer: any role, backup or single-provider row with `family` `anthropic` whose effort value (after `=`) is not `low`, `medium` or `high` exits 1 before writing:
-  - `install.sh: profile NAME invalid row: ROLE RUNG: anthropic effort above high`
-  - `install.sh: profile NAME invalid backup row: ORDER: anthropic effort above high`
-  - `install.sh: profile NAME invalid single-provider row: PROVIDER MODEL: anthropic effort above high`
+- Rule (HARNESS): no model, provider, role, driver, advisory role, or ad-hoc dispatch may request or inherit effort above `high`. That covers `effort`/`thinking_level`/`variant` values outside `low|medium|high`, and `ultracode`/`ultrathink`/`xhigh`/`max`. Applies to ladder rows, backup rows, single-provider rows, the `--providers` generator, and ad-hoc dispatches.
+- Installer: any role, advisory, backup or single-provider row from any family/provider whose effort value (after `=`) exceeds `high` exits 1 before writing:
+  - `install.sh: profile NAME invalid row: ROLE RUNG: effort above high`
+  - `install.sh: profile NAME invalid backup row: ORDER: effort above high`
+  - `install.sh: profile NAME invalid single-provider row: PROVIDER MODEL: effort above high`
   - `-` (provider default) is allowed.
 
 ## 6. Project-management (backlog tracker) setting
@@ -125,4 +127,4 @@ Status: approved (2026-11-13, user decisions recorded below).
 ## Out of scope
 
 - Renaming seat files (Seat A stays `reviewer-a`).
-- Changing `scout`, `tester`, `patch`, `task-reviewer`, `driver` or `compaction` ladders, except that Anthropic rows must respect the effort cap and `*` OpenCode backup rows become explicit non-reviewer role lists.
+- Changing `scout`, `tester`, `patch`, `task-reviewer`, `driver` or `compaction` ladders, except that all rows must respect the universal effort ceiling and `*` OpenCode backup rows become explicit non-reviewer role lists.

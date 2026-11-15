@@ -31,7 +31,7 @@ and records every installed path in <dest>/.harness-manifest.
 options:
   --profile NAME       bind providers/NAME.md (also --profile=NAME; default: previous binding, else tri)
   --profile-file PATH  bind an external profile file (also --profile-file=PATH; mutually exclusive with --profile and --providers)
-  --providers LIST     dynamically compose a profile from comma-separated providers: antigravity, codex, claude, opencode
+  --providers LIST     compose fixed model policy with connection preferences: antigravity, codex, claude, opencode
                        (also --providers=LIST; claudeAgent is accepted as an alias for claude; mutually exclusive with --profile and --profile-file)
   --target TARGETS     comma-separated host targets: opencode, codex, antigravity, claude, or all
                        (also --target=TARGETS; default: opencode; antigravity installs standalone
@@ -1281,6 +1281,8 @@ validate_profile() {
         known[ordered[i]] = 1
         dispatched[ordered[i]] = 1
       }
+      known["designer"] = known["planner"] = 1
+      dispatched["designer"] = dispatched["planner"] = 1
       known["driver"] = known["compaction"] = 1
       section = "roles"
     }
@@ -1304,12 +1306,15 @@ validate_profile() {
       failed = 1
       exit 1
     }
-    # Anthropic effort cap: provider default or low|medium|high only.
-    function anthropic_effort_ok(effort,    v) {
-      if (effort == "-") return 1
+    # The profile vocabulary is a conservative ceiling, not a capability probe.
+    # A default remains subject to runtime verification before dispatch.
+    function effort_error(effort,    v) {
+      if (effort == "-") return ""
       v = effort
       sub(/^[^=]*=/, "", v)
-      return (v == "low" || v == "medium" || v == "high")
+      if (v ~ /^(none|minimal|low|medium|high)$/) return ""
+      if (v ~ /^(xhigh|max|ultra|ultrathink|ultracode)$/) return "effort above high"
+      return "invalid effort"
     }
     /^[[:space:]]*```/ { fenced = !fenced; next }
     fenced { next }
@@ -1364,7 +1369,7 @@ validate_profile() {
         if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid_backup("invalid effort")
         if ($7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_backup("invalid family")
         if ($8 != "ok" && $8 != "trains") invalid_backup("invalid privacy")
-        if ($7 == "anthropic" && !anthropic_effort_ok($6)) invalid_backup("anthropic effort above high")
+        if (effort_error($6) != "") invalid_backup(effort_error($6))
         next
       }
       if (section == "single") {
@@ -1377,7 +1382,7 @@ validate_profile() {
         if ($4 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid_single("invalid effort")
         if ($5 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_single("invalid family")
         if ($6 != "ok" && $6 != "trains") invalid_single("invalid privacy")
-        if ($5 == "anthropic" && !anthropic_effort_ok($4)) invalid_single("anthropic effort above high")
+        if (effort_error($4) != "") invalid_single(effort_error($4))
         next
       }
       role = $2
@@ -1389,18 +1394,20 @@ validate_profile() {
       for (i = 2; i <= 8; i++) if ($i == "") invalid("empty cell")
       if ($3 != "primary" && $3 != "fallback" && $3 != "last-resort") invalid("invalid rung")
       if ($8 != "ok" && $8 != "trains") invalid("invalid privacy")
+      mentioned[role] = 1
       advisory = (role == "driver" || role == "compaction")
       if (!(advisory && $4 == "-") && $4 !~ /^[A-Za-z0-9][A-Za-z0-9-]*$/) invalid("invalid provider")
       if (!(advisory && $5 == "-") && $5 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) invalid("invalid model")
       if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid("invalid effort")
       if (!(advisory && $7 == "-") && $7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid("invalid family")
-      if ($7 == "anthropic" && !anthropic_effort_ok($6)) invalid("anthropic effort above high")
+      if (effort_error($6) != "") invalid(effort_error($6))
       key = role SUBSEP $3
       if (key in seen) invalid("duplicate rung")
       seen[key] = 1
       if ($3 == "primary") {
         primary[role] = 1
         primary_fam[role] = $7
+        primary_model[role] = $5
       }
       if (role ~ /^reviewer-[abc]$/ && $7 != "" && $7 != "-") review_fams[$7] = 1
       print $2 "|" $3 "|" $4 "|" $5 "|" $6 "|" $7 "|" $8
@@ -1412,6 +1419,22 @@ validate_profile() {
         if (!(role in primary)) {
           printf "install.sh: profile %s incomplete: %s\n", profile, role > "/dev/stderr"
           exit 1
+        }
+      }
+      for (role in mentioned) {
+        if ((role == "designer" || role == "planner") && !(role in primary)) {
+          printf "install.sh: profile %s incomplete: %s\n", profile, role > "/dev/stderr"
+          exit 1
+        }
+      }
+      # Model independence is required even when fewer families are available.
+      split("reviewer-a reviewer-b reviewer-c", seats, " ")
+      for (i = 1; i <= 3; i++) {
+        for (j = i + 1; j <= 3; j++) {
+          if (primary_model[seats[i]] == primary_model[seats[j]]) {
+            printf "install.sh: profile %s invariant violated: %s and %s share primary model %s\n", profile, seats[i], seats[j], primary_model[seats[i]] > "/dev/stderr"
+            exit 1
+          }
         }
       }
       # Council seats need pairwise-distinct primary families whenever the
@@ -1437,413 +1460,20 @@ validate_profile() {
   ' "$1"
 }
 
+# Reuse canonical policy tables rather than maintaining a second model catalog.
+# Selection prefers a supported path for the SAME model; it never filters roles
+# or substitutes a different model. Fable remains on its Claude Code path.
 generate_dynamic_profile() {
-  local prov_list="$1"
-  local has_agy=0 has_cdx=0 has_cld=0 has_oc=0
-  local tok
-  local OLD_IFS="$IFS"
-  IFS=','
-  set -f
-  for tok in $prov_list; do
-    case "$tok" in
-      antigravity) has_agy=1 ;;
-      codex)       has_cdx=1 ;;
-      claude|claudeAgent) has_cld=1 ;;
-      opencode)    has_oc=1 ;;
-    esac
-  done
-  IFS="$OLD_IFS"
-  set +f
-
-  case "$prov_list" in
-    antigravity)
-      cat "$SRC/providers/antigravity.md"
-      return 0
-      ;;
-    claude)
-      cat "$SRC/providers/claude.md"
-      return 0
-      ;;
-    codex)
-      cat "$SRC/providers/codex.md"
-      return 0
-      ;;
-    opencode)
-      cat "$SRC/providers/opencode-go.md"
-      return 0
-      ;;
-    antigravity,codex,opencode)
-      cat "$SRC/providers/tri.md"
-      return 0
-      ;;
-    antigravity,claude,codex,opencode)
-      cat "$SRC/providers/quad.md"
-      return 0
-      ;;
+  local prov_list="$1" policy="$SRC/providers/quad.md"
+  case ",$prov_list," in
+    *,antigravity,*) ;;
+    *,claude,*) policy="$SRC/providers/claude.md" ;;
   esac
-
   printf '# Composable provider profile (%s)\n\n' "$prov_list"
-  printf 'Dynamically composed profile for enabled providers: `%s`.\n\n' "$prov_list"
-  printf 'Enforces cross-provider fallback ordering across disjoint quota pools, official providers for Anthropic (`antigravity` primary, `claudeAgent` fallback and Fable), Google (`antigravity`), and OpenAI (`codex`), and high-allowance open-weight flash/spark models on OpenCode Go. Implementers prefer Claude Opus 5.5 (`implementer`) and Claude Fable 5.2 (`implementer-deep`) at `high`; the council runs on Anthropic, OpenAI and Google models only (captain Seat A prefers `claude-fable-5-2`, Seat B `gpt-6-astra`, Seat C `gemini-4-hydrogen`), and no Anthropic row exceeds `high` effort.\n\n'
-  printf '| role | rung | provider | model | effort | family | privacy |\n'
-  printf '| --- | --- | --- | --- | --- | --- | --- |\n'
-
-  COMPOSE_AGY="$has_agy" COMPOSE_CDX="$has_cdx" COMPOSE_CLD="$has_cld" COMPOSE_OC="$has_oc" awk '
-    function enabled(prov) {
-      if (prov == "antigravity") return has_agy
-      if (prov == "codex") return has_cdx
-      if (prov == "claudeAgent") return has_cld
-      if (prov == "opencode") return has_oc
-      return 0
-    }
-    function pool_of(prov, model) {
-      if (prov == "antigravity") {
-        if (model ~ /^claude-/) return "antigravity-claude"
-        return "antigravity-gemini"
-      }
-      if (prov == "codex") return "codex"
-      if (prov == "claudeAgent") return "claude-code"
-      return "opencode-go"
-    }
-    function add_cand(prov, model, effort, fam, priv) {
-      if (!enabled(prov)) return
-      c_n++
-      c_prov[c_n] = prov
-      c_model[c_n] = model
-      c_effort[c_n] = effort
-      c_fam[c_n] = fam
-      c_priv[c_n] = priv
-      c_pool[c_n] = pool_of(prov, model)
-      c_used[c_n] = 0
-    }
-    # Review candidates are frontier models on the three review providers,
-    # always at high effort (OpenCode joins only when it is the sole provider).
-    function review_effort(prov) {
-      if (prov == "claudeAgent") return "effort=high"
-      if (prov == "antigravity") return "thinking_level=high"
-      if (prov == "codex") return "reasoningEffort=high"
-      return "variant=high"
-    }
-    function family_of(model) {
-      if (model ~ /^claude-/) return "anthropic"
-      if (model ~ /^gemini-/) return "google"
-      if (model ~ /^gpt-/) return "openai"
-      if (model ~ /deepseek/) return "deepseek"
-      if (model ~ /glm/) return "zhipu"
-      if (model ~ /mimo/) return "xiaomi"
-      return "meta"
-    }
-    function review_enabled(prov) {
-      if (prov == "opencode") return has_oc && !has_review_prov
-      return enabled(prov)
-    }
-    # pick_primary <list> <seat>: first enabled "prov:model" entry whose family
-    # differs from every earlier seat primary when such an entry exists,
-    # otherwise the first enabled entry on a model no earlier seat holds.
-    function pick_primary(list,    k, m, ent, prov, model, fam, best_fam, best_model) {
-      m = split(list, ent, " ")
-      best_fam = ""
-      best_model = ""
-      for (k = 1; k <= m; k++) {
-        prov = ent[k]; sub(/:.*/, "", prov)
-        model = ent[k]; sub(/^[^:]*:/, "", model)
-        if (!review_enabled(prov) || (model in seat_model_taken)) continue
-        fam = family_of(model)
-        if (best_model == "") best_model = ent[k]
-        if (!(fam in seat_fam_taken)) { best_fam = ent[k]; break }
-      }
-      return (best_fam != "" ? best_fam : best_model)
-    }
-    function take_seat(ent,    model) {
-      model = substr(ent, index(ent, ":") + 1)
-      seat_fam_taken[family_of(model)] = 1
-      seat_model_taken[model] = 1
-    }
-    function emit_seat(seat, primary_ent, fallback_list,    k, m, ent, prov, model, r, pools, rn) {
-      rn[1] = "primary"; rn[2] = "fallback"; rn[3] = "last-resort"
-      split("", pools)
-      split("", in_ladder)
-      prov = primary_ent; sub(/:.*/, "", prov)
-      model = primary_ent; sub(/^[^:]*:/, "", model)
-      printf "| %s | primary | %s | %s | %s | %s | %s |\n", seat, prov, model, review_effort(prov), family_of(model), (model ~ /muse-spark/ ? "trains" : "ok")
-      pools[pool_of(prov, model)] = 1
-      in_ladder[model] = 1
-      r = 1
-      m = split(fallback_list, ent, " ")
-      for (k = 1; k <= m && r < 3; k++) {
-        prov = ent[k]; sub(/:.*/, "", prov)
-        model = ent[k]; sub(/^[^:]*:/, "", model)
-        if (!review_enabled(prov)) continue
-        if ((model in in_ladder) || (model in seat_primary_model)) continue
-        if (pool_of(prov, model) in pools) continue
-        r++
-        printf "| %s | %s | %s | %s | %s | %s | %s |\n", seat, rn[r], prov, model, review_effort(prov), family_of(model), (model ~ /muse-spark/ ? "trains" : "ok")
-        pools[pool_of(prov, model)] = 1
-        in_ladder[model] = 1
-      }
-    }
-    function emit_role(role, max_rungs, allow_same_pool_fb,    r, i, pick, rung_name, role_pools) {
-      rnames[1] = "primary"
-      rnames[2] = "fallback"
-      rnames[3] = "last-resort"
-      split("", role_pools)
-      for (r = 1; r <= max_rungs; r++) {
-        pick = 0
-        for (i = 1; i <= c_n; i++) {
-          if (!c_used[i]) {
-            if (r == 1 || (r == 2 && allow_same_pool_fb && c_priv[1] == "trains") || !(c_pool[i] in role_pools)) {
-              pick = i
-              break
-            }
-          }
-        }
-        if (pick == 0) break
-        c_used[pick] = 1
-        role_pools[c_pool[pick]] = 1
-        rung_name = rnames[r]
-        printf "| %s | %s | %s | %s | %s | %s | %s |\n", role, rung_name, c_prov[pick], c_model[pick], c_effort[pick], c_fam[pick], c_priv[pick]
-        if (role == "reviewer-a" && r == 1) seat_a_fam = c_fam[pick]
-        if (role == "reviewer-b" && r == 1) seat_b_fam = c_fam[pick]
-        if (role == "reviewer-c" && r == 1) seat_c_fam = c_fam[pick]
-      }
-      c_n = 0
-    }
-    BEGIN {
-      has_agy = ENVIRON["COMPOSE_AGY"] + 0
-      has_cdx = ENVIRON["COMPOSE_CDX"] + 0
-      has_cld = ENVIRON["COMPOSE_CLD"] + 0
-      has_oc  = ENVIRON["COMPOSE_OC"] + 0
-      c_n = 0
-
-      has_review_prov = (has_agy || has_cld || has_cdx)
-
-      # driver (2 rungs)
-      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=medium", "openai", "ok")
-      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=medium", "anthropic", "ok")
-      add_cand("antigravity", "gemini-4-carbon", "thinking_level=high", "google", "ok")
-      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=medium", "anthropic", "ok")
-      add_cand("codex", "gpt-6-astra", "reasoningEffort=medium", "openai", "ok")
-      add_cand("claudeAgent", "claude-opus-5-5", "effort=medium", "anthropic", "ok")
-      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
-      if (c_n > 0) {
-        emit_role("driver", 2, 0)
-      } else {
-        print "| driver | primary | - | host-default | - | - | ok |"
-      }
-
-      # scout (3 rungs): with OpenCode Go, claudeAgent haiku backs the mimo
-      # primary ahead of gemini-3.8-flash / gpt-6-luna; without OpenCode Go,
-      # haiku keeps its slot after gpt-6-luna so it never becomes primary.
-      add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
-      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=low", "deepseek", "ok")
-      if (has_oc) add_cand("claudeAgent", "claude-haiku-5-5", "effort=low", "anthropic", "ok")
-      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=low", "google", "ok")
-      add_cand("codex", "gpt-6-luna", "reasoningEffort=low", "openai", "ok")
-      if (!has_oc) add_cand("claudeAgent", "claude-haiku-5-5", "effort=low", "anthropic", "ok")
-      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=low", "zhipu", "ok")
-      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=low", "anthropic", "ok")
-      add_cand("codex", "gpt-6.1-terra", "reasoningEffort=low", "openai", "ok")
-      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=low", "anthropic", "ok")
-      add_cand("antigravity", "gemini-4-carbon", "thinking_level=low", "google", "ok")
-      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=low", "openai", "ok")
-      add_cand("claudeAgent", "claude-fable-5-1", "effort=low", "anthropic", "ok")
-      emit_role("scout", 3, 0)
-
-      # implementer (3 rungs): Opus 5.5 high (Antigravity first, Claude Code
-      # when Antigravity is absent; the other is a same-model backup row),
-      # then gemini-4-carbon and gpt-6.1-sol.
-      add_cand("antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
-      if (!has_agy) add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
-      add_cand("antigravity", "gemini-4-carbon", "thinking_level=high", "google", "ok")
-      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
-      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
-      add_cand("codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
-      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
-      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
-      emit_role("implementer", 3, 0)
-
-      # implementer-deep (3 rungs): Fable 5.2 high on Claude Code (Opus 5.5 on
-      # Antigravity without Claude Code), then gemini-4-hydrogen and gpt-6.1-sol.
-      add_cand("claudeAgent", "claude-fable-5-2", "effort=high", "anthropic", "ok")
-      if (!has_cld) add_cand("antigravity", "claude-opus-5-5", "thinking_level=high", "anthropic", "ok")
-      add_cand("antigravity", "gemini-4-hydrogen", "thinking_level=high", "google", "ok")
-      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
-      add_cand("codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
-      add_cand("antigravity", "gemini-4-carbon", "thinking_level=high", "google", "ok")
-      add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
-      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=max", "deepseek", "ok")
-      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
-      emit_role("implementer-deep", 3, 0)
-
-      # tester (3 rungs)
-      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
-      add_cand("codex", "gpt-6-luna", "reasoningEffort=medium", "openai", "ok")
-      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=medium", "google", "ok")
-      add_cand("claudeAgent", "claude-haiku-5-5", "effort=medium", "anthropic", "ok")
-      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
-      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=low", "anthropic", "ok")
-      add_cand("codex", "gpt-6.1-terra", "reasoningEffort=medium", "openai", "ok")
-      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=medium", "anthropic", "ok")
-      add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
-      add_cand("antigravity", "gemini-4-carbon", "thinking_level=medium", "google", "ok")
-      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=low", "openai", "ok")
-      add_cand("claudeAgent", "claude-fable-5-1", "effort=medium", "anthropic", "ok")
-      emit_role("tester", 3, 0)
-
-      # patch (3 rungs)
-      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
-      add_cand("codex", "gpt-6-luna", "reasoningEffort=medium", "openai", "ok")
-      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=medium", "google", "ok")
-      add_cand("claudeAgent", "claude-haiku-5-5", "effort=medium", "anthropic", "ok")
-      add_cand("opencode", "opencode-go/muse-spark-1.3-contributor", "variant=medium", "meta", "trains")
-      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=low", "anthropic", "ok")
-      add_cand("codex", "gpt-6.1-terra", "reasoningEffort=medium", "openai", "ok")
-      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=medium", "anthropic", "ok")
-      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
-      add_cand("antigravity", "gemini-4-carbon", "thinking_level=medium", "google", "ok")
-      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=low", "openai", "ok")
-      add_cand("claudeAgent", "claude-fable-5-1", "effort=medium", "anthropic", "ok")
-      emit_role("patch", 3, 0)
-
-      # task-reviewer (3 rungs)
-      add_cand("codex", "gpt-6.1-terra", "reasoningEffort=high", "openai", "ok")
-      add_cand("claudeAgent", "claude-sonnet-5-5", "effort=high", "anthropic", "ok")
-      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=high", "zhipu", "ok")
-      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=high", "google", "ok")
-      add_cand("antigravity", "claude-sonnet-5-5", "thinking_level=high", "anthropic", "ok")
-      add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
-      add_cand("codex", "gpt-6.1-sol", "reasoningEffort=high", "openai", "ok")
-      add_cand("claudeAgent", "claude-opus-5-5", "effort=high", "anthropic", "ok")
-      add_cand("opencode", "opencode-go/deepseek-v4.1-flash", "variant=high", "deepseek", "ok")
-      add_cand("antigravity", "gemini-4-carbon", "thinking_level=high", "google", "ok")
-      add_cand("codex", "gpt-6-astra", "reasoningEffort=high", "openai", "ok")
-      add_cand("claudeAgent", "claude-haiku-5-5", "effort=high", "anthropic", "ok")
-      emit_role("task-reviewer", 3, 0)
-
-      # Council: Seat A (captain) takes claude-fable-5-2, Seat B gpt-6-astra and
-      # Seat C gemini-4-hydrogen whenever their provider is selected. A seat
-      # whose spec model is missing takes a family no other seat holds when
-      # possible, else a model no other seat holds; fallbacks avoid every seat
-      # primary model and reuse no quota pool within a seat.
-      split("", seat_fam_taken)
-      split("", seat_model_taken)
-      pa = (has_cld ? "claudeAgent:claude-fable-5-2" : "")
-      pb = (has_cdx ? "codex:gpt-6-astra" : "")
-      pc = (has_agy ? "antigravity:gemini-4-hydrogen" : "")
-      if (pa != "") take_seat(pa)
-      if (pb != "") take_seat(pb)
-      if (pc != "") take_seat(pc)
-      if (pa == "") { pa = pick_primary("antigravity:claude-opus-5-5 claudeAgent:claude-opus-5-5 codex:gpt-6.1-terra antigravity:gemini-4-carbon codex:gpt-6.1-sol opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/glm-5.3-flash opencode:opencode-go/muse-spark-1.3-contributor"); take_seat(pa) }
-      if (pb == "") { pb = pick_primary("codex:gpt-6.1-terra antigravity:gemini-4-carbon claudeAgent:claude-sonnet-5-5 antigravity:claude-sonnet-5-5 codex:gpt-6.1-sol claudeAgent:claude-opus-5-5 opencode:opencode-go/glm-5.3-flash opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/muse-spark-1.3-contributor"); take_seat(pb) }
-      if (pc == "") { pc = pick_primary("antigravity:gemini-4-carbon antigravity:claude-sonnet-5-5 codex:gpt-6.1-terra codex:gpt-6.1-sol claudeAgent:claude-opus-5-5 claudeAgent:claude-sonnet-5-5 opencode:opencode-go/muse-spark-1.3-contributor opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/glm-5.3-flash"); take_seat(pc) }
-      split("", seat_primary_model)
-      seat_primary_model[substr(pa, index(pa, ":") + 1)] = 1
-      seat_primary_model[substr(pb, index(pb, ":") + 1)] = 1
-      seat_primary_model[substr(pc, index(pc, ":") + 1)] = 1
-      emit_seat("reviewer-a", pa, "codex:gpt-6.1-terra antigravity:gemini-4-carbon claudeAgent:claude-sonnet-5-5 antigravity:claude-sonnet-5-5 codex:gpt-6.1-sol antigravity:gemini-4-hydrogen claudeAgent:claude-opus-5-5 opencode:opencode-go/glm-5.3-flash opencode:opencode-go/deepseek-v4.1-flash")
-      emit_seat("reviewer-b", pb, "antigravity:gemini-4-carbon claudeAgent:claude-sonnet-5-5 codex:gpt-6.1-terra antigravity:claude-sonnet-5-5 codex:gpt-6.1-sol claudeAgent:claude-opus-5-5 opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/glm-5.3-flash")
-      emit_seat("reviewer-c", pc, "antigravity:claude-sonnet-5-5 codex:gpt-6.1-terra claudeAgent:claude-sonnet-5-5 antigravity:gemini-4-carbon codex:gpt-6.1-sol claudeAgent:claude-opus-5-5 opencode:opencode-go/deepseek-v4.1-flash opencode:opencode-go/glm-5.3-flash")
-
-      # compaction (2 rungs)
-      add_cand("claudeAgent", "claude-haiku-5-5", "effort=low", "anthropic", "ok")
-      add_cand("opencode", "opencode-go/mimo-v2.6-flash", "-", "xiaomi", "ok")
-      add_cand("codex", "gpt-6-luna", "reasoningEffort=low", "openai", "ok")
-      add_cand("antigravity", "gemini-3.8-flash", "thinking_level=low", "google", "ok")
-      add_cand("opencode", "opencode-go/glm-5.3-flash", "variant=low", "zhipu", "ok")
-      emit_role("compaction", 2, 0)
-    }
-  ' </dev/null
-
-  printf '\n## Quota pools\n\n'
-  printf '| pool | provider | models | window | soft-cap | reserve |\n'
-  printf '| --- | --- | --- | --- | --- | --- |\n'
-  if [ "$has_oc" -eq 1 ]; then
-    printf '| opencode-go | opencode | * | 5h | - | - |\n'
-  fi
-  if [ "$has_cld" -eq 1 ]; then
-    printf '| claude-code | claudeAgent | * | 5h | - | - |\n'
-  fi
-  if [ "$has_agy" -eq 1 ]; then
-    printf '| antigravity-claude | antigravity | claude-* | 5h | - | - |\n'
-    printf '| antigravity-gemini | antigravity | gemini-* | 5h | - | - |\n'
-  fi
-  if [ "$has_cdx" -eq 1 ]; then
-    printf '| codex | codex | * | 5h | - | - |\n'
-  fi
-
-  # Reviewer seats are never served by OpenCode backup rows, and every
-  # reviewer backup row runs at high effort; non-reviewer roles are explicit.
-  local nr_roles='scout,implementer,implementer-deep,tester,patch,task-reviewer'
-  local rv_roles='reviewer-a,reviewer-b,reviewer-c'
-  printf '\n## Backup ladder\n\n'
-  printf '| order | roles | provider | model | effort | family | privacy |\n'
-  printf '| --- | --- | --- | --- | --- | --- | --- |\n'
-  local b_order=0
-  if [ "$has_agy" -eq 1 ] && [ "$has_cld" -eq 1 ]; then
-    b_order=$((b_order + 1))
-    printf '| %d | implementer | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |\n' "$b_order"
-  fi
-  if [ "$has_oc" -eq 1 ]; then
-    b_order=$((b_order + 1))
-    printf '| %d | implementer,implementer-deep,tester,patch | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |\n' "$b_order"
-    b_order=$((b_order + 1))
-    printf '| %d | task-reviewer | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |\n' "$b_order"
-  fi
-  if [ "$has_cdx" -eq 1 ]; then
-    b_order=$((b_order + 1))
-    printf '| %d | %s | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |\n' "$b_order" "$rv_roles"
-  fi
-  if [ "$has_agy" -eq 1 ]; then
-    b_order=$((b_order + 1))
-    printf '| %d | %s | antigravity | gemini-3.8-flash | thinking_level=high | google | ok |\n' "$b_order" "$rv_roles"
-  fi
-  if [ "$has_cld" -eq 1 ]; then
-    b_order=$((b_order + 1))
-    printf '| %d | %s | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |\n' "$b_order" "$rv_roles"
-  fi
-  if [ "$has_oc" -eq 1 ]; then
-    b_order=$((b_order + 1))
-    printf '| %d | %s | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |\n' "$b_order" "$nr_roles"
-  fi
-  if [ "$has_cdx" -eq 1 ]; then
-    b_order=$((b_order + 1))
-    printf '| %d | %s | codex | gpt-6.1-sol | reasoningEffort=medium | openai | ok |\n' "$b_order" "$nr_roles"
-  fi
-  if [ "$has_agy" -eq 1 ]; then
-    b_order=$((b_order + 1))
-    printf '| %d | %s | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |\n' "$b_order" "$nr_roles"
-    b_order=$((b_order + 1))
-    printf '| %d | %s | antigravity | claude-sonnet-5-5 | thinking_level=medium | anthropic | ok |\n' "$b_order" "$nr_roles"
-  fi
-  if [ "$has_cld" -eq 1 ]; then
-    b_order=$((b_order + 1))
-    printf '| %d | %s | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |\n' "$b_order" "$nr_roles"
-  fi
-
-  printf '\n## Single-provider review\n\n'
-  printf 'When exactly one provider still has an eligible pool, every council seat draws pairwise-distinct, non-author models from that provider'"'"'s rows below.\n\n'
-  printf '| provider | model | effort | family | privacy |\n'
-  printf '| --- | --- | --- | --- | --- |\n'
-  if [ "$has_agy" -eq 1 ]; then
-    printf '| antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |\n'
-    printf '| antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |\n'
-    printf '| antigravity | gemini-4-carbon | thinking_level=high | google | ok |\n'
-  fi
-  if [ "$has_cld" -eq 1 ]; then
-    printf '| claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |\n'
-    printf '| claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |\n'
-    printf '| claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |\n'
-  fi
-  if [ "$has_cdx" -eq 1 ]; then
-    printf '| codex | gpt-6-astra | reasoningEffort=high | openai | ok |\n'
-    printf '| codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |\n'
-    printf '| codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |\n'
-  fi
-  if [ "$has_oc" -eq 1 ]; then
-    printf '| opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |\n'
-    printf '| opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |\n'
-    printf '| opencode | opencode-go/muse-spark-1.3-contributor | variant=high | meta | trains |\n'
-  fi
+  printf 'Selected connection preference: `%s` (preserved on refresh).\n\n' "$prov_list"
+  printf 'Selection prefers supported provider paths for the same required model; it is not an exclusive provider allowlist. Cross-provider roles retain the fixed shipped policy. Unavailable rungs are unreachable; never substitute excluded review or draft models.\n\n'
+  # Skip only the shipped title, retaining its self-contained policy and tables.
+  sed '1d' "$policy"
 }
 
 verify_target() {

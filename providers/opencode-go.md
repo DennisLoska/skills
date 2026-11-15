@@ -1,103 +1,99 @@
-# OpenCode Go provider profile
+# Opencode-Go provider profile
 
-Provider: OpenCode Go (`opencode-go/*`, sized for the $40/mo Go Plus tier; the $10 Go tier grants 2x-8x less per model) for every non-review role. No Anthropic, Google, OpenAI, or low-allowance Pro models are routed through OpenCode Go. Cheap seats sit on high-allowance open-weight request tiers (18,960 to 90,600 req/5h): `deepseek-v4.1-flash`, `muse-spark-1.3-contributor`, `mimo-v2.6-flash`, and `glm-5.3-flash`.
+All six shipped profiles and every `--providers` combination share the same model policy. Profile/provider selection records the connection preference, not an exclusive provider allowlist. Cross-provider roles remain portable: unavailable rungs are marked unreachable; design/planning stops when its exact ladder is unavailable, and review never substitutes an excluded model. A single-provider host may therefore be unable to complete the pipeline.
 
-The shared implementer and council ladders name Antigravity, Claude Code and Codex rungs (implementers on Claude Opus 5.5 / Fable 5.2 at `high`; council captain on `claude-fable-5-2`, Seat B `gpt-6-astra`, Seat C `gemini-4-hydrogen`). On an OpenCode-only host those rungs are `unreachable`: implementers demote to the OpenCode backup rows, and the council runs as `single-provider review: opencode` on the rows in `## Single-provider review`.
+## Role distribution
 
-Effort defaults:
-- **Tester and patch:** `deepseek-v4.1-flash` pinned `#high` (its middle tier; the catalog exposes `low|high|max`).
-- **Implementers (backup rows):** `deepseek-v4.1-flash` `#high` (`implementer`) and `#max` (`implementer-deep`), then `glm-5.3-flash` `#high`.
-- **Scout:** `mimo-v2.6-flash` (catalog exposes a single default reasoning tier, no `#variant` suffix; fallbacks pin `#low`).
+- **Driver:** Codex `gpt-6.1-sol` at `medium`, with Claude Sonnet 5.5 at `medium` as fallback. Invoking a skill does not switch the driver.
+- **Design and planning drafts:** `designer` (`shape`, `domain-modeling`, `codebase-design`) and `planner` (`plan`) delegate read-only drafts to Claude Fable 5.2 at `high`, falling back only to Sol at `high`. The driver owns conversation, approvals, canonical artifacts and phase advancement.
+- **Discovery, testing, patching:** OpenCode Go Deepseek V4.1 Flash at `variant=high`, then Gemini 3.8 Flash and GPT Luna at `low` for discovery or `medium` for testing and patching.
+- **Implementation:** Claude Opus 5.5 at `high` on Antigravity, with the same-model Claude Code alternate. Deep implementation uses Claude Fable 5.2 at `high`.
+- **Per-task review:** GPT Sol, then GPT Astra, then Claude Fable 5.2, all at `high`, with author-family/model exclusions enforced by the harness.
+- **Council:** Fable 5.2 is preferred captain (A), GPT Astra is Seat B, and GPT Sol is Seat C, all at `high`. Every fallback, backup and captain ruling stays within this exact three-model allowlist. A model that authored the diff is excluded across all providers. For Fable-authored changes, a healthy GPT seat becomes captain; it cannot receive Fable's author vote.
+- **Compaction:** Gemini 3.8 Flash at `low`, then GPT Luna at `low`.
+
+## Budget facts and provider load split
+
+Antigravity isolates Gemini and Claude quota pools. Claude Code carries deep implementation, the Opus alternate, and the Fable review captain. Codex carries the driver and both GPT review models. OpenCode Go carries only Deepseek Flash for cheap non-review work. Every explicit effort is at most `high`; default effort requires runtime verification before dispatch.
 
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
+| driver | primary | codex | gpt-6.1-sol | reasoningEffort=medium | openai | ok |
+| driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |
+| designer | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
+| designer | fallback | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| planner | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
+| planner | fallback | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| scout | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
+| scout | fallback | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |
+| scout | last-resort | codex | gpt-6-luna | reasoningEffort=low | openai | ok |
 | implementer | primary | antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
-| implementer | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| implementer | fallback | antigravity | gemini-4-argon | thinking_level=high | google | ok |
 | implementer | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
 | implementer-deep | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | implementer-deep | fallback | antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
 | implementer-deep | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
 | tester | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
-| tester | fallback | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
-| tester | last-resort | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
+| tester | fallback | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |
+| tester | last-resort | codex | gpt-6-luna | reasoningEffort=medium | openai | ok |
 | patch | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
-| patch | fallback | opencode | opencode-go/muse-spark-1.3-contributor | variant=medium | meta | trains |
-| patch | last-resort | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
-| task-reviewer | primary | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
-| task-reviewer | fallback | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
-| task-reviewer | last-resort | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
-| scout | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
-| scout | fallback | opencode | opencode-go/deepseek-v4.1-flash | variant=low | deepseek | ok |
-| scout | last-resort | opencode | opencode-go/glm-5.3-flash | variant=low | zhipu | ok |
+| patch | fallback | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |
+| patch | last-resort | codex | gpt-6-luna | reasoningEffort=medium | openai | ok |
+| task-reviewer | primary | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| task-reviewer | fallback | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
+| task-reviewer | last-resort | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | reviewer-a | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
-| reviewer-a | fallback | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
-| reviewer-a | last-resort | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| reviewer-a | fallback | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
+| reviewer-a | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
 | reviewer-b | primary | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
-| reviewer-b | fallback | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
-| reviewer-b | last-resort | claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
-| reviewer-c | primary | antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
-| reviewer-c | fallback | antigravity | claude-sonnet-5-5 | thinking_level=high | anthropic | ok |
-| reviewer-c | last-resort | codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
-| compaction | primary | opencode | opencode-go/mimo-v2.6-flash | - | xiaomi | ok |
-| compaction | fallback | opencode | opencode-go/glm-5.3-flash | variant=low | zhipu | ok |
-| driver | primary | - | host-default | - | - | ok |
+| reviewer-b | fallback | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| reviewer-b | last-resort | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
+| reviewer-c | primary | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| reviewer-c | fallback | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
+| reviewer-c | last-resort | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
+| compaction | primary | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |
+| compaction | fallback | codex | gpt-6-luna | reasoningEffort=low | openai | ok |
 
 ## Quota pools
-
-Each OpenCode Go model has its own per-model monthly dollar limit and 5-hour cap (`<provider>/<model>` by default when no pool row matches):
 
 | pool | provider | models | window | soft-cap | reserve |
 | --- | --- | --- | --- | --- | --- |
 | opencode-go | opencode | * | 5h | - | - |
+| claude-code | claudeAgent | * | 5h | - | - |
+| antigravity-claude | antigravity | claude-* | 5h | - | - |
+| antigravity-gemini | antigravity | gemini-* | 5h | - | - |
+| codex | codex | * | 5h | - | - |
 
 ## Backup ladder
 
+Review rows are separate from implementation rows: no cheap or mixed backup grants review eligibility. Resolve author exclusions and distinct active models before selecting any row.
+
 | order | roles | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
-| 1 | implementer,tester,patch | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
-| 2 | implementer-deep | opencode | opencode-go/deepseek-v4.1-flash | variant=max | deepseek | ok |
-| 3 | implementer,implementer-deep | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
-| 4 | task-reviewer | opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
+| 1 | implementer | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |
+| 2 | scout,implementer,implementer-deep,tester,patch | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
+| 3 | task-reviewer,reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| 4 | task-reviewer,reviewer-a,reviewer-b,reviewer-c | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
+| 5 | task-reviewer,reviewer-a,reviewer-b,reviewer-c | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
+| 6 | scout,implementer,implementer-deep,tester,patch | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |
+| 7 | scout,implementer,implementer-deep,tester,patch | codex | gpt-6-luna | reasoningEffort=medium | openai | ok |
 
 ## Single-provider review
 
+When only Codex remains, run a degraded two-seat council on Astra and Sol only if both are eligible non-author models. If either authored the diff, stop with fewer than two independent models. Claude Code has only one allowed review model, so Claude-only review stops; Antigravity-only and OpenCode-only review also stop. Never add excluded models or waive the self-review ban to recover a seat.
+
 | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- |
-| opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
-| opencode | opencode-go/glm-5.3-flash | variant=high | zhipu | ok |
-| opencode | opencode-go/muse-spark-1.3-contributor | variant=high | meta | trains |
-| claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
-| claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |
-| claudeAgent | claude-sonnet-5-5 | effort=high | anthropic | ok |
 | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
-| codex | gpt-6.1-terra | reasoningEffort=high | openai | ok |
 | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
-| antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
-| antigravity | claude-opus-5-5 | thinking_level=high | anthropic | ok |
-| antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 
-## Quotas and provider notes
+## Supported driver setups
 
-Estimated allowance per model (req/5h, Go Plus $40/mo tier):
+The `driver` row stays advisory; the installer validates it when present, never requires it, and never renders it. Two setups are supported:
 
-| Model | req/5h |
-| --- | --- |
-| muse-spark-1.3-contributor | 90,600 |
-| deepseek-v4.1-flash | 86,670 |
-| mimo-v2.6-flash | 60,200 |
-| glm-5.3-flash | 18,960 |
+1. **Standalone host (without T3 Code):** OpenCode, Codex, Antigravity (Gemini session; Claude sessions use `--profile antigravity`), or Claude Code runs same-provider rungs natively via Dispatch Adapter Path 2/Path 3 (falling back to matching `## Backup ladder` rows when primary rungs sit on other providers; single-provider users can also bind `--profile opencode-go|codex|antigravity|claude`). Under every shipped profile on OpenCode, `implementer`, `implementer-deep`, and the council seats have no `opencode` ladder rung and install unpinned (never using Path 2).
+2. **Any T3 Code provider session:** `./install.sh --target all` populates standalone roots and any T3 Antigravity instances (`skills/_harness/`), dispatching across all connected providers via `delegate_task` with child-enforced permissions.
 
-Driver is advisory and uses the host default. Compaction is advisory and configured by the host.
+## Privacy
 
-Deepseek v4 models are cheapest off-peak: 01:00-04:00, 06:00-10:00 UTC Mon-Fri is peak.
-
-## Privacy Footnotes
-
-| Model | Reads your code as | Note |
-| --- | --- | --- |
-| muse-spark-\* | trains on request data | High-allowance workhorse (90,600 req/5h). Skip on confidential diffs via the privacy gate |
-| deepseek v4 family | region-gated | Confirm Global region is enabled in Console Privacy |
-
-GLM / MiMo via Go: not used for training, 0-day retention. Antigravity, Claude Code and Codex `ok` marks assume model-training opt-out on those accounts.
-
-Compaction and summary never route to a training family.
+The `ok` marks for Claude Code (`claudeAgent`), Antigravity (`antigravity`), and Codex (`codex`) assume the account has model-training opt-out enabled. Confirm that account setting before dispatch. The Deepseek Flash OpenCode Go rows use the non-training privacy class (`ok`).
