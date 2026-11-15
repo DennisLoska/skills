@@ -120,7 +120,7 @@ Final handoff: return to the controller with the final review verdict. Inside th
 
 Standalone (no oneshot): after final review PASS, run the verify skill yourself, then land.
 
-**Closed review eligibility:** Apply the active profile's review allowlist to task reviews, council seats, captain rulings, backups, and single-provider recovery. Never introduce an excluded model to fill a seat. Exclude every author model even on another provider. If the preferred captain authored the diff, the first healthy eligible seat takes captaincy. Fewer than two independent eligible council models means stop; provider availability never overrides the allowlist.
+**Closed review eligibility:** Apply the active profile's review allowlist to task reviews, council seats, captain rulings, backups, and single-provider recovery. Never introduce an excluded model to fill a seat. Exclude every author model even on another provider. If the preferred captain authored the diff, the first healthy eligible seat takes captaincy. Fewer than two independent eligible council models means stop outside the audited oneshot mode=single exception in HARNESS.md; provider availability never overrides the allowlist.
 
 ## Model Routing
 

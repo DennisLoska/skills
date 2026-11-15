@@ -231,8 +231,8 @@ oneshot build a rate-limited webhook delivery worker with exponential backoff, d
 4. **Phase 4 &ndash; `verify`:** runs full test suite, lint, and build via `tester` to collect fresh pass/fail command evidence.
 5. **Phase 5 &ndash; `land` (PR Filing):** pushes branch and opens GitHub PR with summary, test plan, and quota budget block.
 6. **Phase 6.5 &ndash; `make-ci-green` (L3 CI Loop):** polls GitHub Actions / review bots, inspects logs via `tester`, and dispatches implementation fixers.
-7. **Phase 6 &ndash; `council` (L2 Branch Loop):** three seats on distinct models review in parallel (`reviewer-a` is the review captain, plus `reviewer-b` and `reviewer-c`). If any seat fails or raises a red/yellow finding, the captain rules on every finding: accept (fix now), defer (backlog ticket), or reject (wrong, with evidence). PASS modes: `nominal` (&ge;2/3), `degraded` (2/2 with one seat lost), or `captain` (captain PASS over FAIL votes whose findings were all deferred or rejected). Forbids identical-model author self-review. Max 3 rounds, then stop to the user.
-8. **Phase 7 &ndash; `land` (Gate 3 Handoff):** presents finish options (merge PR, keep PR open, keep branch, discard). Merging strictly requires an audited Phase 6 `council_verdict: PASS` (`mode=nominal|degraded|captain`) with `head=<sha>` match via `gh pr merge --squash --match-head-commit <sha>`, then files the deferred findings as tickets per `--pm`, and is worktree-aware.
+7. **Phase 6 &ndash; `council` (L2 Branch Loop):** three seats on distinct models review in parallel (`reviewer-a` is the review captain, plus `reviewer-b` and `reviewer-c`). If any seat fails or raises a red/yellow finding, the captain rules on every finding: accept (fix now), defer (backlog ticket), or reject (wrong, with evidence). PASS modes: audited oneshot `single` (one independent reviewer, 1 or 2 eligible providers, green actual checks), `nominal` (&ge;2/3), `degraded` (2/2 with one seat lost), or `captain` (captain PASS over FAIL votes whose findings were all deferred or rejected). Forbids identical-model author self-review. Max 3 rounds, then stop to the user.
+8. **Phase 7 &ndash; `land` (Gate 3 Handoff):** presents finish options (merge PR, keep PR open, keep branch, discard). Merging strictly requires an audited Phase 6 `council_verdict: PASS` (`mode=nominal|degraded|captain|single`) with `head=<sha>` match via `gh pr merge --squash --match-head-commit <sha>`, then files the deferred findings as tickets per `--pm`, and is worktree-aware.
 
 ### 2. Zero-Gate Unattended Mode (`oneshot` Auto-Approve)
 
@@ -292,11 +292,11 @@ All six shipped profiles and all 15 `--providers` combinations use the same mode
 - **Cheap work:** scout, tester and patch use Deepseek V4.1 Flash, then Gemini 3.8 Flash, then Luna. Compaction uses Gemini Flash then Luna at low effort. OpenCode routes only Deepseek Flash.
 - **Implementation:** Opus 5.5 primary and Fable 5.2 deep; Gemini Argon and Sol remain implementation fallbacks. Claude-first selection prefers Claude Code for Opus; Antigravity-first selection prefers Antigravity, with the other same-model path retained.
 - **Reviews:** task review starts on Sol; council A/captain is Fable, B Astra, C Sol. All review fallbacks, backups and recovery stay within those three models. Author independence applies across providers.
-- **Unavailable providers:** mark rungs unreachable and walk permitted ladders. Codex-only review uses Astra and Sol if both are healthy non-authors. Other provider-only hosts cannot form a panel; exact draft ladders can also be unavailable. No excluded model fills the gap.
+- **Unavailable providers:** mark rungs unreachable and walk permitted ladders. Codex-only retains Astra and Sol, with optional single mode in oneshot. Claude-only permits non-author Fable in audited oneshot mode=single; Antigravity-only and OpenCode-only cannot form a panel; exact draft ladders can also be unavailable. No excluded model fills the gap.
 
 #### 2. The Council: Three Seats and a Review Captain (Phase 6)
 
-- **Why multiple models?** Single-model reviews suffer from self-confirmation bias, hallucinated validations, and identical blind spots. The council runs three distinct models in parallel before any branch can merge, using the active profile's allowed review models. Every shipped/generated policy permits only Fable, Astra, and Sol.
+- **Why multiple models?** Single-model reviews suffer from self-confirmation bias, hallucinated validations, and identical blind spots. The council runs three distinct models in parallel for normal quorum, using the active profile's allowed review models. Every shipped/generated policy permits only Fable, Astra, and Sol.
 - **Council Seats**:
   - **Seat A (`reviewer-a`), review captain**: Anthropic `claude-fable-5-2` via Claude Code. If Seat A has no eligible rung, captaincy passes to Seat B, then Seat C.
   - **Seat B (`reviewer-b`)**: OpenAI `gpt-6-astra` via Codex.
@@ -309,11 +309,14 @@ All six shipped profiles and all 15 `--providers` combinations use the same mode
   | --- | --- |
   | `nominal` | &ge;2/3 seats PASS, zero unresolved accepted findings, green tests (or the `no-tests` exception) |
   | `degraded` | 2/2 healthy seats PASS (one seat lost), zero unresolved accepted findings, green tests |
+  | `single` | oneshot only: 1 independent reviewer final PASS, audited 1 or 2 providers, zero unresolved accepted findings, green actual checks (no no-tests exception) |
   | `captain` | captain PASS; every finding behind a FAIL vote deferred or rejected; zero unresolved accepted findings; green tests |
+
+Oneshot alone permits optional `mode=single` with 1 or 2 eligible profile provider instances, even with multiple allowed reviewers available. Count unique provider IDs across all roles using pool quota, soft-cap, privacy and reachability, not review-model counts; a healthy Gemini pool preserves Antigravity when its Claude pool is exhausted. Audit IDs/count/HEAD plus same-head captain/reviewer at council start, demotion and freshly before merge. Missing, stale or unknown evidence never unlocks single; >2 providers require normal 2+ review; zero providers or independent reviewers stop. The sole reviewer is captain; fresh rulings use that captain. Require its real final PASS, zero unresolved accepted findings and actual green checks (no no-tests exception), matching local/remote HEAD via `--match-head-commit`. Verdict: `council_verdict: PASS|FAIL round=<n> mode=single providers=<1|2> reviewer=<provider/model> head=<sha>`. Normal nominal/degraded/captain criteria, review allowlist, self-review ban, high ceiling and budgets remain intact.
 
 - **Core Council Invariants**:
   - **Author-Reviewer Independence**: a model that authored code (`implementer`, `tester`, `patch`, or fixers) never reviews it. Seats run on pairwise-distinct models outside `author_models`.
-  - **Non-Blocking Model Independence**: council needs &ge;2 distinct non-author reviewer models; with fewer it stops with `yellow: degraded council`.
+  - **Non-Blocking Model Independence**: normal council needs &ge;2 distinct non-author reviewer models; audited oneshot `mode=single` permits one with 1 or 2 eligible provider instances.
   - **Actionable Severity Syntax**: findings follow `path:line: emoji severity: problem. fix.` (RED = bug, YELLOW = risk, BLUE = nit on request). No praise.
   - **Closed Fixer Loop**: accepted findings trigger `implementer` fixes &rarr; `tester` regression checks &rarr; `make-ci-green` &rarr; re-review by all active seats plus a fresh ruling, for at most 3 rounds (15 reviewer dispatches: 9 seat, 3 rulings, 3 demotions). A round-3 FAIL stops to the user; there is no escalation seat.
 
@@ -402,9 +405,9 @@ All delegated work is at most high. See [skill-model-routing.md](docs/skill-mode
 | `designer` (optional draft) | Fable 5.2 | Sol | — |
 | `planner` (optional draft) | Fable 5.2 | Sol | — |
 | `task-reviewer` | Sol | Astra | Fable 5.2 |
-| Council A / B / C | Fable 5.2 / Astra / Sol | Only eligible models from the same three-model set | Stop if fewer than two independent models remain |
+| Council A / B / C | Fable 5.2 / Astra / Sol | Only eligible models from the same three-model set | Optional audited oneshot single quorum at 1 or 2 eligible provider instances |
 
-Claude Code provides the Opus same-model alternate. Review backups and single-provider rows cannot widen the closed review set. Codex-only review uses Astra and Sol; Claude-only review cannot form a council. Every shipped profile contains the complete policy tables.
+Claude Code provides the Opus same-model alternate. Review backups and single-provider rows cannot widen the closed review set. Codex-only review uses Astra and Sol; Claude-only review may use independent Fable in audited oneshot single mode. Every shipped profile contains the complete policy tables.
 
 ---
 
@@ -447,7 +450,7 @@ cp providers/tri.md ~/.config/oneshot/my-profile.md
 **Invariants:**
 - Harness files (`skills/**`, `agents/*.md`, `AGENTS.md`) contain **no** concrete model IDs or provider quotas.
 - Every profile defines a `primary` row for all nine dispatched roles; advisory rows (`driver`, `compaction`) remain optional. Optional ad-hoc `designer`/`planner` require a primary only when mentioned and never create native agent files. Shape/design skills and plan own these handoffs; workers return drafts without edits, commits, execution or child delegation. Already-dispatched workers draft directly without skill recursion. Profiles without these roles retain legacy driver drafting.
-- Council seats run on pairwise-distinct models outside `author_models` and require &ge;2 distinct non-author reviewer models. The captain may defer out-of-scope findings but never a confirmed in-scope bug. Identical-model author self-review is strictly forbidden.
+- Council seats run on pairwise-distinct models outside `author_models` and normally require &ge;2 distinct non-author reviewer models (audited oneshot single exception below). The captain may defer out-of-scope findings but never a confirmed in-scope bug. Identical-model author self-review is strictly forbidden.
 - No model/provider/role may request or inherit reasoning above `high`; unknown defaults require an explicit safe option or an unreachable rung.
 - In T3 Code, Path 1 (`delegate_task`) dispatches every provider; standalone OpenCode uses Path 2 only when the rung matches its installed pin, or Path 3 same-provider dispatch.
 - Never commit or push to `main`/`master`; work on `feat/<topic>` and land through a PR.

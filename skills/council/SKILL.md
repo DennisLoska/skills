@@ -11,9 +11,15 @@ Consensus review by 3 independent reviewers, a captain ruling on their findings,
 
 **Why:** One reviewer = one blind spot. Three distinct models = three different failure patterns. Agreement matters more than any single opinion, and a captain keeps valid-but-out-of-scope findings from blocking a change: they become backlog tickets instead of fix rounds.
 
-**Model routing:** Reviewer seats `reviewer-a` (review captain), `reviewer-b`, and `reviewer-c` come from the active provider profile (`PROVIDERS.md`), routed by the `HARNESS.md` (`AGENTS.md`) Routing Rules (quota pools & ledger, failure classes, soft cap & reserve, same-model alternate, balanced seat fallback, seat distinctness, single-provider review, universal high effort ceiling, backup ladder walk, and budget stop & resume) and Dispatch Adapter (if `HARNESS.md` and `PROVIDERS.md` are not already in context, read `../_harness/HARNESS.md` and `../_harness/PROVIDERS.md` or `../../HARNESS.md` and `../../PROVIDERS.md` relative to this skill's directory; quota ledger read/updated via shell at `../../state/quota-ledger.tsv`). Never hardcode IDs. On usage-limit/429 (`exhausted`), an `unreachable` rung, a failed `transient` retry, or a soft-cap skip: re-seat per Fallback mechanics below and announce the demotion. Minimum 2 distinct non-author review models or stop and surface yellow.
+**Model routing:** Reviewer seats `reviewer-a` (review captain), `reviewer-b`, and `reviewer-c` come from the active provider profile (`PROVIDERS.md`), routed by the `HARNESS.md` (`AGENTS.md`) Routing Rules (quota pools & ledger, failure classes, soft cap & reserve, same-model alternate, balanced seat fallback, seat distinctness, single-provider review, universal high effort ceiling, backup ladder walk, and budget stop & resume) and Dispatch Adapter (if `HARNESS.md` and `PROVIDERS.md` are not already in context, read `../_harness/HARNESS.md` and `../_harness/PROVIDERS.md` or `../../HARNESS.md` and `../../PROVIDERS.md` relative to this skill's directory; quota ledger read/updated via shell at `../../state/quota-ledger.tsv`). Never hardcode IDs. On usage-limit/429 (`exhausted`), an `unreachable` rung, a failed `transient` retry, or a soft-cap skip: re-seat per Fallback mechanics below and announce the demotion. Normal quorum is at least 2 distinct non-author review models; only the audited oneshot mode=single exception below permits one.
 
-**Closed review eligibility:** Apply the active profile's review allowlist to task reviews, council seats, captain rulings, backups, and single-provider recovery. Never introduce an excluded model to fill a seat. Exclude every author model even on another provider. If the preferred captain authored the diff, the first healthy eligible seat takes captaincy. Fewer than two independent eligible council models means stop; provider availability never overrides the allowlist.
+**Closed review eligibility:** Apply the active profile's review allowlist to task reviews, council seats, captain rulings, backups, and single-provider recovery. Never introduce an excluded model to fill a seat. Exclude every author model even on another provider. If the preferred captain authored the diff, the first healthy eligible seat takes captaincy. Fewer than two independent eligible council models means stop outside the audited oneshot mode=single exception in HARNESS.md; provider availability never overrides the allowlist.
+
+**Single-reviewer council (oneshot only):** `mode=single` is optional when 1 or 2 provider instances remain eligible, even if more review models are available. With >2 providers use normal 2+ independent review; 0 or unknown providers, or zero independent allowed reviewers, stop. Count unique profile provider instance IDs with at least one eligible pool across ALL roles, using the existing quota/soft-cap/privacy/reachability predicate, not review models, families or pools. An exhausted pool does not remove a provider whose other pool is healthy, including a pool used only for non-review roles.
+
+Audit at council start, each demotion/round, and freshly before merge: `council_providers: ids=<sorted,unique ids> count=<n> head=<sha>`, with per-pool eligibility reasons; `council_reviewer: <provider/model> head=<sha>`; `captain: <seat> <provider>/<model> head=<sha>`. Missing, unknown or stale evidence cannot unlock single. If count recovers >2, rerun normal review. All evidence, votes and actual green checks must match local/remote HEAD; record check commands, exit/status and HEAD. The sole reviewer is captain; any ruling is fresh on that same captain. Obtain the final vote from that reviewer (fresh after a ruling if needed; never infer a PASS from the driver). Record its final real `reviewer_vote: PASS|FAIL reviewer=<provider/model> head=<sha>` after rulings; single PASS requires that final PASS, zero unresolved accepted findings and green actual checks (no no-tests exception). Never waive findings, author exclusion, the profile review allowlist, effort ceiling, rounds or dispatch budget.
+
+Canonical additional verdict: `council_verdict: PASS|FAIL round=<n> mode=single providers=<1|2> reviewer=<provider/model> head=<sha>`. Existing normal verdict formats remain unchanged.
 
 ## Step 0: Routing Bootstrap
 
@@ -21,15 +27,15 @@ Consensus review by 3 independent reviewers, a captain ruling on their findings,
 Before dispatching ANY council reviewer, captain ruling, or fixer subagent, verify all three bootstrap checks:
 1. **Load `HARNESS.md` and `PROVIDERS.md` into context:** Check whether `# Cybernetic SDLC Harness` (`HARNESS.md`) AND the active provider profile routing table (`PROVIDERS.md`) are BOTH already loaded verbatim in this session. If either is missing, read `../_harness/HARNESS.md` and `../_harness/PROVIDERS.md` (or `../../HARNESS.md` and `../../PROVIDERS.md`) relative to this skill's directory NOW before taking any other action.
 2. **Select the `HARNESS.md` Dispatch Adapter path (including lazy MCP servers):** Inspect both eager tools and any lazy-loaded MCP server schemas in your environment before choosing a subagent tool. Run the one-time session capability check required by `HARNESS.md` `## Dispatch Adapter` Path 1 when cross-provider orchestration tools are present (reading their lazy MCP schema files first when needed), and NEVER fall back to native same-session subagent tools while Path 1 orchestration tools are available.
-3. **Forbid same-model council seats and author self-review:** Every dispatched council seat (`reviewer-a`, `reviewer-b`, `reviewer-c`) and every captain ruling MUST resolve its rung from `PROVIDERS.md` (carrying `Role contract:` + `Rung:` on non-autoloaded paths, or `Rung:` only on autoloaded pinned seats). Seats run on pairwise-distinct models, none in `author_models`. Never spawn native `inherit`/same-model subagents for council seats. Council shall not block if at least 2 distinct healthy reviewer models differ from `author_models`; only when fewer remain does council stop with `yellow: degraded council`. Reviewing one's own code without model independence is a hard protocol violation.
+3. **Forbid same-model council seats and author self-review:** Every dispatched council seat (`reviewer-a`, `reviewer-b`, `reviewer-c`) and every captain ruling MUST resolve its rung from `PROVIDERS.md` (carrying `Role contract:` + `Rung:` on non-autoloaded paths, or `Rung:` only on autoloaded pinned seats). Seats run on pairwise-distinct models, none in `author_models`. Never spawn native `inherit`/same-model subagents for council seats. Council shall not block if at least 2 distinct healthy reviewer models differ from `author_models`; when fewer remain, use the audited oneshot single exception or stop with `yellow: degraded council`. Reviewing one's own code without model independence is a hard protocol violation.
 </HARD-GATE>
 
 ## Request phase
 
 1. **Scope:** diff of the branch (git diff against target), or PR, or given files. Read spec + plan when present.
-2. **Single-provider check:** if exactly one provider in the profile still has an eligible pool (all others exhausted per the quota ledger or unreachable per the Dispatch Adapter), announce `single-provider review: <provider>`, write that line to the state artifact, and seat every reviewer from that provider's `## Single-provider review` rows in `PROVIDERS.md`: pairwise-distinct models, none in `author_models`, Seat A first (it takes the first eligible row). This is a fallback condition, never a standing restriction: re-run this check at the start of every round and on every seat demotion, and leave the mode as soon as a second provider is eligible again. Profile rows are never edited.
-3. **Captain:** `reviewer-a` holds the captaincy. If Seat A has no eligible rung, captaincy passes to the first healthy seat in order `reviewer-b`, `reviewer-c`. Write `captain: <seat> <provider>/<model>` to the state artifact (update it whenever captaincy or the captain's rung changes). The captain, like every seat, never runs on a model in `author_models`.
-4. **Dispatch all seats in parallel** through the AGENTS.md Dispatch Adapter, one fresh subagent each: `reviewer-a`, `reviewer-b`, `reviewer-c`, with rungs resolved after the author rules in step 6. Same scope, same instruction block (the captain reviews exactly like the other seats; its ruling comes later as a separate dispatch). Every dispatch names a rung from the active provider profile, so no seat ever inherits the main session model.
+2. **Provider audit and seating:** Apply the single-reviewer audit above first. In oneshot, optionally select mode=single with 1 or 2 providers and dispatch just one eligible independent reviewer as captain. Otherwise normal seating applies. **Single-provider check:** if exactly one provider in the profile still has an eligible pool (all others exhausted per the quota ledger or unreachable per the Dispatch Adapter), announce `single-provider review: <provider>`, write that line to the state artifact, and seat the selected reviewer(s) from that provider's `## Single-provider review` rows in `PROVIDERS.md`: pairwise-distinct models, none in `author_models`, Seat A first (it takes the first eligible row). This is a fallback condition, never a standing restriction: re-run this check at the start of every round and on every seat demotion, and leave single-provider row selection as soon as a second provider is eligible again (optional mode=single still permits two providers). Profile rows are never edited.
+3. **Captain:** `reviewer-a` holds the captaincy. If Seat A has no eligible rung, captaincy passes to the first healthy seat in order `reviewer-b`, `reviewer-c`. Write `captain: <seat> <provider>/<model>` (append `head=<sha>` in single mode) to the state artifact (update it whenever captaincy or the captain's rung changes). The captain, like every seat, never runs on a model in `author_models`.
+4. **Dispatch all selected active seats in parallel** through the AGENTS.md Dispatch Adapter, one fresh subagent each: `reviewer-a`, `reviewer-b`, `reviewer-c`, with rungs resolved after the author rules in step 6. Same scope, same instruction block (the captain reviews exactly like the other seats; its ruling comes later as a separate dispatch). Every dispatch names a rung from the active provider profile, so no seat ever inherits the main session model. In single mode the selected sole reviewer is the captain, even if other reviewers remain eligible.
 5. **Reviewer instruction block:**
 
 ```
@@ -46,7 +52,7 @@ No praise. No "looks good". No scope creep.
 ```
 
 6. **Author-model & author-family rules:** before resolving seat rungs, read `author_models` and `author_families` (plus the author commit log) from `$(git rev-parse --git-dir)/info/oneshot-state.md`. Any seat or captain-ruling rung whose `model` is in `author_models` is skipped to the next eligible rung per Fallback mechanics, announcing `demote: <seat> -> <provider>/<model> (author model conflict)`; a seat with zero eligible non-author rungs is lost. The author vote (Verdict phase) uses `author_families` and `author_models`.
-7. **Mid-round provider retry vs round N+1 re-review:** if a seat's rung is exhausted, unreachable, soft-cap reserved, or fails a transient retry mid-round, re-seat that SAME role per Fallback mechanics and rerun only that seat to complete the current round. Whenever fixers push new commits, round N+1 re-dispatches ALL active seats (all 3, or both in degraded mode) against the new HEAD. Re-dispatching a single seat across rounds is forbidden.
+7. **Mid-round provider retry vs round N+1 re-review:** if a seat's rung is exhausted, unreachable, soft-cap reserved, or fails a transient retry mid-round, re-seat that SAME role per Fallback mechanics and rerun only that seat to complete the current round. Whenever fixers push new commits, round N+1 re-dispatches ALL active seats (all 3, both in degraded mode, or the sole reviewer in mode=single) against the new HEAD. Re-dispatching only one seat across rounds is forbidden outside mode=single.
 8. **Confidentiality gate:** if the review brief or referenced diff carries a confidential flag, the AGENTS.md Routing Rules privacy gate applies to every seat and the captain ruling (`privacy: trains` rungs auto-skip); demote to the next privacy-safe rung and announce.
 
 ## Fallback mechanics
@@ -63,7 +69,7 @@ announce: "seat <seat> demoted to <provider>/<model>" (or "backup: <seat> -> <pr
 ```
 
 - **Seat distinctness:** a demotion may cross families to balance load, but never lands on a model active on another seat or listed in `author_models`.
-- **Seat lost:** a seat with zero eligible rungs is lost. Continue in degraded mode while at least 2 distinct non-author reviewer models remain; otherwise stop with `yellow: degraded council` (report exhausted pools + `earliest resume` per `AGENTS.md` budget stop & resume when quota caused it). A lost Seat A hands the captaincy to the next healthy seat (Request phase step 3).
+- **Seat lost:** a seat with zero eligible rungs is lost. Continue in degraded mode while at least 2 distinct non-author reviewer models remain; otherwise use the audited oneshot single exception or stop with `yellow: degraded council` (report exhausted pools + `earliest resume` per `AGENTS.md` budget stop & resume when quota caused it). A lost Seat A hands the captaincy to the next healthy seat (Request phase step 3).
 - **Budget guard:** max 15 real reviewer dispatches per PR (9 seat, 3 captain rulings, 3 demotions). Budget skips and skipped rulings cost 0. A demoted seat keeps its new rung for the day.
 
 ## Merge phase
@@ -108,12 +114,13 @@ Decide in this order, after applying driver overrules and receiving-side rigor:
 | --- | --- |
 | `nominal` | 3 healthy seats, >= 2/3 PASS, zero unresolved accepted findings, green tests (or the `no-tests` exception) |
 | `degraded` | 2 healthy seats (one lost), 2/2 PASS, zero unresolved accepted findings, green tests |
+| `single` | 1 independent allowed reviewer final PASS, zero unresolved accepted findings, green actual checks; freshly audited 1 or 2 providers, no no-tests exception |
 | `captain` | captain verdict PASS overriding FAIL votes: every finding is deferred or rejected, zero unresolved accepted findings, green tests (no `no-tests` exception) |
 
 - Captain mode is available in any round, with 2 or 3 healthy seats.
-- **Author vote:** PASS also needs >= 1 PASS vote from a non-author family or model-level independence (reviewer models distinct from `author_models`). In captain mode the captain's PASS is that vote. If all active seats share an author family, record `degraded council author vote: model-level independence (<model1>, <model2>)`.
+- **Author vote:** PASS also needs >= 1 PASS vote from a non-author family or model-level independence (reviewer models distinct from `author_models`). In captain mode the captain's PASS is that vote; in single mode the sole reviewer's final PASS is that vote. If all active seats share an author family, record `degraded council author vote: model-level independence (<model1>, <model2>)`.
 - Accepted findings always block: any unresolved `accept` (red or yellow) makes the round FAIL, even when the seat votes pass; fix it and re-review.
-- Fewer than 2 distinct non-author reviewer models healthy: STOP with `yellow: degraded council` (`AGENTS.md` Routing Rules, Degraded council).
+- Outside audited oneshot mode=single, fewer than 2 distinct non-author reviewer models healthy: STOP with `yellow: degraded council` (`AGENTS.md` Routing Rules, Degraded council).
 
 ## Receiving phase (rigor)
 
@@ -123,19 +130,19 @@ Decide in this order, after applying driver overrules and receiving-side rigor:
 
 ## Round loop (max 3 review rounds total)
 
-Round 1 = the initial three-seat review from the Request phase; rounds 2-3 = fix then re-review. Never exceed 3 review batches; count them out loud.
+Round 1 = the initial selected-seat review from the Request phase; rounds 2-3 = fix then re-review. Never exceed 3 review batches; count them out loud.
 
 ```
 round N: parallel seat review -> merge -> captain ruling (unless skipped) -> verdict
-  PASS -> write council_verdict, done
+  PASS -> write canonical mode=single verdict when selected (never mode=captain), otherwise normal council_verdict; done
   FAIL, N < 3:
     dispatch fresh fixer subagents from the implementation seats (`implementer`, or `implementer-deep` for hard clusters; one per accepted-finding cluster, max 2 files each; see `AGENTS.md` Review contracts); allow `patch` only for a 1-2 file edit with no test run
     fixers address accepted findings only and run tests before declaring done
     re-run verify skill checks (tests, lint, typecheck, build)
-    round N+1 review = all active fresh reviewer seats (never a single seat) + a fresh captain ruling
+    round N+1 review = all active fresh reviewer seats (sole reviewer only in mode=single) + a fresh captain ruling
     streamed, no user pause
   FAIL, N = 3:
-    write council_verdict: FAIL round=3 mode=<nominal|degraded> head=<sha>
+    write council_verdict: FAIL round=3 mode=<nominal|degraded> head=<sha> (or the canonical mode=single line above)
     STOP: report rounds, final findings with rulings, backlog entries, test output
 ```
 
@@ -144,19 +151,20 @@ round N: parallel seat review -> merge -> captain ruling (unless skipped) -> ver
 
 ## No test suite
 
-See `AGENTS.md` Review contracts for the canonical `no-tests` gate rule. Operational steps: label a `no-tests` PASS `provisional: no-tests` in the verdict (`mode=nominal` only; `mode=degraded` and `mode=captain` require green tests), have the reviewer flag `no tests: yellow` in findings, and never invent a test suite in council (that belongs to `tdd` in the task loop).
+See `AGENTS.md` Review contracts for the canonical `no-tests` gate rule. Operational steps: label a `no-tests` PASS `provisional: no-tests` in the verdict (`mode=nominal` only; `mode=degraded`, `mode=captain` and `mode=single` require green tests), have the reviewer flag `no tests: yellow` in findings, and never invent a test suite in council (that belongs to `tdd` in the task loop).
 
 ## Output format
 
 ```
-Round N: [seat verdicts (3, or 2 active + lost seat)] captain <seat> -> merged findings (r red, y yellow, b blue) -> ruling (a accept, d defer, j reject, o overruled | skipped)
-Verdict: PASS | FAIL | DEGRADED (mode=<nominal|degraded|captain>)
+Round N: [seat verdicts (3, 2 active + lost seat, or 1 in mode=single)] captain <seat> -> merged findings (r red, y yellow, b blue) -> ruling (a accept, d defer, j reject, o overruled | skipped)
+Verdict: PASS | FAIL | DEGRADED (mode=<nominal|degraded|captain|single>)
 Backlog: <n> deferred
 ```
 
 State artifact lines (`$(git rev-parse --git-dir)/info/oneshot-state.md`, creating `$(git rev-parse --git-dir)/info` if missing; standalone council runs in a git repo write them too):
 
 - `council_verdict: PASS|FAIL round=<n> mode=<nominal|degraded|captain> head=<sha>` (`<n>` is `1..3`, `<sha>` is `git rev-parse HEAD`; consumers read the effective last line). On PASS append/update it, then output a one-line summary. On FAIL write it, output the merged finding list with rulings, and continue the round loop or stop.
+- For mode=single use the canonical additional verdict and all audit/vote lines above, bound to the reviewed HEAD.
 - `captain: <seat> <provider>/<model>`
 - `captain overruled: <finding-id>`
 - `backlog: <finding line> (<reason>)`
