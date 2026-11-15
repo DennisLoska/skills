@@ -2797,7 +2797,11 @@ grep -qiF 'standalone' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md docum
 grep -qF 'Never merge without verified Council consensus PASS' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md requires verified council consensus PASS before merge"
 grep -qF 'use the oneshot harness' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot SKILL.md description recognizes use the oneshot harness trigger"
 sed -n '/^## Phase 3: DISPATCH/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF '<provider>/<model>' || fail "oneshot SKILL.md Phase 3 step 7 records <provider>/<model> alongside family"
-sed -n '/^## Phase 6: COUNCIL/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'council_verdict: PASS round=<n> mode=<nominal|degraded> head=<sha>' || fail "oneshot SKILL.md Phase 6 records council_verdict with head=<sha>"
+sed -n '/^## Phase 6: COUNCIL/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'council_verdict: PASS round=<n> mode=<nominal|degraded> head=<sha>' || fail "oneshot Phase 6 retains normal verdict format"
+for single_section in '## Phase 6: COUNCIL' '## State Artifact'; do
+  sed -n "/^$single_section/,/^---$/p" "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'council_verdict: PASS|FAIL round=<n> mode=single providers=<1|2> reviewer=<provider/model> head=<sha>' || fail "oneshot $single_section carries canonical single verdict"
+done
+sed -n '/^## Phase 7: FINISH/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'nominal|degraded|captain|single' || fail "oneshot Phase 7 allows audited single verdict"
 grep -qF 'Phase 6 Council consensus PASS is recorded' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot SKILL.md Phase 7 requires council consensus in state artifact"
 sed -n '/^## Phase 7: FINISH/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qiF 'effective last' || fail "oneshot SKILL.md Phase 7 checks effective last council_verdict line"
 sed -n '/^## Phase 7: FINISH/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'git rev-parse HEAD' || fail "oneshot SKILL.md Phase 7 requires head=<sha> match against git rev-parse HEAD"
@@ -3023,7 +3027,8 @@ check_council_profile() {
         n = 0
         for (k in models) { split(k, kk, SUBSEP); if (kk[1] == p) n++ }
         if (p == "codex" && n != 2) print "single-provider review lists " n " model(s) for " p " (expected 2)"
-        if (p != "codex" && n > 0) print "single-provider review lists " n " model(s) for " p " (expected 0)"
+        if ((p == "claude" || p == "claudeAgent") && n != 1) print "single-provider review lists " n " model(s) for " p " (expected 1)"
+        if (p != "codex" && p != "claude" && p != "claudeAgent" && n > 0) print "single-provider review lists " n " model(s) for " p " (expected 0)"
       }
     }' "$TMPROOT/cp-roles.txt" "$TMPROOT/cp-single.txt" >>"$TMPROOT/cp-bad.txt"
   if [ -s "$TMPROOT/cp-bad.txt" ]; then cat "$TMPROOT/cp-bad.txt" >&2; fail "80e: $label council/effort invariants"; fi
@@ -3074,7 +3079,7 @@ for shipped in quad tri opencode-go codex antigravity claude; do
         print "forbidden policy reviewer model in backup: " $0
       }' "$TMPROOT/cp-backup.txt" >>"$TMPROOT/cp-bad.txt"
     awk -F '|' '
-      $1 != "provider" && $1 != "---" && ($1 != "codex" || ($2 != "gpt-6-astra" && $2 != "gpt-6.1-sol")) {
+      $1 != "provider" && $1 != "---" && !(($1 == "codex" && ($2 == "gpt-6-astra" || $2 == "gpt-6.1-sol")) || (($1 == "claude" || $1 == "claudeAgent") && $2 == "claude-fable-5-2")) {
         print "forbidden policy model in single-provider review: " $0
       }' "$TMPROOT/cp-single.txt" >>"$TMPROOT/cp-bad.txt"
     if [ -s "$TMPROOT/cp-bad.txt" ]; then cat "$TMPROOT/cp-bad.txt" >&2; fail "80e: providers/$shipped.md reviewer whitelist"; fi

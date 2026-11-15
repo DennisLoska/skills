@@ -265,17 +265,10 @@ def validate_profile_policy(name, text):
                 f"[{name}] implementation/wildcard backup ladder row has forbidden model gemini-4-hydrogen: {row['line']}"
             )
 
-    # Single-provider review: only codex with Astra / Sol
-    for row in single_provider_review:
-        assert row['provider'] == 'codex', (
-            f"[{name}] single-provider review provider must be codex, got: {row['line']}"
-        )
-        assert row['base_model'] in {'gpt-6-astra', 'gpt-6.1-sol'}, (
-            f"[{name}] single-provider review model must be gpt-6-astra or gpt-6.1-sol, got: {row['line']}"
-        )
-
+    # Exact closed recovery set, including the sole Claude reviewer.
     assert {(r['provider'], r['base_model']) for r in single_provider_review} == {
-        ('codex', 'gpt-6-astra'), ('codex', 'gpt-6.1-sol')}, f"[{name}] missing exact Codex recovery pair"
+        ('claudeAgent', 'claude-fable-5-2'), ('codex', 'gpt-6-astra'),
+        ('codex', 'gpt-6.1-sol')}, f"[{name}] incorrect single-provider recovery set"
     compaction = get_role_rows('compaction')
     assert compaction[0]['base_model'] == 'gemini-3.8-flash' and compaction[0]['effort'].endswith('=low')
     for role in ('scout', 'tester', 'patch'):

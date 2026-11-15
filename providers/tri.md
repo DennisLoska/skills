@@ -80,10 +80,11 @@ Review rows are separate from implementation rows: no cheap or mixed backup gran
 
 ## Single-provider review
 
-When only Codex remains, run a degraded two-seat council on Astra and Sol only if both are eligible non-author models. If either authored the diff, stop with fewer than two independent models. Claude Code has only one allowed review model, so Claude-only review stops; Antigravity-only and OpenCode-only review also stop. Never add excluded models or waive the self-review ban to recover a seat.
+In oneshot, optional `mode=single` permits one independent allowed reviewer when 1 or 2 profile provider instances have an eligible pool across all roles (quota, soft-cap, privacy and reachability checked). Codex retains Astra and Sol; Claude Code permits Fable alone if non-author. More than 2 providers retain normal 2+ quorum; zero/unknown providers or zero independent reviewers stop. Audit IDs/count/HEAD and captain/reviewer at council start, demotion and freshly before merge; stale/missing evidence cannot unlock single. Green actual checks and a real same-head PASS with zero unresolved accepted findings are required. Antigravity-only and OpenCode-only review stop. Never widen the allowlist or waive author exclusion. Primary seats remain distinct; this is runtime quorum reduction only.
 
 | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- |
+| claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
 | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
 

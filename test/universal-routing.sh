@@ -73,7 +73,7 @@ for line in base.splitlines():
         if cells[1] == '*' or any(r.startswith('reviewer-') or r == 'task-reviewer' for r in cells[1].split(',')):
             assert cells[3] in allowed, line
     elif section == 'Single-provider review' and cells[0] not in ('provider', '---'):
-        assert cells[0] == 'codex' and cells[1] in {'gpt-6-astra', 'gpt-6.1-sol'}, line
+        assert (cells[0], cells[1]) in {('claudeAgent', 'claude-fable-5-2'), ('codex', 'gpt-6-astra'), ('codex', 'gpt-6.1-sol')}, line
     elif len(cells) == 7 and cells[0] in ('task-reviewer', 'reviewer-a', 'reviewer-b', 'reviewer-c'):
         assert cells[3] in allowed, line
 # Audit configured rows rather than forbidden-level prose or negative fixtures.
