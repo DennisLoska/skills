@@ -31,7 +31,7 @@ Antigravity isolates Gemini and Claude quota pools. Claude Code carries deep imp
 | implementer | fallback | antigravity | gemini-4-argon | thinking_level=high | google | ok |
 | implementer | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
 | implementer-deep | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
-| implementer-deep | fallback | antigravity | gemini-4-hydrogen | thinking_level=high | google | ok |
+| implementer-deep | fallback | antigravity | gemini-4-argon | thinking_level=high | google | ok |
 | implementer-deep | last-resort | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
 | tester | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | tester | fallback | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |
