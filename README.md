@@ -47,7 +47,7 @@ Select the command matching your environment and available AI subscriptions:
 | Environment & Available Subscriptions | Profile | Install Command | What Gets Wired |
 | --- | --- | --- | --- |
 | **T3 Code: Antigravity + Codex + OpenCode Go** *(Recommended)* | `tri` (default) | `./install.sh --target all` | Multi-provider orchestration across all hosts |
-| **T3 Code: Antigravity + Codex + OpenCode Go + Claude Code** | `quad` | `./install.sh --profile quad --target all` | Offloads Anthropic fallbacks to dedicated Claude Code |
+| **T3 Code: Antigravity + Codex + OpenCode Go + Claude Code** | `quad` | `./install.sh --profile quad --target all` | Claude Code carries Anthropic primaries |
 | **T3 Code: Custom Provider Stack** | Dynamic | `./install.sh --providers <list> --target all` | e.g. `--providers antigravity,codex` |
 | **OpenCode V2 Standalone** | `opencode-go` | `./install.sh --profile opencode-go` | Standard `~/.config/opencode` |
 | **Codex CLI/Desktop Standalone** | `codex` | `./install.sh --profile codex --target codex` | Standard `~/.codex` (`$CODEX_HOME`) |
@@ -151,10 +151,10 @@ flowchart LR
   DA["Dispatch Adapter (standalone native dispatch or T3 Code delegate_task)"]
 
   subgraph L3["3. Provider Instances"]
-    P_AG["Antigravity (Google + Anthropic)"]
+    P_AG["Antigravity (Gemini only)"]
     P_CX["Codex (OpenAI)"]
     P_GO["OpenCode Go (open-weight + high-volume flash)"]
-    P_CC["Claude Code / claudeAgent (Fable roles and Opus alternate)"]
+    P_CC["Claude Code / claudeAgent (Opus and Fable primaries)"]
   end
 
   R_DRV --> SLOTS
@@ -289,8 +289,8 @@ The harness separates concerns into three decoupled layers:
 All six shipped profiles and all 15 `--providers` combinations use the same model policy, documented in [the complete 12-skill routing map](docs/skill-model-routing.md). Names record connection preferences and preserve portable cross-provider roles; they do not limit dispatch to a provider subset.
 
 - **Drafts:** `designer` and `planner` use Fable 5.2 with Sol fallback only. Workers return read-only drafts; the driver owns conversation, approvals, canonical documents and phase advancement.
-- **Cheap work:** scout, tester and patch use Deepseek V4.1 Flash, then Gemini 3.8 Flash, then Luna. Compaction uses Gemini Flash then Luna at low effort. OpenCode routes only Deepseek Flash.
-- **Implementation:** Opus 5.5 primary and Fable 5.2 deep; Gemini Argon and Sol remain implementation fallbacks. Claude-first selection prefers Claude Code for Opus; Antigravity-first selection prefers Antigravity, with the other same-model path retained.
+- **Cheap work:** scout, tester and patch use Deepseek V4.1 Flash, then Luna, then terminal Gemini 3.8 Flash. Compaction uses Gemini Flash then Luna at low effort. OpenCode routes only Deepseek Flash.
+- **Implementation:** Claude Code Opus 5.5 primary and Fable 5.2 deep; both use Codex Sol fallback, then terminal Antigravity Gemini Argon. Every shipped profile and generated combination uses these exact provider paths.
 - **Reviews:** task review starts on Sol; council A/captain is Fable, B Astra, C Sol. All review fallbacks, backups and recovery stay within those three models. Author independence applies across providers.
 - **Unavailable providers:** mark rungs unreachable and walk permitted ladders. Codex-only retains Astra and Sol, with optional single mode in oneshot. Claude-only permits non-author Fable in audited oneshot mode=single; Antigravity-only and OpenCode-only cannot form a panel; exact draft ladders can also be unavailable. No excluded model fills the gap.
 
@@ -312,7 +312,7 @@ All six shipped profiles and all 15 `--providers` combinations use the same mode
   | `single` | oneshot only: 1 independent reviewer final PASS, audited 1 or 2 providers, zero unresolved accepted findings, green actual checks (no no-tests exception) |
   | `captain` | captain PASS; every finding behind a FAIL vote deferred or rejected; zero unresolved accepted findings; green tests |
 
-Oneshot alone permits optional `mode=single` with 1 or 2 eligible profile provider instances, even with multiple allowed reviewers available. Count unique provider IDs across all roles using pool quota, soft-cap, privacy and reachability, not review-model counts; a healthy Gemini pool preserves Antigravity when its Claude pool is exhausted. Audit IDs/count/HEAD plus same-head captain/reviewer at council start, demotion and freshly before merge. Missing, stale or unknown evidence never unlocks single; >2 providers require normal 2+ review; zero providers or independent reviewers stop. The sole reviewer is captain; fresh rulings use that captain. Require its real final PASS, zero unresolved accepted findings and actual green checks (no no-tests exception), matching local/remote HEAD via `--match-head-commit`. Verdict: `council_verdict: PASS|FAIL round=<n> mode=single providers=<1|2> reviewer=<provider/model> head=<sha>`. Normal nominal/degraded/captain criteria, review allowlist, self-review ban, high ceiling and budgets remain intact.
+Oneshot alone permits optional `mode=single` with 1 or 2 eligible profile provider instances, even with multiple allowed reviewers available. Count unique provider IDs across all roles using pool quota, soft-cap, privacy and reachability, not review-model counts; a healthy pool preserves its provider when other providers are exhausted. Audit IDs/count/HEAD plus same-head captain/reviewer at council start, demotion and freshly before merge. Missing, stale or unknown evidence never unlocks single; >2 providers require normal 2+ review; zero providers or independent reviewers stop. The sole reviewer is captain; fresh rulings use that captain. Require its real final PASS, zero unresolved accepted findings and actual green checks (no no-tests exception), matching local/remote HEAD via `--match-head-commit`. Verdict: `council_verdict: PASS|FAIL round=<n> mode=single providers=<1|2> reviewer=<provider/model> head=<sha>`. Normal nominal/degraded/captain criteria, review allowlist, self-review ban, high ceiling and budgets remain intact.
 
 - **Core Council Invariants**:
   - **Author-Reviewer Independence**: a model that authored code (`implementer`, `tester`, `patch`, or fixers) never reviews it. Seats run on pairwise-distinct models outside `author_models`.
@@ -322,19 +322,19 @@ Oneshot alone permits optional `mode=single` with 1 or 2 eligible profile provid
 
 #### 3. Cybernetic Fallbacks & Quota Resilience
 
-- **Per-Role 3-Tier Ladder**: Every role in `PROVIDERS.md` defines `primary` &rarr; `fallback` &rarr; `last-resort`. Crucially, fallbacks swap provider quota pools so a single provider 429 never deadlocks a task.
-- **Same-Model Alternate**: before leaving an exhausted rung, the driver uses a `## Backup ladder` row with the identical model on another pool (for example `claude-opus-5-5` through Claude Code when Antigravity's Claude pool is exhausted).
+- **Operational Ladder**: Shipped operational roles define `primary` &rarr; `fallback` &rarr; terminal `last-resort`, using separate provider pools. An unavailable terminal rung stops the original role.
+- **Same-Model Alternate**: before leaving a primary/fallback rung (never an operational terminal rung), the driver uses a `## Backup ladder` row with the identical model on another pool (when a custom profile supplies an eligible alternate).
 - **Balanced Seat Fallback**: a council seat that loses its primary takes the eligible rung whose quota pool has the fewest dispatches this run, within the active profile review allowlist; no shipped/generated profile adds a Gemini reviewer.
-- **Single-Provider Review**: only Codex has a recovery pair (Astra and Sol), both healthy non-authors. Other provider-only review stops. The mode ends as soon as a second provider recovers.
+- **Single-Provider Review**: only Codex has a recovery pair (Astra and Sol), both healthy non-authors. Claude-only may use independent Fable under audited oneshot single mode. Normal review requires 2+ independent reviewers; single mode requires 1 or 2 eligible providers.
 - **Universal High Effort Ceiling**: never request or inherit reasoning above `high` for any model/provider/role, including driver, advisory/design, reviews, fallbacks, and ad-hoc calls. `xhigh`, `max`, `ultra`, `ultrathink`, `ultracode`, and equivalents are forbidden without exceptions. Use explicit safe options; `-`/omitted defaults require verification at most high, otherwise set high or mark unreachable.
-- **Shared Quota Pools & Soft Caps**: Models sharing an underlying subscription pool (e.g. `antigravity-claude`) are grouped into pools. Soft caps prevent workhorse tasks from consuming tokens reserved for critical seats.
+- **Shared Quota Pools & Soft Caps**: Models sharing an underlying subscription pool (e.g. `claude-code`) are grouped into pools. Soft caps prevent workhorse tasks from consuming tokens reserved for critical seats.
 - **Machine-Local Quota Ledger (`state/quota-ledger.tsv`)**: When a 429 or rate limit occurs, the pool and its cooldown timestamp are recorded in the ledger. Subsequent dispatches immediately skip dead pools without burning API calls or latency.
-- **Sibling Hand-Off & Backup Ladder**: If a role exhausts all 3 ladder rungs, implementation seats attempt sibling hand-off (`implementer-deep` &harr; `implementer`), followed by ascending traversal of `## Backup ladder`.
+- **Legacy Emergency Routing**: Only operational roles without explicit `last-resort` retain sibling hand-off and backup walks. Reviews keep balanced backup routing; shipped backups are review-only.
 - **Hard Budget Stops**: When all eligible rungs are exhausted, the harness stops cleanly with `budget stop: <role>` and reports the earliest reset time, refusing to silently downgrade to an inferior model or hallucinate.
 
 ---
 
-`--providers` records and reuses the selected connection list on refresh. It prefers selected paths for the same required model (Claude Code Opus when Claude is selected without Antigravity). It retains cross-provider roles, including Fable on Claude Code and Deepseek on OpenCode, even if those providers were not selected. It is not an exclusive provider allowlist. The three profile selection flags remain mutually exclusive.
+`--providers` records and reuses the selected connection list on refresh. It keeps fixed provider paths regardless of selected connections. It retains cross-provider roles, including Fable on Claude Code and Deepseek on OpenCode, even if those providers were not selected. It is not an exclusive provider allowlist. The three profile selection flags remain mutually exclusive.
 
 ### Which profile do I pick?
 
@@ -353,7 +353,7 @@ Oneshot alone permits optional `mode=single` with 1 or 2 eligible profile provid
 | Provider | Instance ID | Effort Option ID & Values | Example Model IDs | Limit Inspection |
 | --- | --- | --- | --- | --- |
 | **OpenCode Go** | `opencode` | `variant` (`low\|medium\|high`, or verified safe `-`) | `muse-spark-1.3-contributor`, `deepseek-v4.1-flash`, `mimo-v2.6-flash`, `glm-5.3-flash` | `opencode.ai/docs/go` console (monthly $ allowance + 5h rolling cap) |
-| **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-hydrogen`, `gemini-4-argon`, `gemini-3.8-flash`, `claude-opus-5-5`, `claude-sonnet-5-5` | `/status` in Antigravity (rolling 5-hour window) |
+| **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-argon`, `gemini-3.8-flash` | `/status` in Antigravity (rolling 5-hour window) |
 | **Codex** | `codex` | `reasoningEffort` (`low\|medium\|high`) | `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-luna`, `gpt-6-sol` | `/status` in Codex (rolling 5-hour window) |
 | **Claude Code** | `claudeAgent` | `effort` (`low\|medium\|high`; the harness caps every model at `high`) | `claude-fable-5-2`, `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` | `/status` in Claude Code (rolling 5-hour window) |
 
@@ -369,7 +369,7 @@ The Dispatch Adapter in [`AGENTS.md`](./AGENTS.md) resolves each role's rung in 
 
 ```mermaid
 flowchart TD
-    D["Dispatch role R"] --> W["Same-model alternate, next rung on R's ladder, then the backup ladder (council seats: least-loaded pool)"]
+    D["Dispatch role R"] --> W["Walk R's ladder; operational terminal failures stop. Otherwise allowed alternates/backups; council uses least-loaded pool"]
     W --> L{"Rung's pool in quota ledger and not yet reset?"}
     L -- yes --> W
     L -- no --> C{"Pool over soft cap and R not in reserve list?"}
@@ -384,7 +384,7 @@ flowchart TD
     W -- "no rungs left" --> STOP["Stop and report: exhausted pools and earliest reset time"]
 ```
 
-- **Shared Quota Pools:** Groups models sharing a subscription bucket (e.g., `antigravity-claude` for `claude-*` in Antigravity).
+- **Shared Quota Pools:** Groups models sharing a subscription bucket (e.g., `claude-code` for Claude Code models).
 - **Soft Caps & Reserves:** Limits non-essential dispatches so a pool's remaining quota stays reserved for the roles listed in `reserve`. Per-pool dispatch counts (`soft_cap_counts`) also drive balanced seat fallback.
 - **Machine-Local Ledger:** Tracks exhausted pools at `<dest>/state/quota-ledger.tsv`. Pruned automatically on read; can be inspected or cleared anytime:
   ```sh
@@ -399,15 +399,15 @@ All delegated work is at most high. See [skill-model-routing.md](docs/skill-mode
 
 | role | primary | fallback | last-resort |
 | --- | --- | --- | --- |
-| `scout`, `tester`, `patch` | Deepseek V4.1 Flash (high) | Gemini 3.8 Flash | GPT6 Luna |
-| `implementer` | Opus 5.5 | Gemini 4 Argon | Sol |
-| `implementer-deep` | Fable 5.2 | Gemini 4 Argon | Sol |
+| `scout`, `tester`, `patch` | Deepseek V4.1 Flash (high) | GPT6 Luna | Gemini 3.8 Flash (terminal) |
+| `implementer` | Opus 5.5 (Claude Code) | Sol | Gemini 4 Argon (terminal) |
+| `implementer-deep` | Fable 5.2 | Sol | Gemini 4 Argon (terminal) |
 | `designer` (optional draft) | Fable 5.2 | Sol | — |
 | `planner` (optional draft) | Fable 5.2 | Sol | — |
 | `task-reviewer` | Sol | Astra | Fable 5.2 |
 | Council A / B / C | Fable 5.2 / Astra / Sol | Only eligible models from the same three-model set | Optional audited oneshot single quorum at 1 or 2 eligible provider instances |
 
-Claude Code provides the Opus same-model alternate. Review backups and single-provider rows cannot widen the closed review set. Codex-only review uses Astra and Sol; Claude-only review may use independent Fable in audited oneshot single mode. Every shipped profile contains the complete policy tables.
+Claude Code provides the Opus primary. Antigravity has no Anthropic routes or Claude quota pool. Review backups and single-provider rows cannot widen the closed review set. Codex-only review uses Astra and Sol; Claude-only review may use independent Fable in audited oneshot single mode. Every shipped profile contains the complete policy tables.
 
 ---
 
@@ -474,7 +474,7 @@ skills/           12 pipeline skills:          oneshot, shape, plan, dispatch,
                                                tdd, debug, verify, council, land,
                                                make-ci-green, domain-modeling,
                                                codebase-design
-providers/        swappable provider profiles: tri (default), quad (tri + Claude Code),
+providers/        swappable provider profiles: tri (default), quad (same fixed policy),
                                                opencode-go, codex, antigravity, claude
 docs/             design specs and plans:      docs/specs/, docs/plans/
 docs/assets/      vector visuals:              logo.svg, architecture.svg
@@ -502,3 +502,5 @@ bash test/install.sh
 ## 📄 License
 
 MIT. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
+
+Operational migration: refreshing a shipped profile adopts the fixed ladders above. For scout, tester, patch and both implementation seats, an explicit last-resort is terminal: ineligibility or routing failure stops the original role without terminal alternates, sibling hand-off or any backup rows; a transient retries once. Primary/fallback keep same-model alternates. Task failures keep fix/debug caps. Shipped backups are review-only. Custom profiles without explicit operational last-resort retain legacy sibling/backup routing. Standalone hosts may reach an unavailable terminal rung and stop; provider selection does not replace models or guarantee a complete pipeline. Review, design and planner policy is unchanged.

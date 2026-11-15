@@ -138,29 +138,29 @@ def validate_profile_policy(name, text):
                 f"[{name}] implementation role {r['role']} (rung {r['rung']}) has forbidden model gemini-4-hydrogen: {r['line']}"
             )
 
-    # Explicit deep fallback Argon check and Sol last-resort retention
+    # Explicit deep fallback Sol check and Argon last-resort retention
     deep_fallback = [r for r in get_role_rows('implementer-deep') if r['rung'] == 'fallback']
     assert deep_fallback, f"[{name}] missing fallback implementer-deep row"
-    assert deep_fallback[0]['base_model'] == 'gemini-4-argon', (
-        f"[{name}] implementer-deep fallback must be gemini-4-argon, got {deep_fallback[0]['model']}"
+    assert deep_fallback[0]['base_model'] == 'gpt-6.1-sol', (
+        f"[{name}] implementer-deep fallback must be gpt-6.1-sol, got {deep_fallback[0]['model']}"
     )
 
     deep_last = [r for r in get_role_rows('implementer-deep') if r['rung'] in ('last-resort', 'final')]
     if deep_last:
-        assert deep_last[0]['base_model'] == 'gpt-6.1-sol', (
-            f"[{name}] implementer-deep final must be gpt-6.1-sol, got {deep_last[0]['model']}"
+        assert deep_last[0]['base_model'] == 'gemini-4-argon', (
+            f"[{name}] implementer-deep final must be gemini-4-argon, got {deep_last[0]['model']}"
         )
 
     imp_fallback = [r for r in get_role_rows('implementer') if r['rung'] == 'fallback']
     if imp_fallback:
-        assert imp_fallback[0]['base_model'] == 'gemini-4-argon', (
-            f"[{name}] implementer fallback must be gemini-4-argon, got {imp_fallback[0]['model']}"
+        assert imp_fallback[0]['base_model'] == 'gpt-6.1-sol', (
+            f"[{name}] implementer fallback must be gpt-6.1-sol, got {imp_fallback[0]['model']}"
         )
 
     imp_last = [r for r in get_role_rows('implementer') if r['rung'] in ('last-resort', 'final')]
     if imp_last:
-        assert imp_last[0]['base_model'] == 'gpt-6.1-sol', (
-            f"[{name}] implementer final must be gpt-6.1-sol, got {imp_last[0]['model']}"
+        assert imp_last[0]['base_model'] == 'gemini-4-argon', (
+            f"[{name}] implementer final must be gemini-4-argon, got {imp_last[0]['model']}"
         )
 
     # 3. Shipped policy requires both draft roles; custom legacy profiles are tested separately.
@@ -273,7 +273,7 @@ def validate_profile_policy(name, text):
     assert compaction[0]['base_model'] == 'gemini-3.8-flash' and compaction[0]['effort'].endswith('=low')
     for role in ('scout', 'tester', 'patch'):
         rows = get_role_rows(role)
-        assert [r['base_model'] for r in rows] == ['deepseek-v4.1-flash', 'gemini-3.8-flash', 'gpt-6-luna']
+        assert [r['base_model'] for r in rows] == ['deepseek-v4.1-flash', 'gpt-6-luna', 'gemini-3.8-flash']
     # 9. Safe efforts <= high everywhere, no Carbon
     for row in all_rows:
         assert row['base_model'] != 'gemini-4-carbon', (
@@ -333,7 +333,7 @@ for combo in combos:
     validate_profile_policy(f"dyn:{combo}", rendered_providers)
     primary = next(r for r in parse_markdown_tables(rendered_providers)['roles_table']
                    if r['role'] == 'implementer' and r['rung'] == 'primary')
-    expected_path = 'claudeAgent' if 'claude' in combo.split(',') and 'antigravity' not in combo.split(',') else 'antigravity'
+    expected_path = 'claudeAgent'
     assert primary['provider'] == expected_path, f"selection ignored: {combo}"
     manifest = opencode_dir / '.harness-manifest'
     assert f'# providers {combo}' in manifest.read_text()
