@@ -24,8 +24,9 @@ root, scratch = map(Path, sys.argv[1:])
 install_sh = root / 'install.sh'
 
 OPERATIONAL_ROLES = {'implementer', 'implementer-deep', 'scout', 'tester', 'patch'}
-REVIEW_ROLES = {'reviewer-a', 'reviewer-b', 'reviewer-c', 'task-reviewer'}
-ALLOWED_REVIEW_MODELS = {'claude-fable-5-2', 'gpt-6-astra', 'gpt-6.1-sol'}
+REVIEW_ROLES = {'reviewer-a', 'reviewer-b', 'reviewer-c'}
+ALLOWED_REVIEW_MODELS = {'claude-opus-5-5', 'gpt-6.1-sol', 'gemini-4-argon'}
+TASK_MODELS = {'claude-fable-5-2', 'gpt-6-astra', 'gpt-6.1-sol'}
 VALID_EFFORT_LEVELS = {'none', 'minimal', 'low', 'medium', 'high'}
 FORBIDDEN_MODELS = {'gemini-4-carbon', 'gemini-4-hydrogen'}
 
@@ -128,7 +129,7 @@ def audit_profile_policy(name, text):
     3. scout/tester/patch: DeepSeek high -> codex/Luna (low scout, medium tester+patch) -> antigravity/Gemini3.8Flash (low scout, medium tester+patch)
     4. Antigravity purity: no Anthropic-family or Claude model routes or Claude quota pools through Antigravity
     5. Backup ladder: no operational rows (scout/tester/patch/implementer/deep or wildcard); retain review-only rows
-    6. Exact unchanged policy: review models Fable/Astra/Sol, designer+planner Fable->Sol, effort <= high, no Carbon/Hydrogen
+    6. Exact unchanged policy: council models Opus/Sol/Argon, designer+planner Fable->Sol, non-council effort <= high, council-only xhigh, no Carbon/Hydrogen
     """
     tables = parse_markdown_tables(text)
     roles = tables['roles_table']
@@ -235,8 +236,8 @@ def audit_profile_policy(name, text):
         check('*' not in b['roles'], f"[{name}] backup ladder row must not contain wildcard: {b['line']}")
         for role in b['roles']:
             check(role not in OPERATIONAL_ROLES, f"[{name}] operational backup ladder row forbidden for role '{role}': {b['line']}")
-            check(role in REVIEW_ROLES, f"[{name}] non-review backup ladder row forbidden for role '{role}': {b['line']}")
-        check(b['base_model'] in ALLOWED_REVIEW_MODELS, f"[{name}] backup ladder review model must be in {ALLOWED_REVIEW_MODELS}, got {b['model']}")
+            check(role in REVIEW_ROLES or role == 'task-reviewer', f"[{name}] non-review backup ladder row forbidden for role '{role}': {b['line']}")
+        check(b['base_model'] in (TASK_MODELS if b['roles'] == ['task-reviewer'] else ALLOWED_REVIEW_MODELS), f"[{name}] backup ladder review model must be in {ALLOWED_REVIEW_MODELS}, got {b['model']}")
 
     # 6. Exact model policy unchanged
     rev_a = get_role_rung('reviewer-a', 'primary')
@@ -244,14 +245,15 @@ def audit_profile_policy(name, text):
     rev_c = get_role_rung('reviewer-c', 'primary')
     task_rev = get_role_rung('task-reviewer', 'primary')
 
-    if rev_a: check(rev_a['base_model'] == 'claude-fable-5-2', f"[{name}] reviewer-a primary must be claude-fable-5-2, got {rev_a['model']}")
-    if rev_b: check(rev_b['base_model'] == 'gpt-6-astra', f"[{name}] reviewer-b primary must be gpt-6-astra, got {rev_b['model']}")
-    if rev_c: check(rev_c['base_model'] == 'gpt-6.1-sol', f"[{name}] reviewer-c primary must be gpt-6.1-sol, got {rev_c['model']}")
+    if rev_a: check(rev_a['base_model'] == 'claude-opus-5-5', f"[{name}] reviewer-a primary must be claude-opus-5-5, got {rev_a['model']}")
+    if rev_b: check(rev_b['base_model'] == 'gpt-6.1-sol', f"[{name}] reviewer-b primary must be gpt-6.1-sol, got {rev_b['model']}")
+    if rev_c: check(rev_c['base_model'] == 'gemini-4-argon', f"[{name}] reviewer-c primary must be gemini-4-argon, got {rev_c['model']}")
     if task_rev: check(task_rev['base_model'] == 'gpt-6.1-sol', f"[{name}] task-reviewer primary must be gpt-6.1-sol, got {task_rev['model']}")
     if rev_a and rev_b and rev_c:
         check(len({rev_a['base_model'], rev_b['base_model'], rev_c['base_model']}) == 3, f"[{name}] council models must be distinct")
 
     for r in roles:
+        if r['role'] == 'task-reviewer': check(r['base_model'] in TASK_MODELS, r['line'])
         if r['role'] in REVIEW_ROLES:
             check(r['base_model'] in ALLOWED_REVIEW_MODELS, f"[{name}] review role {r['role']} (rung {r['rung']}) has disallowed model: {r['model']}")
     for sr in single_reviews:
@@ -269,7 +271,10 @@ def audit_profile_policy(name, text):
         eff = r['effort']
         if eff != '-':
             val = eff.split('=', 1)[-1] if '=' in eff else eff
-            check(val in VALID_EFFORT_LEVELS, f"[{name}] invalid effort level '{val}' in: {r['line']}")
+            council = (r.get('role') in REVIEW_ROLES or (r.get('roles') and set(r['roles']) <= REVIEW_ROLES) or r['section'] in ('Single-provider review', 'single'))
+            if council:
+                check((r['provider'], r['base_model'], eff) in {('claudeAgent', 'claude-opus-5-5', 'effort=xhigh'), ('codex', 'gpt-6.1-sol', 'reasoningEffort=xhigh'), ('antigravity', 'gemini-4-argon', 'thinking_level=high')}, r['line'])
+            check(council or val in VALID_EFFORT_LEVELS, f"[{name}] invalid effort level '{val}' in: {r['line']}")
 
     if errors:
         raise AssertionError("\n   - ".join(["policy violations:"] + errors))

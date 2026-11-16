@@ -1995,15 +1995,15 @@ backup_ladder() {
 NONREVIEW_ROLES='scout,implementer,implementer-deep,tester,patch'
 backup_ladder "$ROOT/providers/tri.md" >"$TMPROOT/tri-backup-74.txt"
 if grep -qE '^[|] [0-9]+ [|] ([*]|[^|]*(scout|tester|patch|implementer)[^|]*) [|]' "$TMPROOT/tri-backup-74.txt"; then fail "tri forbids operational backups"; fi
-grep -qF '| task-reviewer,reviewer-a,reviewer-b,reviewer-c | codex |' "$TMPROOT/tri-backup-74.txt" || fail "tri backup ladder carries a codex reviewer rung"
+grep -qF '| task-reviewer | codex |' "$TMPROOT/tri-backup-74.txt" || fail "tri backup ladder carries a codex reviewer rung"
 backup_ladder "$ROOT/providers/quad.md" >"$TMPROOT/quad-backup-74.txt"
 # Quad ships only task/council review backups.
 if grep -qE '^[|] [0-9]+ [|] ([*]|[^|]*(scout|tester|patch|implementer)[^|]*) [|]' "$TMPROOT/quad-backup-74.txt"; then fail "quad forbids operational backups"; fi
 for rv_prov in codex claudeAgent; do
-  grep -qF "| task-reviewer,reviewer-a,reviewer-b,reviewer-c | $rv_prov |" "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries a $rv_prov review-only rung"
+  grep -qF "| task-reviewer | $rv_prov |" "$TMPROOT/quad-backup-74.txt" || fail "quad backup ladder carries a $rv_prov review-only rung"
 done
 
-for needle in '<skills-dir>/_harness/agents/<seat>.md' spawn_agent invoke_subagent 'degraded task-review: single-family host'; do
+for needle in '<skills-dir>/_harness/agents/<seat>.md' spawn_agent invoke_subagent 'without authorship filters'; do
   grep -qF "$needle" "$ROOT/AGENTS.md" || fail "AGENTS.md documents the standalone dispatch adapter via $needle"
 done
 grep -qF 'grandparent of `oneshot/SKILL.md`' "$ROOT/AGENTS.md" || fail "AGENTS.md documents <skills-dir> as grandparent of oneshot/SKILL.md"
@@ -2055,7 +2055,7 @@ for dispatch_doc in \
   skills/dispatch/SKILL.md \
   skills/dispatch/spec-reviewer-prompt.md \
   skills/dispatch/quality-reviewer-prompt.md; do
-  grep -qF 'degraded task-review: single-family host' "$ROOT/$dispatch_doc" || fail "$dispatch_doc documents the single-family host fallback for task-reviewer"
+  grep -qiE 'without authorship filters|without author-model or family exclusions' "$ROOT/$dispatch_doc" || fail "$dispatch_doc allows configured self-review"
 done
 
 # 75. Multi-provider T3 Code dispatch priority, lazy MCP discovery, omittedModels, and Step 0 bootstrap gates
@@ -2088,7 +2088,7 @@ if sed -n '/^## Step 0: Routing Bootstrap/,/^## /p' "$ROOT/skills/oneshot/SKILL.
 fi
 sed -n '/^## Phase 1: SHAPE/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'oneshot-state.md' || fail "oneshot Phase 1 records active Dispatch Adapter path and primary rungs in oneshot-state.md"
 sed -n '/^## State Artifact/,/^## /p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'Dispatch Adapter' || fail "oneshot State Artifact records active Dispatch Adapter path and primary rungs"
-grep -qF '>= 2' "$ROOT/skills/council/SKILL.md" || fail "council Step 0 enforces >= 2 healthy independent families"
+grep -qF 'One available reviewer may PASS' "$ROOT/skills/council/SKILL.md" || fail "one available reviewer proceeds"
 if sed -n '/^## Step 0: Routing Bootstrap/,/^## /p' "$ROOT/skills/council/SKILL.md" | grep -qF 'MUST run on three independent model families'; then
   fail "council Step 0 allows the 2-healthy-family minimum rather than requiring 3 families unconditionally"
 fi
@@ -2498,7 +2498,7 @@ for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode c
   [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-install-$prov_case.out" >&2; fail "--providers $prov_combo exits 0 (got $rc)"; }
   [ -f "$prov_md" ] || fail "--providers $prov_combo installs PROVIDERS.md"
   grep -qxF "# providers $prov_combo" "$prov_home/.config/opencode/.harness-manifest" || fail "--providers $prov_combo records '# providers $prov_combo' in .harness-manifest"
-  [ "$(prov_reviewer_c_row "$prov_md" primary)" = "codex gpt-6.1-sol" ] || fail "--providers $prov_combo keeps Seat C on Sol"
+  [ "$(prov_reviewer_c_row "$prov_md" primary)" = "antigravity gemini-4-argon" ] || fail "--providers $prov_combo keeps Seat C on Argon"
 
   if awk -F '|' '$2 ~ /^ reviewer-[abc] $/ && $4 == " opencode "' "$prov_md" | grep -q .; then
     fail "--providers $prov_combo puts no reviewer rung on opencode"
@@ -2697,15 +2697,15 @@ seat_cell() {
   awk -F '|' -v seat="$2" -v col="$3" '$2 == " " seat " " && $3 == " primary " { v = $col; gsub(/^ +| +$/, "", v); print v }' "$1"
 }
 
-# Under --providers antigravity,claude the captain takes Fable on claudeAgent,
-# Seat B retains Astra and Seat C Sol even though Codex was not selected.
+# Under --providers antigravity,claude the captain takes Opus on claudeAgent,
+# Seat B retains Sol and Seat C Argon even though Codex was not selected.
 prov_test_home="$TMPROOT/prov-dual-home"
 HOME="$prov_test_home" "$INSTALL" --providers antigravity,claude >/dev/null 2>&1
 dual_md="$prov_test_home/.config/opencode/PROVIDERS.md"
-[ "$(seat_cell "$dual_md" reviewer-a 5)" = "claude-fable-5-2" ] || fail "--providers antigravity,claude seat A (captain) primary is claude-fable-5-2"
+[ "$(seat_cell "$dual_md" reviewer-a 5)" = "claude-opus-5-5" ] || fail "--providers antigravity,claude seat A (captain) primary is claude-opus-5-5"
 [ "$(seat_cell "$dual_md" reviewer-a 4)" = "claudeAgent" ] || fail "--providers antigravity,claude seat A runs on claudeAgent"
-[ "$(seat_cell "$dual_md" reviewer-b 7)" = "openai" ] || fail "--providers antigravity,claude seat B retains Astra family"
-[ "$(seat_cell "$dual_md" reviewer-c 5)" = "gpt-6.1-sol" ] || fail "--providers antigravity,claude seat C primary is Sol"
+[ "$(seat_cell "$dual_md" reviewer-b 7)" = "openai" ] || fail "--providers antigravity,claude seat B retains OpenAI family"
+[ "$(seat_cell "$dual_md" reviewer-c 5)" = "gemini-4-argon" ] || fail "--providers antigravity,claude seat C primary is Sol"
 [ "$(seat_cell "$dual_md" implementer 5)" = "claude-opus-5-5" ] || fail "--providers antigravity,claude implementer primary is claude-opus-5-5"
 [ "$(seat_cell "$dual_md" implementer-deep 5)" = "claude-fable-5-2" ] || fail "--providers antigravity,claude implementer-deep primary is claude-fable-5-2"
 
@@ -2718,7 +2718,7 @@ oc_seat_a="$(seat_cell "$oc_md" reviewer-a 5)"
 oc_seat_b="$(seat_cell "$oc_md" reviewer-b 5)"
 oc_seat_c="$(seat_cell "$oc_md" reviewer-c 5)"
 [ -n "$oc_seat_a" ] && [ -n "$oc_seat_b" ] && [ -n "$oc_seat_c" ] || fail "claude,opencode seats A, B, and C all exist"
-[ "$oc_seat_a" = "claude-fable-5-2" ] || fail "claude,opencode seat A (captain) primary is claude-fable-5-2"
+[ "$oc_seat_a" = "claude-opus-5-5" ] || fail "claude,opencode seat A (captain) primary is claude-opus-5-5"
 [ "$oc_seat_a" != "$oc_seat_b" ] && [ "$oc_seat_a" != "$oc_seat_c" ] && [ "$oc_seat_b" != "$oc_seat_c" ] || fail "claude,opencode council seats run on pairwise-distinct models"
 for oc_seat in reviewer-a reviewer-b reviewer-c; do
   [ "$(seat_cell "$oc_md" "$oc_seat" 4)" != "opencode" ] || fail "claude,opencode $oc_seat stays off opencode"
@@ -2744,18 +2744,8 @@ awk '/^## Backup ladder/,0' "$oc_md" | grep -qF '| claudeAgent |' || fail "dynam
 grep -qF '| opencode-go | opencode | * | 5h | - | - |' "$prov_oc_home/.config/opencode/PROVIDERS.md" || fail "dynamic profile with opencode carries opencode-go pool row"
 pass "cybernetic quota resilience: opencode-go pools, backup diversity, and dual-provider council seats"
 
-# 79. Harness compliance and council integrity invariants:
-# - dispatch forbids manual execution (case-insensitive), has 4 bootstrap checks + driver inline HARD-GATE
-# - plan header template does not allow inline execution under dispatch
-# - council forbids identical-model self-review (not provider instance),
-#   reads author_models/author_families from oneshot-state.md in Step 6 and skips matching author models,
-#   enforces all-seats round N+1 reruns, and binds head=<sha> to git rev-parse HEAD
-# - land parses effective last council_verdict: PASS and head=<sha> matching
-#   local git rev-parse HEAD and remote PR head via gh pr merge --squash --match-head-commit <sha> (plus standalone rule)
-# - oneshot records <provider>/<model> in author logs, author_models: + author_families: in state,
-#   effective last council_verdict in Phase 7, and recognizes "use the oneshot harness"
-# - AGENTS.md routing rules demote reviewer-* on author model conflict, review & council contracts recognize mode=nominal|degraded,
-#   carry oneshot-state.md council_verdict + explicit author-family rungs recorded in state, and stay <=21250 bytes
+# 79. Harness compliance: explicit routing, self-review, available-seat verdicts,
+# all-active-seat re-review, and same-head merge evidence with green checks.
 grep -qF 'verify all four bootstrap checks' "$ROOT/skills/dispatch/SKILL.md" || fail "dispatch SKILL.md Step 0 verifies all four bootstrap checks"
 grep -qF 'Forbid driver inline execution' "$ROOT/skills/dispatch/SKILL.md" || fail "dispatch SKILL.md carries driver inline execution hard-gate"
 if grep -qiF 'manual execution' "$ROOT/skills/dispatch/SKILL.md"; then
@@ -2764,14 +2754,8 @@ fi
 if grep -qF 'inline execution with batch checkpoints is also allowed' "$ROOT/skills/plan/SKILL.md"; then
   fail "plan SKILL.md header template must not allow inline execution under dispatch"
 fi
-grep -qF 'Forbid same-model council seats and author self-review' "$ROOT/skills/council/SKILL.md" || fail "council SKILL.md carries author self-review hard-gate"
-if grep -qF 'or provider instance' "$ROOT/skills/council/SKILL.md"; then
-  fail "council SKILL.md Step 0 bans identical model only, not provider instance"
-fi
-sed -n '/^6\. /,/## Fallback mechanics/p' "$ROOT/skills/council/SKILL.md" | grep -qF 'oneshot-state.md' || fail "council SKILL.md Step 6 reads author models and families from oneshot-state.md"
-sed -n '/^6\. /,/## Fallback mechanics/p' "$ROOT/skills/council/SKILL.md" | grep -qF 'author_models' || fail "council SKILL.md Step 6 references author_models"
-sed -n '/^6\. /,/## Fallback mechanics/p' "$ROOT/skills/council/SKILL.md" | grep -qF 'author_families' || fail "council SKILL.md Step 6 references author_families"
-grep -qF 'demote: <seat> -> <provider>/<model> (author model conflict)' "$ROOT/skills/council/SKILL.md" || fail "council SKILL.md announces author model conflict demotion"
+grep -qF 'Self-review is allowed' "$ROOT/skills/council/SKILL.md" || fail "council allows self-review"
+grep -qF 'council_verdict: SKIPPED' "$ROOT/skills/council/SKILL.md" || fail "zero reviewers records SKIPPED"
 grep -qF 'round N+1 review = all active fresh reviewer seats' "$ROOT/skills/council/SKILL.md" || fail "council SKILL.md round loop specifies all active seats"
 grep -qF 'git rev-parse HEAD' "$ROOT/skills/council/SKILL.md" || fail "council SKILL.md binds head=<sha> to git rev-parse HEAD"
 grep -qF 'council_verdict: PASS' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md checks council_verdict: PASS in oneshot-state.md"
@@ -2780,20 +2764,20 @@ grep -qF 'head=<sha>' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md checks
 grep -qF 'git rev-parse HEAD' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md verifies head=<sha> matches git rev-parse HEAD"
 grep -qF 'gh pr merge --squash --match-head-commit <sha>' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md enforces remote PR head match via gh pr merge --squash --match-head-commit <sha>"
 grep -qiF 'standalone' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md documents standalone consensus PASS outside oneshot"
-grep -qF 'Never merge without verified Council consensus PASS' "$ROOT/skills/land/SKILL.md" || fail "land SKILL.md requires verified council consensus PASS before merge"
+grep -qF 'Actual review FAIL' "$ROOT/skills/land/SKILL.md" || fail "land blocks actual review failure"
 grep -qF 'use the oneshot harness' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot SKILL.md description recognizes use the oneshot harness trigger"
 sed -n '/^## Phase 3: DISPATCH/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF '<provider>/<model>' || fail "oneshot SKILL.md Phase 3 step 7 records <provider>/<model> alongside family"
 sed -n '/^## Phase 6: COUNCIL/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'council_verdict: PASS round=<n> mode=<nominal|degraded> head=<sha>' || fail "oneshot Phase 6 retains normal verdict format"
 for single_section in '## Phase 6: COUNCIL' '## State Artifact'; do
-  sed -n "/^$single_section/,/^---$/p" "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'council_verdict: PASS|FAIL round=<n> mode=single providers=<1|2> reviewer=<provider/model> head=<sha>' || fail "oneshot $single_section carries canonical single verdict"
+  sed -n "/^$single_section/,/^---$/p" "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'council_verdict: PASS|FAIL round=<n> mode=single reviewer=<provider/model> head=<sha>' || fail "oneshot $single_section carries canonical single verdict"
 done
 sed -n '/^## Phase 7: FINISH/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'nominal|degraded|captain|single' || fail "oneshot Phase 7 allows audited single verdict"
-grep -qF 'Phase 6 Council consensus PASS is recorded' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot SKILL.md Phase 7 requires council consensus in state artifact"
+grep -qF 'council_verdict: SKIPPED' "$ROOT/skills/oneshot/SKILL.md" || fail "oneshot records skipped review"
 sed -n '/^## Phase 7: FINISH/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qiF 'effective last' || fail "oneshot SKILL.md Phase 7 checks effective last council_verdict line"
 sed -n '/^## Phase 7: FINISH/,/^---$/p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'git rev-parse HEAD' || fail "oneshot SKILL.md Phase 7 requires head=<sha> match against git rev-parse HEAD"
 sed -n '/^## State Artifact/,/^## /p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'author_models:' || fail "oneshot SKILL.md State Artifact includes author_models:"
 sed -n '/^## State Artifact/,/^## /p' "$ROOT/skills/oneshot/SKILL.md" | grep -qF 'author_families:' || fail "oneshot SKILL.md State Artifact includes author_families:"
-sed -n '/^## Routing Rules/,/^### /p' "$ROOT/AGENTS.md" | grep -qF 'demote: <seat> -> <provider>/<model> (author model conflict)' || fail "AGENTS.md Routing Rules specify author model conflict skip and demotion announcement"
+grep -qF 'authorship never affects eligibility' "$ROOT/AGENTS.md" || fail "authorship audit only"
 sed -n '/^### Review contracts/,/^## /p' "$ROOT/AGENTS.md" | grep -qF 'oneshot-state.md' || fail "AGENTS.md Review contracts require consensus PASS in oneshot-state.md"
 sed -n '/^### Review contracts/,/^## /p' "$ROOT/AGENTS.md" | grep -qF 'council_verdict: PASS' || fail "AGENTS.md Review contracts reference council_verdict: PASS"
 sed -n '/^### Review contracts/,/^## Unit Naming Map/p' "$ROOT/AGENTS.md" | grep -qF 'mode=nominal' || fail "AGENTS.md recognizes mode=nominal"
@@ -2801,7 +2785,7 @@ sed -n '/^### Review contracts/,/^## Unit Naming Map/p' "$ROOT/AGENTS.md" | grep
 grep -qF '(`implementer*`, `tester`, `patch`, CI/council fixers)' "$ROOT/AGENTS.md" || fail "AGENTS.md restores explicit author-family rung list"
 grep -qF 'producing branch commits recorded in state' "$ROOT/AGENTS.md" || fail "AGENTS.md specifies author-family commits are recorded in state"
 grep -qF 'single-seat re-dispatch across rounds is forbidden' "$ROOT/AGENTS.md" || fail "AGENTS.md Council Contract forbids single-seat re-dispatch across rounds"
-grep -qF 'No council seat may review code authored by the identical model.' "$ROOT/AGENTS.md" || fail "AGENTS.md Council Contract forbids identical-model self-review"
+grep -qF 'The same model may author and review' "$ROOT/AGENTS.md" || fail "root allows self-review"
 [ "$(wc -c <"$ROOT/AGENTS.md")" -lt 24000 ] || fail "AGENTS.md stays under the 24000-byte rule limit"
 pass "harness compliance: context hygiene hard-gate, council integrity, and land pre-merge gate"
 
@@ -2861,10 +2845,10 @@ for cap_effort in effort=xhigh effort=max effort=ultrathink effort=ultracode thi
   awk -v e="$cap_effort" '{ if ($0 == "| driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |") print "| driver | fallback | claudeAgent | claude-sonnet-5-5 | " e " | anthropic | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
   cap_reject "role row $cap_effort" "install.sh: profile $CAP_ABS invalid row: driver fallback: effort above high"
 done
-awk '{ if ($0 == "| 3 | task-reviewer,reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |") print "| 3 | task-reviewer,reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.1-sol | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
+awk '{ if ($0 == "| 3 | task-reviewer | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |") print "| 3 | task-reviewer | codex | gpt-6.1-sol | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
 cap_reject "backup row effort=max" "install.sh: profile $CAP_ABS invalid backup row: 3: effort above high"
-awk '{ if ($0 == "| codex | gpt-6-astra | reasoningEffort=high | openai | ok |") print "| codex | gpt-6-astra | reasoningEffort=xhigh | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
-cap_reject "single-provider row reasoningEffort=xhigh" "install.sh: profile $CAP_ABS invalid single-provider row: codex gpt-6-astra: effort above high"
+awk '{ if ($0 == "| codex | gpt-6.1-sol | reasoningEffort=xhigh | openai | ok |") print "| codex | gpt-6.1-sol | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
+cap_reject "single-provider row reasoningEffort=max" "install.sh: profile $CAP_ABS invalid single-provider row: codex gpt-6.1-sol: effort above high"
 for cap_ok in - effort=low effort=medium effort=high; do
   awk -v e="$cap_ok" '{ if ($0 == "| driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |") print "| driver | fallback | claudeAgent | claude-sonnet-5-5 | " e " | anthropic | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
   rm -rf "$TMPROOT/cap-ok-dest"
@@ -2998,12 +2982,12 @@ check_council_profile() {
   profile_rows "$md" "Single-provider review" >"$TMPROOT/cp-single.txt"
   awk -F '|' '$1 ~ /^reviewer-/ && $3 == "opencode" { print "opencode reviewer rung: " $0 }
               $1 == "reviewer-esc" { print "reviewer-esc row: " $0 }
-              $5 ~ /=/ && $5 !~ /=(none|minimal|low|medium|high)$/ { print "invalid configured effort: " $0 }' "$TMPROOT/cp-roles.txt" >"$TMPROOT/cp-bad.txt"
+              $5 ~ /=/ && ($5 !~ /=(none|minimal|low|medium|high)$/ && !($1 ~ /^reviewer-[abc]$/ && $5 ~ /=xhigh$/)) { print "invalid configured effort: " $0 }' "$TMPROOT/cp-roles.txt" >"$TMPROOT/cp-bad.txt"
   awk -F '|' '($2 == "*" || $2 ~ /reviewer-/) && $3 == "opencode" { print "opencode reviewer backup: " $0 }
-              $2 ~ /reviewer-/ && $5 !~ /=high$/ { print "reviewer backup below high: " $0 }
+              $2 ~ /reviewer-/ && $5 !~ /=(high|xhigh)$/ { print "reviewer backup below high: " $0 }
               $2 == "*" { print "wildcard backup row: " $0 }
-              $5 ~ /=/ && $5 !~ /=(none|minimal|low|medium|high)$/ { print "invalid configured effort: " $0 }' "$TMPROOT/cp-backup.txt" >>"$TMPROOT/cp-bad.txt"
-  awk -F '|' '$3 ~ /=/ && $3 !~ /=(none|minimal|low|medium|high)$/ { print "invalid configured effort: " $0 }' "$TMPROOT/cp-single.txt" >>"$TMPROOT/cp-bad.txt"
+              $5 ~ /=/ && ($5 !~ /=(none|minimal|low|medium|high)$/ && !($2 ~ /^reviewer-[abc](,reviewer-[abc])*$/ && $5 ~ /=xhigh$/)) { print "invalid configured effort: " $0 }' "$TMPROOT/cp-backup.txt" >>"$TMPROOT/cp-bad.txt"
+  awk -F '|' '$3 ~ /=/ && $3 !~ /=(none|minimal|low|medium|high|xhigh)$/ { print "invalid configured effort: " $0 }' "$TMPROOT/cp-single.txt" >>"$TMPROOT/cp-bad.txt"
   if [ "$has_oc" -eq 1 ] && [ $((has_cld + has_cdx + has_agy)) -eq 0 ]; then :; fi
   awk -F '|' '
     NR == FNR { if ($1 ~ /^(scout|implementer|implementer-deep|tester|patch|task-reviewer|reviewer-a|reviewer-b|reviewer-c)$/ && $2 != "rung") provs[$3] = 1; next }
@@ -3012,19 +2996,20 @@ check_council_profile() {
       for (p in provs) {
         n = 0
         for (k in models) { split(k, kk, SUBSEP); if (kk[1] == p) n++ }
-        if (p == "codex" && n != 2) print "single-provider review lists " n " model(s) for " p " (expected 2)"
+        if (p == "codex" && n != 1) print "single-provider review lists " n " model(s) for " p " (expected 2)"
+        if (p == "antigravity" && n != 1) print "missing Argon single-provider row"
         if ((p == "claude" || p == "claudeAgent") && n != 1) print "single-provider review lists " n " model(s) for " p " (expected 1)"
-        if (p != "codex" && p != "claude" && p != "claudeAgent" && n > 0) print "single-provider review lists " n " model(s) for " p " (expected 0)"
+        if (p != "codex" && p != "claude" && p != "claudeAgent" && p != "antigravity" && n > 0) print "single-provider review lists " n " model(s) for " p " (expected 0)"
       }
     }' "$TMPROOT/cp-roles.txt" "$TMPROOT/cp-single.txt" >>"$TMPROOT/cp-bad.txt"
   if [ -s "$TMPROOT/cp-bad.txt" ]; then cat "$TMPROOT/cp-bad.txt" >&2; fail "80e: $label council/effort invariants"; fi
   [ "$(seat_cell "$md" reviewer-a 5)" != "" ] && [ "$(seat_cell "$md" reviewer-b 5)" != "" ] && [ "$(seat_cell "$md" reviewer-c 5)" != "" ] || fail "80e: $label carries all three council seats"
   [ "$(seat_cell "$md" reviewer-a 5)" != "$(seat_cell "$md" reviewer-b 5)" ] && [ "$(seat_cell "$md" reviewer-a 5)" != "$(seat_cell "$md" reviewer-c 5)" ] && [ "$(seat_cell "$md" reviewer-b 5)" != "$(seat_cell "$md" reviewer-c 5)" ] || fail "80e: $label council primaries are pairwise-distinct models"
-  [ "$(seat_cell "$md" reviewer-a 5)" = "claude-fable-5-2" ] || fail "$label captain is Fable"
+  [ "$(seat_cell "$md" reviewer-a 5)" = "claude-opus-5-5" ] || fail "$label captain is Opus"
   [ "$(seat_cell "$md" implementer-deep 5)" = "claude-fable-5-2" ] || fail "$label deep implementer is Fable"
   [ "$(seat_cell "$md" implementer 5)" = "claude-opus-5-5" ] || fail "$label implementer is Opus"
-  [ "$(seat_cell "$md" reviewer-b 5)" = "gpt-6-astra" ] || fail "$label seat B is Astra"
-  [ "$(seat_cell "$md" reviewer-c 5)" = "gpt-6.1-sol" ] || fail "$label seat C is Sol"
+  [ "$(seat_cell "$md" reviewer-b 5)" = "gpt-6.1-sol" ] || fail "$label seat B is Sol"
+  [ "$(seat_cell "$md" reviewer-c 5)" = "gemini-4-argon" ] || fail "$label seat C is Argon"
   return 0
 }
 for shipped in quad tri opencode-go codex antigravity claude; do
@@ -3039,9 +3024,9 @@ for shipped in quad tri opencode-go codex antigravity claude; do
       'task-reviewer|fallback|codex|gpt-6-astra|reasoningEffort=high|openai|ok' \
       'task-reviewer|last-resort|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
       'implementer-deep|primary|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
-      'reviewer-a|primary|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
-      'reviewer-b|primary|codex|gpt-6-astra|reasoningEffort=high|openai|ok' \
-      'reviewer-c|primary|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok'; do
+      'reviewer-a|primary|claudeAgent|claude-opus-5-5|effort=xhigh|anthropic|ok' \
+      'reviewer-b|primary|codex|gpt-6.1-sol|reasoningEffort=xhigh|openai|ok' \
+      'reviewer-c|primary|antigravity|gemini-4-argon|thinking_level=high|google|ok'; do
       profile_rows "$shipped_md" roles | grep -qxF "$quad_spec" || fail "80e: providers/$shipped.md carries spec row $quad_spec"
     done
     for quad_cheap in \
@@ -3057,15 +3042,15 @@ for shipped in quad tri opencode-go codex antigravity claude; do
       profile_rows "$shipped_md" roles | grep -qxF "$quad_cheap" || fail "80e: providers/$shipped.md carries cheap seat row $quad_cheap"
     done
     awk -F '|' '
-      $1 ~ /^(reviewer-[abc]|task-reviewer)$/ && $4 != "claude-fable-5-2" && $4 != "gpt-6-astra" && $4 != "gpt-6.1-sol" {
+      $1 ~ /^reviewer-[abc]$/ && $4 != "claude-opus-5-5" && $4 != "gemini-4-argon" && $4 != "gpt-6.1-sol" {
         print "forbidden policy reviewer model in roles: " $0
       }' "$TMPROOT/cp-roles.txt" >>"$TMPROOT/cp-bad.txt"
     awk -F '|' '
-      ($2 == "*" || $2 ~ /(^|,)(reviewer-[abc]|task-reviewer)(,|$)/) && $4 != "claude-fable-5-2" && $4 != "gpt-6-astra" && $4 != "gpt-6.1-sol" {
+      ($2 == "*" || $2 ~ /(^|,)reviewer-[abc](,|$)/) && $4 != "claude-opus-5-5" && $4 != "gemini-4-argon" && $4 != "gpt-6.1-sol" {
         print "forbidden policy reviewer model in backup: " $0
       }' "$TMPROOT/cp-backup.txt" >>"$TMPROOT/cp-bad.txt"
     awk -F '|' '
-      $1 != "provider" && $1 != "---" && !(($1 == "codex" && ($2 == "gpt-6-astra" || $2 == "gpt-6.1-sol")) || (($1 == "claude" || $1 == "claudeAgent") && $2 == "claude-fable-5-2")) {
+      $1 != "provider" && $1 != "---" && !(($1 == "codex" && ($2 == "gpt-6.1-sol")) || (($1 == "claude" || $1 == "claudeAgent") && $2 == "claude-opus-5-5") || ($1 == "antigravity" && $2 == "gemini-4-argon")) {
         print "forbidden policy model in single-provider review: " $0
       }' "$TMPROOT/cp-single.txt" >>"$TMPROOT/cp-bad.txt"
     if [ -s "$TMPROOT/cp-bad.txt" ]; then cat "$TMPROOT/cp-bad.txt" >&2; fail "80e: providers/$shipped.md reviewer whitelist"; fi
@@ -3104,19 +3089,17 @@ for pv_combo in antigravity claude codex opencode antigravity,claude antigravity
 done
 pass "every --providers composition prefers spec implementer and council models, keeps review off opencode, and caps all configured effort"
 
-# 80g. Council primaries must take distinct families when the review ladders allow it.
+# 80g. Distinct council models can share a family.
 { awk '!/^[|] reviewer-b [|] primary [|]/' "$ROOT/providers/quad.md"
-  printf '| reviewer-b | primary | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |\n'
+  printf '| reviewer-b | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |\n'
 } >"$TMPROOT/same-fam.md"
 rc=0
 OPENCODE_CONFIG="$TMPROOT/same-fam-dest" "$INSTALL" --profile-file "$TMPROOT/same-fam.md" </dev/null >/dev/null 2>"$TMPROOT/same-fam.err" || rc=$?
-[ "$rc" -eq 1 ] || fail "80g: reviewer-a and reviewer-b sharing a primary family exits 1 (got $rc)"
-grep -qF 'invariant violated: reviewer-a and reviewer-b share primary family anthropic' "$TMPROOT/same-fam.err" || { cat "$TMPROOT/same-fam.err" >&2; fail "80g: shared primary family diagnostic"; }
-[ ! -e "$TMPROOT/same-fam-dest" ] || fail "80g: shared primary family writes nothing"
-pass "council primaries keep pairwise-distinct families when the review ladders span them"
+[ "$rc" -eq 0 ] || { cat "$TMPROOT/same-fam.err" >&2; fail "80g: distinct models in one family permitted"; }
+pass "council permits distinct primary models within the same family"
 
 # 80h. Universal effort cap across non-Anthropic models, generic duplicate primary model rejection,
-# runtime captain author exclusion, two-family distinct-model council, and profile audits.
+# runtime captain self-review, distinct-model council, and profile audits.
 
 # 1. Non-Anthropic effort above high rejected across role/advisory, backup, and single-provider rows
 for bad_effort in reasoningEffort=max reasoningEffort=xhigh variant=max variant=xhigh thinking_level=max thinking_level=xhigh; do
@@ -3127,13 +3110,13 @@ for bad_effort in reasoningEffort=max reasoningEffort=xhigh variant=max variant=
   grep -qE 'effort above high' "$TMPROOT/cap-na.err" || fail "80h: role row non-Anthropic $bad_effort diagnostic"
 done
 
-awk '{ if ($0 ~ /\| 4 \| task-reviewer,reviewer-a,reviewer-b,reviewer-c \|/) print "| 4 | task-reviewer,reviewer-a,reviewer-b,reviewer-c | codex | gpt-6-astra | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap-na-b.md"
+awk '{ if ($0 ~ /\| 4 \| task-reviewer \|/) print "| 4 | task-reviewer | codex | gpt-6-astra | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap-na-b.md"
 rc=0
 OPENCODE_CONFIG="$TMPROOT/cap-na-b-dest" "$INSTALL" --profile-file "$TMPROOT/cap-na-b.md" </dev/null >"$TMPROOT/cap-na-b.out" 2>"$TMPROOT/cap-na-b.err" || rc=$?
 [ "$rc" -eq 1 ] || fail "80h: backup row non-Anthropic effort above high exits 1 (got $rc)"
 grep -qE 'effort above high' "$TMPROOT/cap-na-b.err" || fail "80h: backup row non-Anthropic effort above high diagnostic"
 
-awk '{ if ($0 == "| codex | gpt-6-astra | reasoningEffort=high | openai | ok |") print "| codex | gpt-6-astra | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap-na-sp.md"
+awk '{ if ($0 == "| codex | gpt-6.1-sol | reasoningEffort=xhigh | openai | ok |") print "| codex | gpt-6.1-sol | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap-na-sp.md"
 rc=0
 OPENCODE_CONFIG="$TMPROOT/cap-na-sp-dest" "$INSTALL" --profile-file "$TMPROOT/cap-na-sp.md" </dev/null >"$TMPROOT/cap-na-sp.out" 2>"$TMPROOT/cap-na-sp.err" || rc=$?
 [ "$rc" -eq 1 ] || fail "80h: single-provider non-Anthropic effort above high exits 1 (got $rc)"
@@ -3169,14 +3152,14 @@ OPENCODE_CONFIG="$TMPROOT/dup-rev-dest" "$INSTALL" --profile-file "$TMPROOT/dup-
 grep -qE 'reviewer.*primary.*(model|distinct|duplicate)' "$TMPROOT/dup-rev.err" || fail "80h: duplicate reviewer primary model diagnostic"
 
 # 4. Shared implementation/captain models are valid configuration. Runtime
-# author exclusion and handoff, rather than installer rejection, enforce independence.
+# authorship does not affect eligibility or captaincy.
 awk '{ if ($0 ~ /\| implementer \| primary \|/) print "| implementer | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |"; else print }' "$TMPROOT/two-fam.md" >"$TMPROOT/capt-impl.md"
 rc=0
 OPENCODE_CONFIG="$TMPROOT/capt-impl-dest" "$INSTALL" --profile-file "$TMPROOT/capt-impl.md" </dev/null >"$TMPROOT/capt-impl.out" 2>"$TMPROOT/capt-impl.err" || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/capt-impl.err" >&2; fail "80h: shared implementation/captain model installs (got $rc)"; }
 for policy in "$TMPROOT/capt-impl-dest/HARNESS.md" "$TMPROOT/capt-impl-dest/skills/council/SKILL.md"; do
-  grep -qF 'If the preferred captain authored the diff' "$policy" || fail "80h: installed policy excludes author captain"
-  grep -qF 'first healthy eligible seat' "$policy" || fail "80h: installed policy hands captaincy to an eligible seat"
+  grep -qF 'Self-review is allowed' "$policy" || fail "80h: installed policy permits author captain"
+  grep -qF 'council_verdict: SKIPPED' "$policy" || fail "80h: installed availability verdict"
 done
 [ "$(seat_cell "$TMPROOT/two-fam-dest/PROVIDERS.md" reviewer-b 5)" = gpt-6-astra ] || fail "80h: independent GPT Seat B available for captain handoff"
 [ "$(seat_cell "$TMPROOT/two-fam-dest/PROVIDERS.md" reviewer-c 5)" = gpt-6.1-sol ] || fail "80h: independent GPT Seat C available for captain handoff"
@@ -3187,13 +3170,14 @@ for prof in "$ROOT"/providers/*.md "$TMPROOT"/pv-*/.config/opencode/PROVIDERS.md
     fail "80h: $prof contains forbidden gemini-4-carbon"
   fi
   for section in roles 'Backup ladder' 'Single-provider review'; do
-    profile_rows "$prof" "$section" | awk -F '|' '
-      { for (i = 1; i <= NF; i++) if ($i ~ /=/ && $i !~ /^[A-Za-z][A-Za-z0-9_-]*=(none|minimal|low|medium|high)$/) print }
+    profile_rows "$prof" "$section" | awk -F '|' -v section="$section" '
+      { council = (section == "Single-provider review" || (section == "roles" && $1 ~ /^reviewer-[abc]$/) || (section == "Backup ladder" && $2 ~ /^reviewer-[abc](,reviewer-[abc])*$/))
+        for (i = 1; i <= NF; i++) if ($i ~ /=/ && $i !~ /^[A-Za-z][A-Za-z0-9_-]*=(none|minimal|low|medium|high)$/ && !(council && $i ~ /^[A-Za-z][A-Za-z0-9_-]*=xhigh$/)) print }
     ' >"$TMPROOT/effort-audit.txt"
     [ ! -s "$TMPROOT/effort-audit.txt" ] || fail "80h: $prof contains invalid configured effort in $section"
   done
 done
-pass "universal effort cap, generic duplicate primary model rejection, captain author-exclusion policy, and profile audits"
+pass "universal effort cap, generic duplicate primary model rejection, captain self-review policy, and profile audits"
 
 printf 'all install tests passed (%d passed, 0 failed)\n' "$passed"
 

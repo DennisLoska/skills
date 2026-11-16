@@ -1,5 +1,7 @@
 # Shared profile role routing implementation plan
 
+> Superseded routing history: current council policy is Opus/Sol at xhigh and Argon at high; all non-council work remains at most high. See ../skill-model-routing.md and AGENTS.md. Historical rows below are not dispatch guidance.
+
 The user authorized the same policy across all six shipped profiles and all 15 generated provider combinations: Opus 5.5 implements,
 Fable 5.2 handles deep implementation and captains review, GPT-6 Astra and
 GPT-6.1 Sol complete the panel. Only these three models may review, including

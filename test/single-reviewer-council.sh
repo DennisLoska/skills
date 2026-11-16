@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # test/single-reviewer-council.sh - regression & contract tests for single-reviewer council mode.
-# Validates the oneshot harness single-reviewer council contract when 1 or 2 provider instances
-# remain eligible: state line format, author exclusion, green-tests gate, provider table policy,
+# Validates single-reviewer and unavailable council contracts in all runs:
+# state line format, self-review, green-tests gate, provider table policy,
 # host payload limits, and retained normal/degraded/captain mode invariants.
 set -euo pipefail
 export LC_ALL=C
@@ -33,51 +33,21 @@ grep -qE 'mode=<[^>]*single[^>]*>' "$COUNCIL_MD" || grep -qF 'mode=single' "$COU
   fail "council SKILL.md recognizes mode=single in verdict modes"
 pass "council SKILL.md recognizes mode=single"
 
-# 1b. Gating: single reviewer permitted when 1 or 2 providers remain eligible
-grep -qE '(1 or 2|one or two|[12]) provider' "$COUNCIL_MD" || \
-  fail "council SKILL.md gates single mode on 1 or 2 eligible provider instances"
-pass "council SKILL.md gates single mode on 1 or 2 remaining providers"
-
-# 1c. Optional when 2 providers remain (not forced; degraded/nominal still allowed)
-grep -qiE 'optional' "$COUNCIL_MD" || \
-  fail "council SKILL.md documents that single mode is optional when 2 providers are available"
-pass "council SKILL.md documents single mode is optional when 2 providers are eligible"
-
-# 1d. >2 remaining providers must still use normal 2+ independent reviewers
-grep -qE '(> ?2|more than 2|more than two).*(normal|2\+|two or more|nominal)' "$COUNCIL_MD" || \
-  fail "council SKILL.md enforces normal 2+ independent review when >2 providers remain"
-pass "council SKILL.md enforces normal 2+ review when >2 providers remain"
-
-# 1e. 0 or unknown provider availability halts
-grep -qE '(0|zero|unknown).*(stop|halt|yellow)' "$COUNCIL_MD" || \
-  fail "council SKILL.md stops on 0 or unknown provider availability"
-pass "council SKILL.md halts on 0 or unknown provider availability"
-
-# 1f. PASS condition for single mode: 1 independent reviewer PASS, zero accepted unresolved, green tests
-grep -qE 'single.*1.*PASS.*zero.*(unresolved|accepted).*green' "$COUNCIL_MD" || \
-  grep -qE '`single`.*1 independent.*PASS.*zero unresolved accepted.*green' "$COUNCIL_MD" || \
-  fail "council SKILL.md specifies single mode PASS condition (1 reviewer PASS, 0 accepted, green tests)"
-pass "council SKILL.md specifies single mode PASS conditions"
-
-# 1g. No no-tests exception for mode=single (green tests required)
-grep -qE 'mode=single.*(require|no.*no-tests|green tests)' "$COUNCIL_MD" || \
-  grep -qE '(mode=degraded|mode=captain|mode=single).*require.*green tests' "$COUNCIL_MD" || \
-  grep -qF 'mode=nominal only' "$COUNCIL_MD" || \
-  fail "council SKILL.md forbids no-tests exception for mode=single"
-pass "council SKILL.md requires green tests for mode=single (no no-tests exception)"
-
-# 1h. Canonical verdict line format with providers=<1|2> and reviewer=<provider/model>
-grep -qE 'council_verdict: (PASS\|FAIL|PASS) round=<n> mode=single providers=<1\|2> reviewer=<provider/model> head=<sha>' "$COUNCIL_MD" || \
-  grep -qE 'mode=single providers=<1\|2> reviewer=' "$COUNCIL_MD" || \
-  fail "council SKILL.md specifies canonical verdict line for single mode"
-pass "council SKILL.md documents canonical single mode verdict line format"
-
-# 1i. No old unconditional "minimum 2 distinct non-author review models or stop" blocking single mode
-if grep -qF 'Minimum 2 distinct non-author review models or stop and surface yellow.' "$COUNCIL_MD"; then
-  fail "council SKILL.md has old unconditional min-2 statement blocking single mode without qualification"
-fi
-pass "council SKILL.md qualifies or removes unconditional min-2 review model stop"
-
+# Single review now depends on member availability, not provider counts.
+python3 - "$COUNCIL_MD" <<'PYCHECK'
+from pathlib import Path
+import sys
+s = Path(sys.argv[1]).read_text()
+for phrase in ('One available reviewer may PASS regardless of provider count',
+               'inside or outside oneshot', 'Self-review is allowed',
+               'reviewer_vote: PASS|FAIL reviewer=<provider/model> head=<sha>',
+               'council_verdict: SKIPPED round=<n> mode=unavailable head=<sha>',
+               'zero unresolved accepted findings and green actual checks (no no-tests exception)'):
+    assert phrase in s, phrase
+assert 'council_providers:' not in s
+assert 'providers=<1|2>' not in s
+PYCHECK
+pass "single review and zero-member SKIPPED retain votes, checks and head binding without provider gates"
 
 # ==============================================================================
 # 2. Land SKILL.md Contract Audits
@@ -156,36 +126,36 @@ for prof in "${shipped_profiles[@]}"; do
   # 5a. Profile has ## Single-provider review section
   grep -qF '## Single-provider review' "$prof_file" || fail "providers/$prof.md missing ## Single-provider review"
 
-  # 5b. Single-provider review table permits Claude Code Fable (claudeAgent or claude)
+  # 5b. Single-provider review table permits Claude Code Opus (claudeAgent or claude)
   # Extract single-provider section lines
   sp_text="$(awk '/^## Single-provider review/{flag=1; next} /^## /{flag=0} flag' "$prof_file")"
 
-  # Check if Claude Fable is in Single-provider review table
-  echo "$sp_text" | grep -qE '\|[[:space:]]*(claudeAgent|claude)[[:space:]]*\|[[:space:]]*claude-fable-5-2[[:space:]]*\|' || \
-    fail "providers/$prof.md Single-provider review table must permit Claude Code Fable"
+  # Check if Claude Opus is in Single-provider review table
+  echo "$sp_text" | grep -qE '\|[[:space:]]*(claudeAgent|claude)[[:space:]]*\|[[:space:]]*claude-opus-5-5[[:space:]]*\|' || \
+    fail "providers/$prof.md Single-provider review table must permit Claude Code Opus"
 
-  # 5c. Codex retains Astra and Sol
-  echo "$sp_text" | grep -qE '\|[[:space:]]*codex[[:space:]]*\|[[:space:]]*gpt-6-astra[[:space:]]*\|' || \
-    fail "providers/$prof.md Single-provider review table missing Codex Astra"
+  # 5c. Antigravity retains Argon and Codex retains Sol
+  echo "$sp_text" | grep -qE '\|[[:space:]]*antigravity[[:space:]]*\|[[:space:]]*gemini-4-argon[[:space:]]*\|' || \
+    fail "providers/$prof.md Single-provider review table missing Antigravity Argon"
   echo "$sp_text" | grep -qE '\|[[:space:]]*codex[[:space:]]*\|[[:space:]]*gpt-6.1-sol[[:space:]]*\|' || \
     fail "providers/$prof.md Single-provider review table missing Codex Sol"
 
-  # 5d. Antigravity and OpenCode must NOT have review models in Single-provider review
-  if echo "$sp_text" | grep -qE '\|[[:space:]]*(antigravity|opencode)[[:space:]]*\|'; then
-    fail "providers/$prof.md Single-provider review table must NOT contain Antigravity or OpenCode review models"
+  # 5d. OpenCode must NOT have review models in Single-provider review
+  if echo "$sp_text" | grep -qE '\|[[:space:]]*(opencode)[[:space:]]*\|'; then
+    fail "providers/$prof.md Single-provider review table must NOT contain OpenCode review models"
   fi
 
-  # 5e. 3 Primary review seats remain distinct: Fable, Astra, Sol
+  # 5e. 3 Primary review seats remain distinct: Opus, Astra, Sol
   python3 - "$prof_file" <<'PYSEATS'
 import sys
 from pathlib import Path
 rows = [[c.strip() for c in line.split('|')[1:-1]] for line in Path(sys.argv[1]).read_text().splitlines() if line.startswith('|')]
 primaries = {c[0]: c[3] for c in rows if len(c) == 7 and c[1] == 'primary' and c[0].startswith('reviewer-')}
-assert primaries == {'reviewer-a': 'claude-fable-5-2', 'reviewer-b': 'gpt-6-astra', 'reviewer-c': 'gpt-6.1-sol'}, primaries
+assert primaries == {'reviewer-a': 'claude-opus-5-5', 'reviewer-b': 'gpt-6.1-sol', 'reviewer-c': 'gemini-4-argon'}, primaries
 assert len(set(primaries.values())) == 3
 PYSEATS
 done
-pass "all shipped profiles satisfy single-provider review table policy (Claude Fable permitted, Antigravity/OpenCode excluded, 3 distinct primary seats preserved)"
+pass "all shipped profiles satisfy single-provider review table policy (Opus/Sol/Argon permitted, OpenCode excluded, 3 distinct primary seats preserved)"
 
 
 # ==============================================================================
@@ -232,39 +202,35 @@ def section(text, heading):
 def require(text, *phrases):
     for phrase in phrases:
         assert phrase in text, f"missing contract: {phrase}"
-canonical = 'council_verdict: PASS|FAIL round=<n> mode=single providers=<1|2> reviewer=<provider/model> head=<sha>'
-council = (root / 'skills/council/SKILL.md').read_text()
-require(council, canonical, 'optional when 1 or 2', 'even if more review models',
-        '>2 providers use normal 2+', '0 or unknown providers', 'zero independent allowed reviewers, stop',
-        'unique profile provider instance IDs', 'across ALL roles', 'quota/soft-cap/privacy/reachability',
-        'not review models, families or pools', 'whose other pool is healthy', 'pool used only for non-review roles',
-        'Missing, unknown or stale evidence cannot unlock single', 'If count recovers >2, rerun normal review',
-        'sole reviewer is captain', 'fresh on that same captain', 'reviewer_vote: PASS|FAIL',
-        'zero unresolved accepted findings and green actual checks (no no-tests exception)',
-        'Exclude every author model even on another provider', 'Never introduce an excluded model',
-        'max 15 real reviewer dispatches', 'max 3 review rounds', 'with 2 or 3 healthy seats')
-for heading in ('## Phase 6: COUNCIL', '## Phase 7: FINISH', '## State Artifact'):
-    require(section((root / 'skills/oneshot/SKILL.md').read_text(), heading), 'mode=single')
+canonical = 'council_verdict: PASS|FAIL round=<n> mode=single reviewer=<provider/model> head=<sha>'
+for rel in ('AGENTS.md', 'skills/council/SKILL.md', 'skills/oneshot/SKILL.md'):
+    text = (root / rel).read_text()
+    require(text, canonical, 'council_verdict: SKIPPED round=<n> mode=unavailable head=<sha>',
+            'council_member:', 'head=<sha>')
+    assert 'council_providers:' not in text, rel
+    assert 'author model conflict' not in text, rel
+# Audit every operative review prompt/profile as well as installed consumers.
+operative = [root / 'AGENTS.md', root / 'README.md', root / 'docs/skill-model-routing.md']
+operative += list((root / 'skills').rglob('*.md')) + list((root / 'providers').glob('*.md'))
+for path in operative:
+    text = path.read_text()
+    for obsolete in ('author model conflict', 'Exclude every author model',
+                     'No council seat may review code authored by the identical model',
+                     'degraded task-review: single-family host', 'council_providers:',
+                     'providers=<1|2>', 'audited oneshot single',
+                     'outside audited oneshot', 'Resolve author exclusions'):
+        assert obsolete not in text, (path, obsolete)
 land = (root / 'skills/land/SKILL.md').read_text()
-# Both active merge consumers must independently retain freshness + negative boundaries.
-for block in (section(land, '## Part 2'), section(land, '## Rules')):
-    require(block, 'mode=single', 'freshly recompute eligible provider IDs/count across ALL roles',
-            'immediately before merge', 'council_providers:', 'council_reviewer:', 'captain:',
-            'reviewer_vote: PASS', 'count 1 or 2 agreeing with verdict', 'same-head',
-            'Missing, unknown or stale evidence refuses merge', '0/unknown providers',
-            'count >2 requires rerun normal 2+', 'author_models exclusion', 'profile review allowlist',
-            'zero unresolved accepted findings', 'green actual checks', 'no no-tests exception',
-            '--match-head-commit <sha>', 'Standalone session-only evidence never unlocks single')
-# Verify installed payloads, including OpenCode, and installed consumer skills.
-for harness, skills in [('.codex/AGENTS.md', '.codex/skills'), ('.claude/CLAUDE.md', '.claude/skills'),
-                        ('.gemini/config/rules/HARNESS.md', '.gemini/antigravity/skills'),
-                        ('.config/opencode/HARNESS.md', '.config/opencode/skills')]:
+require(land, 'effective last', 'council_verdict: PASS', 'council_verdict: SKIPPED',
+        'mode=unavailable', 'green actual checks', 'zero unresolved accepted findings',
+        'same-head available reviewer votes/rulings', '--match-head-commit <sha>',
+        'Actual review FAIL', 'stale/missing evidence', 'unrecognized verdict/mode combinations')
+for harness in ('.codex/AGENTS.md', '.claude/CLAUDE.md', '.gemini/config/rules/HARNESS.md',
+                '.config/opencode/HARNESS.md'):
     text = (home / harness).read_text()
-    require(text, canonical, 'council_providers:', 'council_reviewer:',
-            'reviewer_vote: PASS', 'freshly before merge', 'no no-tests exception',
-            'No council seat may review code authored by the identical model.')
-    require(text, '| `nominal` |', '| `degraded` |', '| `captain` |', '| `single` |',
-            'Captain mode works in any round with 2 or 3 healthy seats.')
+    require(text, canonical, 'council_member:', 'council_verdict: SKIPPED',
+            'green actual verification', 'The same model may author and review.')
+    require(text, '| `nominal` |', '| `degraded` |', '| `captain` |', '| `single` |')
 # Installer copies actual source skills; inspect every installed copy without assuming host layout.
 for skill in ('council', 'oneshot', 'land'):
     copies = list(home.rglob(f'{skill}/SKILL.md'))
@@ -273,6 +239,6 @@ for skill in ('council', 'oneshot', 'land'):
         assert copy.read_text() == (root / 'skills' / skill / 'SKILL.md').read_text(), copy
 print('ok: source and all installed contracts enforce single boundaries and normal retention')
 PYCONTRACT
-pass "real installed contracts: provider boundaries, author exclusion, fresh heads, green checks, normal quorum"
+pass "real installed contracts: availability, self-review, fresh heads, green checks and retained modes"
 
 printf '\nALL SINGLE-REVIEWER COUNCIL TESTS PASSED: %d assertions\n' "$passed"
