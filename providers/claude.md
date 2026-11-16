@@ -1,6 +1,6 @@
 # Claude provider profile
 
-All six shipped profiles and every `--providers` combination share the same model policy. Profile/provider selection records the connection preference, not an exclusive provider allowlist. Cross-provider roles remain portable: unavailable rungs are marked unreachable; design/planning stops when its exact ladder is unavailable, and review never substitutes an excluded model. A standalone host may therefore stop at an unreachable terminal operational rung or lack review quorum. Refresh migrates existing shipped installs to this policy; custom profile files retain their own ladders and legacy emergency routing when no explicit operational last-resort exists.
+All six shipped profiles and every `--providers` combination share the same model policy. Profile/provider selection records the connection preference, not an exclusive provider allowlist. Cross-provider roles remain portable: unavailable rungs are marked unreachable; design/planning stops when its exact ladder is unavailable, and review never substitutes an excluded model. A standalone host may therefore stop at an unreachable terminal operational rung while unavailable review members are skipped. Refresh migrates existing shipped installs to this policy; custom profile files retain their own ladders and legacy emergency routing when no explicit operational last-resort exists.
 
 ## Role distribution
 
@@ -9,7 +9,7 @@ All six shipped profiles and every `--providers` combination share the same mode
 - **Discovery, testing, patching:** OpenCode Go Deepseek V4.1 Flash at `variant=high`, then GPT Luna and Gemini 3.8 Flash at `low` for discovery or `medium` for testing and patching.
 - **Implementation:** Claude Code Opus 5.5 primary and Fable 5.2 deep at `high`; both fall back to Codex Sol at `high`, then terminal Antigravity Gemini Argon at `high`.
 - **Per-task review:** GPT Sol, then GPT Astra, then Claude Fable 5.2, all at `high`, with author-family/model exclusions enforced by the harness.
-- **Council:** Opus 5.5 is preferred captain (A) at `effort=xhigh`, Sol is Seat B at `reasoningEffort=xhigh`, and Argon is Seat C at `thinking_level=high` (no xhigh support). Council fallbacks, backups and captain rulings use only these models and efforts. Author exclusion, distinct seats and quorum remain mandatory.
+- **Council:** Opus 5.5 is preferred captain (A) at `effort=xhigh`, Sol is Seat B at `reasoningEffort=xhigh`, and Argon is Seat C at `thinking_level=high` (no xhigh support). Council fallbacks, backups and captain rulings use only these models and efforts. Simultaneously active models stay distinct; self-review is allowed and unavailable members are skipped.
 - **Compaction:** Gemini 3.8 Flash at `low`, then GPT Luna at `low`.
 
 ## Budget facts and provider load split
@@ -65,7 +65,7 @@ Antigravity carries only Gemini routes. Claude Code carries Opus implementation,
 
 ## Backup ladder
 
-Only review backup rows ship; operational last-resort rungs are terminal. Resolve author exclusions and distinct active models before selecting any row.
+Only review backup rows ship; operational last-resort rungs are terminal. Resolve quota, privacy, effort and distinct active models before selecting any row.
 
 | order | roles | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -78,7 +78,7 @@ Only review backup rows ship; operational last-resort rungs are terminal. Resolv
 
 ## Single-provider review
 
-In oneshot, optional `mode=single` permits one independent allowed reviewer when 1 or 2 profile provider instances have an eligible pool across all roles (quota, soft-cap, privacy and reachability checked). Codex permits Sol, Claude Code permits Opus, and Antigravity permits Argon, each alone only if non-author under audited single mode. More than 2 providers retain normal 2+ quorum; zero/unknown providers or zero independent reviewers stop. Audit IDs/count/HEAD and captain/reviewer at council start, demotion and freshly before merge; stale/missing evidence cannot unlock single. Green actual checks and a real same-head PASS with zero unresolved accepted findings are required. OpenCode-only review stops. Never widen the allowlist or waive author exclusion. Primary seats remain distinct; this is runtime quorum reduction only.
+Council tries configured seats and fallbacks, skipping unavailable/exhausted members without widening the allowlist. One available reviewer may PASS regardless of provider count, inside or outside oneshot, with a real same-head final vote, zero unresolved accepted findings and green actual checks. Self-review is allowed; authorship is audit-only. Zero reviewers records `council_verdict: SKIPPED round=<n> mode=unavailable head=<sha>` with all configured attempt/skip reasons, never PASS. Land may proceed with matching HEAD and green actual verification; no no-tests waiver for single/unavailable. Actual review FAIL and unresolved accepted findings still block.
 
 | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- |

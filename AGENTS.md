@@ -17,7 +17,7 @@
 - **Optional sections** (default: pool `<provider>/<model>` per rung, nothing reserved):
   - `## Quota pools`: `pool | provider | models | window | soft-cap | reserve`. `pool` (`^[a-z0-9][a-z0-9-]*$`, unique) names the bucket; `models` (`^[A-Za-z0-9*][A-Za-z0-9._/*-]*$`) globs `model` for `provider`; `window` (`^[1-9][0-9]*(h|d|w|mo)$`, e.g. `5h`) is the fallback cooldown; `soft-cap` (`-` or positive integer) caps run dispatches before reserving the pool for `reserve` (`-` or comma-separated roles).
   - `## Backup ladder`: `order | roles | provider | model | effort | family | privacy`; unique positive `order`, `roles` `*` or comma-separated dispatched roles, other cells as dispatched rows.
-  - `## Single-provider review`: `provider | model | effort | family | privacy` (cells as dispatched rows): council-only per-provider distinct review models at verified effort <= `xhigh`; fewer than two non-author models means stop outside the single exception below, never widen the profile review allowlist.
+  - `## Single-provider review`: `provider | model | effort | family | privacy` (cells as dispatched rows): council-only per-provider distinct review models at verified effort <= `xhigh`; available configured members proceed without a provider-count gate; never widen the profile review allowlist.
 - **Validation (installer):** Outside fenced blocks, optional headings select their tables; `## Project management` is skipped; other `## ` headings select roles. Invalid profiles fail before writes (exit 1): missing primary, duplicate primary council model, invalid role/pool/backup/single-provider rows (7/6/7/5 cells). Effort above high reports `effort above high` except `xhigh` on reviewer-a/b/c rows, exclusively council backup rows (no wildcard or mixed roles), and council-only single-provider rows; higher levels are rejected everywhere; `-` requires runtime verification. Retired roles warn and are ignored. `--prune` preserves unmanaged `<dest>/state/`. `--profile`, `--profile-file`, `--providers` conflict (exit 2). Refresh reuses recorded `# profile`, `# profile-file <abs path>`, `# providers <list>`, `# pm <value>`; missing profile-file exits 2 (`install.sh: profile file not found: <path>`); pre-profile installs keep `opencode-go`.
 - **Project management:** `install.sh --pm <auto|github|linear|jira|none>` (default `auto`, invalid exits 2; without flag or `# pm`, TTY prompts once) renders `backlog_tracker: <value>` as the installed `PROVIDERS.md`'s trailing `## Project management` section.
 
@@ -40,7 +40,7 @@ Walk each role's rungs in ladder order (`primary -> fallback -> last-resort`; Ro
 
 - **Operational terminal boundary:** `scout`/`tester`/`patch`/`implementer`/`implementer-deep`: explicit last-resort is terminal; ineligibility/routing failure stops the original role: `budget stop: <role>`, without terminal same-model alternates, sibling hand-off, wildcard or explicit backups. Primary/fallback keep same-model alternates. Retry transient once; task failures keep fix/debug caps, never budget events. Roles without explicit last-resort retain legacy sibling/backup routing. Review/designer/planner unchanged.
 
-- **Ladder:** resolve each rung's pool (first matching `## Quota pools` row, else `<provider>/<model>`), check the ledger and `soft_cap_counts`, and skip rungs whose pool is exhausted (`now < retry_after`) or soft-capped for other roles; `reviewer-*` seats also skip rungs whose `model` is in `author_models` (`demote: <seat> -> <provider>/<model> (author model conflict)`). On `exhausted`, `unreachable` or failed transient retry, announce and advance; stop at the operational terminal boundary.
+- **Ladder:** resolve each rung's pool (first matching `## Quota pools` row, else `<provider>/<model>`), check the ledger and `soft_cap_counts`, and skip rungs whose pool is exhausted (`now < retry_after`) or soft-capped for other roles. On `exhausted`, `unreachable` or failed transient retry, announce and advance; stop at the operational terminal boundary.
 - **Same-model alternate:** except at an operational terminal rung, before advancing past an ineligible rung, use a `## Backup ladder` row matching the role with the identical `model` on another eligible pool (`backup: <role> -> <provider>/<model>`).
 - **Balanced seat fallback:** with no eligible primary or same-model alternate, a council seat takes, from its remaining ladder rungs and matching backup rows, the one whose pool has the fewest dispatches this run (`soft_cap_counts`), ties by ladder order then `order`, under all eligibility checks.
 - **Quota ledger (`<dest>/state/quota-ledger.tsv`):** machine-local, never committed (`pool  provider  exhausted_at  retry_after  source_role  note`). Read before every ladder walk, pruning rows with `retry_after <= now`. On `exhausted`, write the rung's `pool` with `retry_after` from the error (`Retry-After`, "resets at ...") or `exhausted_at + window` (default `5h`). Success clears its pool row and increments `soft_cap_counts` in `oneshot-state.md`. Update under `mkdir <dest>/state/quota-ledger.lock` (break locks > 60s, remove on exit): read-merge-write `<dest>/state/.quota-ledger.$$.tmp`, `mv -f`, keep the later `retry_after`.
@@ -51,28 +51,27 @@ Walk each role's rungs in ladder order (`primary -> fallback -> last-resort`; Ro
   - `task failure` (bad output, failing tests): not a budget event; fix/debug caps apply.
   - Budget/eligibility skips never consume council rounds, the council budget guard, or fix attempts.
 - **Soft cap & reserve:** once a pool's `soft_cap_counts` reaches its `soft-cap`, only `reserve` roles may use it this run.
-- **Seat distinctness (council):** seats run on pairwise-distinct models, none in `author_models`; a demotion may cross families for balance, never onto a model active on another seat.
+- **Seat distinctness (council):** seats run on pairwise-distinct models; a demotion may cross families for balance, never onto a model active on another seat.
 
-**Single-reviewer council (oneshot only):** Optional `mode=single` at 1 or 2 eligible provider instances, even with more review models. >2 requires normal 2+ review; 0/unknown providers or zero independent allowed reviewers stop. Count unique profile provider instance IDs with an eligible pool across ALL roles via quota/soft-cap/privacy/reachability, not models/families/pools; one healthy pool preserves its provider.
+**Council availability (all runs):** Try configured seats and quota/reachability fallbacks, keeping simultaneously active models distinct. Self-review is allowed; authorship never affects eligibility or captaincy. Record `council_member: <seat> <provider/model> status=<reviewed|skipped> reason=<reason> head=<sha>` for attempted/skipped configured members and `captain: <seat> <provider>/<model> head=<sha>` for the first healthy seat (A, then B, then C). One available reviewer can PASS with a real final `reviewer_vote: PASS reviewer=<provider/model> head=<sha>`, zero unresolved accepted findings and green actual checks, regardless of provider count, inside or outside oneshot. The sole reviewer is captain; rulings are fresh on that captain.
 
-At council start, demotion/round and freshly before merge audit `council_providers: ids=<sorted,unique ids> count=<n> head=<sha>` plus per-pool eligibility reasons, `council_reviewer: <provider/model> head=<sha>` and `captain: <seat> <provider>/<model> head=<sha>`. Missing/unknown/stale evidence cannot unlock single; recovery >2 requires normal re-review. Sole reviewer is captain; rulings are fresh on that captain. Require its final real `reviewer_vote: PASS reviewer=<provider/model> head=<sha>`, zero unresolved accepted findings and green actual checks (no no-tests exception), all matching local/remote HEAD. Retain author exclusion, allowlist, context-scoped ceiling and budgets.
+Zero available reviewers records review skipped: `council_verdict: SKIPPED round=<n> mode=unavailable head=<sha>`, never PASS. Record all configured attempts/skips and reasons; skipped review with green actual checks and matching local/remote HEAD permits land to merge. No no-tests waiver for single or unavailable review. Existing FAIL votes and unresolved accepted findings remain blocking unless resolved under the captain contract; availability cannot erase them.
 
-Additional verdict: `council_verdict: PASS|FAIL round=<n> mode=single providers=<1|2> reviewer=<provider/model> head=<sha>`; normal formats unchanged.
+Single verdict: `council_verdict: PASS|FAIL round=<n> mode=single reviewer=<provider/model> head=<sha>`. Provider counts and provider audits are not gates. `## Single-provider review` rows remain configured recovery candidates when only one provider is reachable; apply the same quota, privacy, effort and active-model checks.
 
-- **Single-provider review:** at council start and each seat demotion, if exactly one profile provider still has an eligible pool (others exhausted or unreachable), announce `single-provider review: <provider>` and seat selected reviewers from its `## Single-provider review` rows: pairwise-distinct models outside `author_models`, Seat A first; `opencode` included. Re-check each round; two providers permit optional single; never edit profile rows.
 - **Context-scoped effort ceiling:** Only runtime council seats and captain rulings may use profile-configured `xhigh`; council is the only skill permitting above high (maximum xhigh). Driver, defaults, advisory/design, task-reviewer, fixing and testing remain <= `high`, even with shared reviewer contracts. `max`, `ultra`, `ultrathink`, `ultracode` and equivalents are forbidden everywhere. Verify capabilities; Argon explicitly uses `thinking_level=high` (no xhigh). Defaults need safe options or an unreachable rung; skills never switch the driver.
-- **Author independence (task loop):** `task-reviewer` skips the authoring family (`implementer*`/`tester`): none left on a standalone single-family host -> `degraded task-review: single-family host (<family>)`; non-author families exhausted or unreachable -> a model outside `author_models`, announcing `degraded task-review: non-author families exhausted/unreachable (reviewed by <model>)`. Never the author model.
+- **Task review:** use configured task-reviewer ladders/backups without authorship filters; record unavailable task reviews as skipped and proceed with green verification.
 - **Privacy gate:** `privacy: trains` rungs auto-skip on confidential tasks or diffs; compaction and summary never route to `trains`.
 - **Council budget guard:** max 15 real reviewer dispatches per PR (9 seat, 3 captain rulings, 3 demotions); skips and skipped rulings cost 0; a demoted seat keeps its rung for the day.
-- **Backup ladder walk:** outside the operational terminal boundary, once rungs/alternates are ineligible: (a) implementation seats try sibling hand-off (`implementer-deep <-> implementer`, never back to an exhausted seat); (b) walk `## Backup ladder` rows matching `*` or the role (ascending `order`; council seats by balanced fallback) under all eligibility rules (`backup: <role> -> <provider>/<model>`); (c) a reviewer seat with none left is lost (degraded council); other roles budget-stop, never running on the driver model.
-- **Budget stop & resume:** when no eligible rung remains for a required role (or review quorum is unavailable under the single exception), stop and report:
+- **Backup ladder walk:** outside the operational terminal boundary, once rungs/alternates are ineligible: (a) implementation seats try sibling hand-off (`implementer-deep <-> implementer`, never back to an exhausted seat); (b) walk `## Backup ladder` rows matching `*` or the role (ascending `order`; council seats by balanced fallback) under all eligibility rules (`backup: <role> -> <provider>/<model>`); (c) review roles with none left are skipped with recorded attempts/reasons; other roles budget-stop, never running on the driver model.
+- **Budget stop & resume:** when no eligible rung remains for a required role (excluding unavailable review roles), stop and report:
   ```text
   budget stop: <role>
     exhausted: <pool> (until <HH:MM or ISO timestamp>), ...
     earliest resume: <timestamp>  -> rerun `oneshot` to resume from state
   ```
   Record `earliest_resume` and `soft_cap_counts` in `oneshot-state.md`; on resume re-read the ledger without reopening closed rounds. Put a **Budget** block in the PR body and final report.
-- **Degraded council:** a lost seat or overlapping families never block while >= 2 distinct healthy reviewer models are outside `author_models` (on overlap record `degraded council author vote: model-level independence (<model1>, <model2>)`); else use the audited single exception or stop with `yellow: degraded council`.
+- **Degraded council:** skip unavailable members and proceed with the remaining configured reviewers: two use degraded, one uses single, zero uses SKIPPED/unavailable. Availability alone never causes a budget stop or permission request.
 - **Rounds:** max 3 council rounds per PR; a round-3 FAIL stops to the user.
 - **Action-name aliases:** agent files carry both `bash`/`task` and `shell`/`subagent` spellings so denies never go inert.
 
@@ -88,17 +87,18 @@ Additional verdict: `council_verdict: PASS|FAIL round=<n> mode=single providers=
 
 ### Review contracts
 
-- Under oneshot, land merges only when the effective last verdict line in `$(git rev-parse --git-dir)/info/oneshot-state.md` is `council_verdict: PASS` with `mode=nominal`, `mode=degraded`, `mode=captain`, or audited `mode=single` and `head=<sha>` matching local `HEAD` and the remote PR head (`--match-head-commit <sha>`). Single requires the audit/vote/checks contract above, freshly re-audited before merge.
+- Land reads the effective last `council_verdict` in `$(git rev-parse --git-dir)/info/oneshot-state.md`: accept `council_verdict: PASS` in `mode=nominal`, `mode=degraded`, `mode=captain` or `mode=single`, or `council_verdict: SKIPPED` in `mode=unavailable` with recorded configured attempts/skips. Require `head=<sha>` matching local HEAD and remote PR head (`--match-head-commit <sha>`), same-head available review results, zero unresolved accepted findings and green actual verification (nominal alone retains the no-tests exception below). FAIL, stale/unknown verdicts and unresolved review failures block. Standalone uses the same recorded evidence.
+
 - `no-tests` is `provisional: no-tests`, never green tests except nominal mode with no suite, green build/lint and state `no-tests decision: proceed`.
 - Fixers running tests use `implementer` (or `implementer-deep` for hard clusters), never `patch`.
 
 ## Council Contract
 
-**Profile review allowlist:** Council uses reviewer-a/b/c ladders, council backups and single-provider rows; task reviews use task-reviewer ladders/backups. Never cross these sets or widen either for lost seats. Except single mode, <2 eligible independent council models stop. If the preferred captain authored the diff, exclude that model and pass captaincy to the first healthy eligible seat; another provider cannot restore author-model independence.
+**Profile review allowlist:** Council uses reviewer-a/b/c ladders, council backups and single-provider rows; task reviews use task-reviewer ladders/backups. Never cross these sets or widen either for lost seats. Authorship is audit-only; self-review is allowed. Unavailable members are skipped without widening either allowlist.
 
 - Seats (`agents/*.md`, rungs in `PROVIDERS.md`): `implementer`, `implementer-deep`, `tester`, `scout`, `patch`, `reviewer-a`, `reviewer-b`, `reviewer-c`. When `GLOSSARY.md` exists, task briefs carry the required terms; spec review flags new undefined terms.
 - Normally three fresh reviewers on pairwise-distinct models review the same scope in parallel; round N+1 re-dispatches all active seats together (single-seat re-dispatch across rounds is forbidden outside mode=single). Findings: `path:line: emoji severity: problem. fix.` (red bug, yellow risk, blue nit on request only). No praise or scope creep.
-- **Review captain:** `reviewer-a`, else the first healthy of `reviewer-b`, `reviewer-c`; state records `captain: <seat> <provider>/<model>` (never in `author_models`). The captain reviews like any seat; if any seat voted FAIL or any red/yellow finding exists, the driver then dispatches a **captain ruling** (fresh subagent, captain's rung) with the merged, deduplicated findings (ids, seat attribution), diff, spec, and plan, which outputs:
+- **Review captain:** `reviewer-a`, else the first healthy of `reviewer-b`, `reviewer-c`; state records `captain: <seat> <provider>/<model>`. The captain reviews like any seat; if any seat voted FAIL or any red/yellow finding exists, the driver then dispatches a **captain ruling** (fresh subagent, captain's rung) with the merged, deduplicated findings (ids, seat attribution), diff, spec, and plan, which outputs:
   ```text
   <finding-id>: accept | defer | reject: <one-line reason>
   Captain verdict: PASS | FAIL
@@ -112,12 +112,14 @@ Additional verdict: `council_verdict: PASS|FAIL round=<n> mode=single providers=
   | --- | --- |
   | `nominal` | >= 2/3 seats PASS, zero unresolved accepted findings, green tests (or the `no-tests` exception) |
   | `degraded` | 2/2 healthy seats PASS (one seat lost), zero unresolved accepted findings, green tests |
-  | `single` | 1 independent allowed reviewer PASS, zero unresolved accepted findings, green actual checks; audited 1 or 2 providers, no no-tests exception |
+  | `single` | 1 available configured reviewer final PASS, zero unresolved accepted findings, green actual checks; no no-tests exception |
   | `captain` | captain verdict PASS overriding FAIL votes (every finding behind a FAIL vote deferred or rejected), zero unresolved accepted findings, green tests (no `no-tests` exception) |
 
-  Captain mode works in any round with 2 or 3 healthy seats.
-- **Author vote:** PASS needs >= 1 PASS from a non-author family or model-level independence (models outside `author_models`); in captain mode the captain's PASS counts; in single mode the sole independent reviewer's final PASS counts. `author_families`/`author_models` are the rungs (`implementer*`, `tester`, `patch`, CI/council fixers) producing branch commits recorded in state.
-- Reviewer never fixes; fixer never reviews. No council seat may review code authored by the identical model. Verify findings in code.
+  Captain mode works in any round with 2 or 3 healthy seats; single keeps its final reviewer vote after rulings.
+
+  `unavailable` records SKIPPED with zero reviewers and green actual verification, never PASS.
+- **Author metadata:** `author_families`/`author_models` identify the rungs (`implementer*`, `tester`, `patch`, CI/council fixers) producing branch commits recorded in state. Audit only; never eligibility or vote gates.
+- Reviewer never fixes during review; use fresh fixer and reviewer dispatches. The same model may author and review. Verify findings in code.
 
 ## Unit Naming Map
 
@@ -137,4 +139,4 @@ Additional verdict: `council_verdict: PASS|FAIL round=<n> mode=single providers=
 
 ## Fallback Mechanics
 
-Dispatch explicit rungs, never the driver model. Ineligible operational terminal rungs stop; otherwise announce and re-dispatch the SAME role per Routing Rules (alternates, ladder, siblings/backups, balanced council seats), else budget stop (`yellow: degraded council` for council).
+Dispatch explicit profile rungs, never inherit the driver model implicitly. Ineligible operational terminal rungs stop; otherwise announce and re-dispatch the SAME role per Routing Rules (alternates, ladder, siblings/backups, balanced council seats), else budget stop for required non-review roles; unavailable review members are skipped.

@@ -39,7 +39,7 @@ Driver procedure for each requested draft:
 2. Walk that role's primary/fallback/last-resort with the Dispatch Adapter and Routing Rules: check quota ledger and run counts, privacy, capabilities, explicit safe effort at most `high`; record success/failure and demote as prescribed. Same-model alternates and backups must explicitly name this role; `*` generic backups and implementation sibling hand-offs are ineligible. If none is eligible, stop with the role's budget/unreachable report; do not draft inline.
 3. T3: call `orchestrator_capabilities` once, then `delegate_task` with `role: design`, `isolation: shared`, `mode: wait` (or `async` for alternative fan-out), `target.providerInstanceId`, `target.model`, `target.options` from the selected rung. Native Path 3: OpenCode general task with explicit model/variant; Claude general-purpose `Agent` with explicit model and `run_in_background: false`; Codex `spawn_agent` with explicit model and `reasoning_effort`, then wait. No native seat pin or agent file exists for these roles. Honor host reachability and safe-default checks.
 4. Start the brief with `Rung: <provider>/<model> (<effort>), privacy: <ok|trains>.` only; no `Role contract:` or invented agent path. Include `Logical role: designer|planner; scoped read-only draft worker`, the worker guard above, approved requirements, relevant file excerpts/paths, glossary terms, constraints and the owning skill's draft requirements. Request draft text, assumptions, alternatives/decisions, risks and open questions. Never delegate the whole workflow or pipeline.
-5. Wait for the draft. Driver reads it against canonical docs and requirements, resolves open questions with the user, applies the draft to canonical artifacts, self-reviews and owns approvals, commits and phase advancement. Draft-only work does not enter code `author_models`/`author_families`; actual code authors still do, including any driver implementation. Review independence remains unchanged.
+5. Wait for the draft. Driver reads it against canonical docs and requirements, resolves open questions with the user, applies the draft to canonical artifacts, self-reviews and owns approvals, commits and phase advancement. Draft-only work does not enter code `author_models`/`author_families`; actual code authors still do, including any driver implementation. Author metadata is audit-only.
 
 ## When to Use
 
@@ -122,7 +122,7 @@ Final handoff: return to the controller with the final review verdict. Inside th
 
 Standalone (no oneshot): after final review PASS, run the verify skill yourself, then land.
 
-**Closed review eligibility:** Apply the active profile's review allowlist to task reviews, council seats, captain rulings, backups, and single-provider recovery. Never introduce an excluded model to fill a seat. Exclude every author model even on another provider. If the preferred captain authored the diff, the first healthy eligible seat takes captaincy. Fewer than two independent eligible council models means stop outside the audited oneshot mode=single exception in HARNESS.md; provider availability never overrides the allowlist.
+**Closed review eligibility:** Apply the active profile's review allowlist to task reviews, council seats, captain rulings, backups, and single-provider recovery. Never introduce an excluded model to fill a seat. Self-review is allowed; authorship never filters eligibility or captaincy. Skip unavailable reviewers after configured fallback attempts; record skips and proceed with green verification.
 
 ## Model Routing
 
@@ -133,9 +133,9 @@ Skills never hardcode model IDs. Route every subagent by role through the active
 - `implementer` - the default implementation seat (rungs from the active provider profile). Dispatched after `tester` with the `tester`'s report (`implementer-prompt.md`) to make the red tests pass, refactor, run the suite, and commit `tester` tests + implementation together; for mechanical tasks with no new behaviour to test, dispatch `implementer` directly (skip `tester`). Parallel fan-out dispatches several `implementer` instances concurrently.
 - `implementer-deep` - the heavy-reasoning seat reserved for complex multi-file architecture tasks and difficult bugs escalated by `debug`.
 
-On a usage-limit/429 error (`exhausted`, recorded in `<dest>/state/quota-ledger.tsv`), an `unreachable` rung, a failed `transient` retry, or a soft-cap reserved pool: stop at the operational terminal boundary; otherwise follow the AGENTS.md Routing Rules (quota pools & ledger, failure classes, soft cap & reserve, same-model alternate, and backup ladder walk) to re-dispatch the same role on the next eligible rung (a `## Backup ladder` row with the identical model on another eligible pool first, then the next rung of its ladder in the active provider profile), announce the demotion, and continue. Only without explicit last-resort, an implementation seat (`implementer`, `implementer-deep`) with no reachable ladder rung hands the task to the other implementation seat (`implementer-deep` <-> `implementer`, never revisiting an exhausted seat) before walking `## Backup ladder` (`backup: <role> -> <provider>/<model>`); when no eligible rung remains after the backup ladder, stop and report `budget stop: <role>` with exhausted pools and `earliest resume` per AGENTS.md Routing Rules (budget stop & resume). After each task commit, the controller records the implementing rung's family (and the `tester` rung's family when `tester`-written tests are committed) for the author-family rule (oneshot Phase 3, step 7).
+On a usage-limit/429 error (`exhausted`, recorded in `<dest>/state/quota-ledger.tsv`), an `unreachable` rung, a failed `transient` retry, or a soft-cap reserved pool: stop at the operational terminal boundary; otherwise follow the AGENTS.md Routing Rules (quota pools & ledger, failure classes, soft cap & reserve, same-model alternate, and backup ladder walk) to re-dispatch the same role on the next eligible rung (a `## Backup ladder` row with the identical model on another eligible pool first, then the next rung of its ladder in the active provider profile), announce the demotion, and continue. Only without explicit last-resort, an implementation seat (`implementer`, `implementer-deep`) with no reachable ladder rung hands the task to the other implementation seat (`implementer-deep` <-> `implementer`, never revisiting an exhausted seat) before walking `## Backup ladder` (`backup: <role> -> <provider>/<model>`); when no eligible non-review rung remains after the backup ladder, stop and report `budget stop: <role>` with exhausted pools and `earliest resume` per AGENTS.md Routing Rules (budget stop & resume). After each task commit, the controller records the implementing rung's family (and the `tester` rung's family when `tester`-written tests are committed) for audit attribution (oneshot Phase 3, step 7).
 
-**Stage reviewers dispatch ad-hoc:** spec-reviewer and quality-reviewer subagents are role `task-reviewer` from the active provider profile, chosen after the seat matrix call above; skip any `task-reviewer` rung whose family wrote the code or `tester` red tests for that task unless non-author families are unreachable on a standalone single-family host (`degraded task-review: single-family host (<family>)`, per `AGENTS.md` Routing Rules, author independence) or exhausted/unreachable (`degraded task-review: non-author families exhausted/unreachable (reviewed by <model>)`, requiring a model distinct from the author model). They are not seat agents; fresh context each time, explicit rung each time.
+**Stage reviewers dispatch ad-hoc:** spec-reviewer and quality-reviewer use configured `task-reviewer` ladders/backups without authorship filters. Fresh context and explicit rung each time. Skip unavailable task reviewers after fallbacks, recording attempts/reasons; green verification and actual findings remain required.
 
 **Seat matrix (route every test/implementation step through a named seat agent; models and effort levels per the active provider profile):**
 - Red step for a task with behaviour to test -> `tester` (writes failing tests in the working tree without committing), followed by `implementer` (green + refactor + commit).
@@ -168,9 +168,9 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 Both review stages dispatch fresh reviewer subagents that follow the council review contract. One owner: use the reviewer instruction block from `skills/council/SKILL.md` verbatim for each single reviewer (never invoke the council skill via the skill tool, which would start the full 3-seat branch loop), with the one-line finding format (`path:line: severity: problem. fix.`), and receiving-side rigor (confirm every finding against real code before dispatching fixes).
 
 - **Stage 1, spec compliance:** verify the implementer built what was requested, nothing more, nothing less (and kept any `tester`-written tests intact unless a valid reason was stated in the report).
-- **Stage 2, code quality:** verify the implementation is well-built. Order is fixed. Never start quality review before spec compliance passes.
+- **Stage 2, code quality:** verify the implementation is well-built. Order is fixed. Start quality review after spec compliance passes or is explicitly recorded unavailable; unresolved spec findings still block.
 
-Reviewer never fixes. Fixer never reviews. Fresh reviewer subagent every round.
+Reviewers do not edit during review; fresh fixer and reviewer dispatches may use the same model. Record unavailable review stages as skipped after configured fallbacks.
 
 ## Prompt Templates
 
@@ -433,14 +433,14 @@ Integration: all fixes independent, no conflicts, full suite green. 3 problems s
 - Accept "close enough" on spec compliance (spec reviewer found issues = not done)
 - Skip review loops (reviewer found issues = implementer fixes = review again)
 - Let implementer self-review replace actual review (both are needed)
-- Start code quality review before spec compliance passes (wrong order)
+- Start code quality review before spec review passes or is explicitly recorded unavailable (wrong order)
 - Move to the next task while either review has open issues
 - Hardcode a model ID (route by role through the active provider profile and AGENTS.md)
 - Violate plan task dependency order
 
 **If the subagent asks questions:** answer clearly and completely, provide additional context if needed, don't rush into implementation.
 
-**If the reviewer finds issues:** the implementer (same subagent) fixes them, reviewer reviews again, repeat until approved. Never skip the re-review. Caps: at most 3 fix attempts per task, then route through the debug skill; at most 2 debug rotations; past that STOP and escalate to the user with the exact failing state. Budget exhaustion is an allowed stop point.
+**If the reviewer finds issues:** the implementer (same subagent) fixes them, reviewer reviews again, repeat until approved. Never skip the re-review. Caps: at most 3 fix attempts per task, then route through the debug skill; at most 2 debug rotations; past that STOP and escalate to the user with the exact failing state. Budget exhaustion stops required non-review work; unavailable reviews are recorded as skipped, with unresolved findings still blocking.
 
 **If the subagent fails the task:** dispatch a fix subagent with specific instructions. Don't fix manually (context pollution). If the failure is a bug to root-cause, route through the debug skill first, then re-dispatch.
 

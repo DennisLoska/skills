@@ -67,7 +67,7 @@ for effort in ('-', 'reasoningEffort=none', 'reasoningEffort=minimal', 'reasonin
     invoke(base.replace('| driver | primary | codex | gpt-6.1-sol | reasoningEffort=medium |', f'| driver | primary | codex | gpt-6.1-sol | {effort} |'), 0)
 invoke(base.replace('| reviewer-c | primary | antigravity | gemini-4-argon | thinking_level=high | google |', '| reviewer-c | primary | codex | gpt-6.1-sol | reasoningEffort=xhigh | openai |'), 1, 'share primary model gpt-6.1-sol')
 # The preferred captain can be an implementation model in a profile; runtime
-# author exclusions must instead choose independent reviewers and a GPT captain.
+# self-review is allowed without captain handoff.
 invoke(base.replace('| implementer | primary | claudeAgent | claude-opus-5-5 | effort=high |', '| implementer | primary | claudeAgent | claude-fable-5-2 | effort=high |'), 0)
 allowed = {'gpt-6.1-sol', 'claude-opus-5-5', 'gemini-4-argon'}
 task_allowed = {'gpt-6.1-sol', 'gpt-6-astra', 'claude-fable-5-2'}

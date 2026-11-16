@@ -1,5 +1,5 @@
 ---
-description: Council reviewer seat A and review captain. Adversarial code audit from the first independent model family, findings only; in ruling mode, accepts, defers, or rejects the merged council findings. Dispatched by the council skill, never fixes anything.
+description: Council reviewer seat A and review captain. Adversarial code audit on a configured active model, findings only; in ruling mode, accepts, defers, or rejects the merged council findings. Dispatched by the council skill, never fixes anything.
 mode: subagent
 permissions:
   - action: read

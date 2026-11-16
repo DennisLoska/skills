@@ -1429,7 +1429,7 @@ validate_profile() {
           exit 1
         }
       }
-      # Model independence is required even when fewer families are available.
+      # Primary council seats use distinct models; authorship is audit-only.
       split("reviewer-a reviewer-b reviewer-c", seats, " ")
       for (i = 1; i <= 3; i++) {
         for (j = i + 1; j <= 3; j++) {
@@ -1438,22 +1438,6 @@ validate_profile() {
             exit 1
           }
         }
-      }
-      # Council seats need pairwise-distinct primary families whenever the
-      # review ladders span enough families to make that possible.
-      num_review_fams = 0
-      for (f in review_fams) num_review_fams++
-      if (num_review_fams >= 2 && primary_fam["reviewer-a"] == primary_fam["reviewer-b"]) {
-        printf "install.sh: profile %s invariant violated: reviewer-a and reviewer-b share primary family %s\n", profile, primary_fam["reviewer-a"] > "/dev/stderr"
-        exit 1
-      }
-      if (num_review_fams >= 3 && primary_fam["reviewer-a"] == primary_fam["reviewer-c"]) {
-        printf "install.sh: profile %s invariant violated: reviewer-a and reviewer-c share primary family %s\n", profile, primary_fam["reviewer-a"] > "/dev/stderr"
-        exit 1
-      }
-      if (num_review_fams >= 3 && primary_fam["reviewer-b"] == primary_fam["reviewer-c"]) {
-        printf "install.sh: profile %s invariant violated: reviewer-b and reviewer-c share primary family %s\n", profile, primary_fam["reviewer-b"] > "/dev/stderr"
-        exit 1
       }
       if (esc_ignored && ENVIRON["PROFILE_WARN"] != "0") {
         printf "install.sh: profile %s: reviewer-esc rows ignored (role retired; captain replaces escalation)\n", profile > "/dev/stderr"

@@ -125,7 +125,7 @@ git pull
 | --- | --- |
 | **What is it?** | A gated SDLC controller (`oneshot`) plus 12 pipeline skills and 8 role-contract subagent seats, wired by four closed feedback loops. |
 | **What runs where?** | Every role resolves to a *rung* (`primary` &rarr; `fallback` &rarr; `last-resort`) in a swappable provider profile, then to a provider instance, model, and effort. No harness file names a model. |
-| **What does it guarantee?** | Tests-first task loops, evidence-before-claims verification, a three-seat council on distinct models with a review captain who defers out-of-scope findings to the backlog (but can never waive a real bug), author-independent PASS, effort at most `high` except council seats/rulings (at most `xhigh`), and hard budget stops instead of silent model downgrades. |
+| **What does it guarantee?** | Tests-first task loops, evidence-before-claims verification, a three-seat council on distinct models with a review captain who defers out-of-scope findings to the backlog (but can never waive a real bug), effort at most `high` except council seats/rulings (at most `xhigh`), and hard budget stops instead of silent model downgrades. |
 | **Where does it install?** | OpenCode, Codex, Antigravity, and Claude Code, one profile bound at install time (`--target all` for every host). |
 | **How do I start?** | Run the track command for your host in [Installation & Setup](#️-installation--setup), then prompt `oneshot <task>`. |
 
@@ -231,8 +231,8 @@ oneshot build a rate-limited webhook delivery worker with exponential backoff, d
 4. **Phase 4 &ndash; `verify`:** runs full test suite, lint, and build via `tester` to collect fresh pass/fail command evidence.
 5. **Phase 5 &ndash; `land` (PR Filing):** pushes branch and opens GitHub PR with summary, test plan, and quota budget block.
 6. **Phase 6.5 &ndash; `make-ci-green` (L3 CI Loop):** polls GitHub Actions / review bots, inspects logs via `tester`, and dispatches implementation fixers.
-7. **Phase 6 &ndash; `council` (L2 Branch Loop):** three seats on distinct models review in parallel (`reviewer-a` is the review captain, plus `reviewer-b` and `reviewer-c`). If any seat fails or raises a red/yellow finding, the captain rules on every finding: accept (fix now), defer (backlog ticket), or reject (wrong, with evidence). PASS modes: audited oneshot `single` (one independent reviewer, 1 or 2 eligible providers, green actual checks), `nominal` (&ge;2/3), `degraded` (2/2 with one seat lost), or `captain` (captain PASS over FAIL votes whose findings were all deferred or rejected). Forbids identical-model author self-review. Max 3 rounds, then stop to the user.
-8. **Phase 7 &ndash; `land` (Gate 3 Handoff):** presents finish options (merge PR, keep PR open, keep branch, discard). Merging strictly requires an audited Phase 6 `council_verdict: PASS` (`mode=nominal|degraded|captain|single`) with `head=<sha>` match via `gh pr merge --squash --match-head-commit <sha>`, then files the deferred findings as tickets per `--pm`, and is worktree-aware.
+7. **Phase 6 &ndash; `council` (L2 Branch Loop):** three seats on distinct models review in parallel (`reviewer-a` is the review captain, plus `reviewer-b` and `reviewer-c`). If any seat fails or raises a red/yellow finding, the captain rules on every finding: accept (fix now), defer (backlog ticket), or reject (wrong, with evidence). PASS modes: `single` (one available reviewer, green actual checks), `nominal` (&ge;2/3), `degraded` (2/2 with one seat lost), or `captain` (captain PASS over FAIL votes whose findings were all deferred or rejected). Self-review is allowed; zero available members records SKIPPED with actual green verification. Max 3 rounds, then stop to the user.
+8. **Phase 7 &ndash; `land` (Gate 3 Handoff):** presents finish options (merge PR, keep PR open, keep branch, discard). Merging requires Phase 6 `council_verdict: PASS` (`mode=nominal|degraded|captain|single`) or explicit `SKIPPED` (`mode=unavailable`) with configured attempt/skip reasons and green actual verification with `head=<sha>` match via `gh pr merge --squash --match-head-commit <sha>`, then files the deferred findings as tickets per `--pm`, and is worktree-aware.
 
 ### 2. Zero-Gate Unattended Mode (`oneshot` Auto-Approve)
 
@@ -291,12 +291,12 @@ All six shipped profiles and all 15 `--providers` combinations use the same mode
 - **Drafts:** `designer` and `planner` use Fable 5.2 with Sol fallback only. Workers return read-only drafts; the driver owns conversation, approvals, canonical documents and phase advancement.
 - **Cheap work:** scout, tester and patch use Deepseek V4.1 Flash, then Luna, then terminal Gemini 3.8 Flash. Compaction uses Gemini Flash then Luna at low effort. OpenCode routes only Deepseek Flash.
 - **Implementation:** Claude Code Opus 5.5 primary and Fable 5.2 deep; both use Codex Sol fallback, then terminal Antigravity Gemini Argon. Every shipped profile and generated combination uses these exact provider paths.
-- **Reviews:** task review starts on Sol; council A/captain is Opus at xhigh, B Sol at xhigh, C Argon at high. Council fallbacks, backups and recovery stay within those three models; task reviews retain Sol/Astra/Fable at high. Author independence applies across providers.
-- **Unavailable providers:** mark rungs unreachable and walk permitted ladders. Codex-only council permits non-author Sol under audited oneshot single mode; Claude-only permits Opus and Antigravity-only permits Argon under the same rules. OpenCode-only cannot review. Author exclusions and quorum remain mandatory.
+- **Reviews:** task review starts on Sol; council A/captain is Opus at xhigh, B Sol at xhigh, C Argon at high. Council fallbacks, backups and recovery stay within those three models; task reviews retain Sol/Astra/Fable at high. Self-review is allowed.
+- **Unavailable providers:** mark rungs unreachable and walk configured fallbacks; skip unavailable review members and proceed with remaining members, or record SKIPPED with zero. Green actual verification remains required.
 
 #### 2. The Council: Three Seats and a Review Captain (Phase 6)
 
-- **Why multiple models?** Single-model reviews suffer from self-confirmation bias, hallucinated validations, and identical blind spots. The council runs three distinct models in parallel for normal quorum, using the active profile's allowed review models. Every shipped/generated policy permits only Opus, Sol, and Argon for council; task review retains Sol, Astra, and Fable at high.
+- **Why multiple models?** Single-model reviews suffer from self-confirmation bias, hallucinated validations, and identical blind spots. The council runs three distinct models in parallel when available, using the active profile's allowed review models. Every shipped/generated policy permits only Opus, Sol, and Argon for council; task review retains Sol, Astra, and Fable at high.
 - **Council Seats**:
   - **Seat A (`reviewer-a`), review captain**: Anthropic `claude-opus-5-5` via Claude Code at `effort=xhigh`. If Seat A has no eligible rung, captaincy passes to Seat B, then Seat C.
   - **Seat B (`reviewer-b`)**: OpenAI `gpt-6.1-sol` via Codex at `reasoningEffort=xhigh`.
@@ -309,14 +309,14 @@ All six shipped profiles and all 15 `--providers` combinations use the same mode
   | --- | --- |
   | `nominal` | &ge;2/3 seats PASS, zero unresolved accepted findings, green tests (or the `no-tests` exception) |
   | `degraded` | 2/2 healthy seats PASS (one seat lost), zero unresolved accepted findings, green tests |
-  | `single` | oneshot only: 1 independent reviewer final PASS, audited 1 or 2 providers, zero unresolved accepted findings, green actual checks (no no-tests exception) |
+  | `single` | 1 available reviewer final PASS, zero unresolved accepted findings, green actual checks (no no-tests exception) |
   | `captain` | captain PASS; every finding behind a FAIL vote deferred or rejected; zero unresolved accepted findings; green tests |
 
-Oneshot alone permits optional `mode=single` with 1 or 2 eligible profile provider instances, even with multiple allowed reviewers available. Count unique provider IDs across all roles using pool quota, soft-cap, privacy and reachability, not review-model counts; a healthy pool preserves its provider when other providers are exhausted. Audit IDs/count/HEAD plus same-head captain/reviewer at council start, demotion and freshly before merge. Missing, stale or unknown evidence never unlocks single; >2 providers require normal 2+ review; zero providers or independent reviewers stop. The sole reviewer is captain; fresh rulings use that captain. Require its real final PASS, zero unresolved accepted findings and actual green checks (no no-tests exception), matching local/remote HEAD via `--match-head-commit`. Verdict: `council_verdict: PASS|FAIL round=<n> mode=single providers=<1|2> reviewer=<provider/model> head=<sha>`. Normal nominal/degraded/captain criteria, review allowlist, self-review ban, context-scoped ceiling and budgets remain intact.
+Council tries configured members and quota/reachability fallbacks, skipping unavailable members. One available reviewer may PASS regardless of provider count, inside or outside oneshot. The sole reviewer is captain and returns a real final `reviewer_vote: PASS|FAIL reviewer=<provider/model> head=<sha>` after fresh rulings. Single verdict: `council_verdict: PASS|FAIL round=<n> mode=single reviewer=<provider/model> head=<sha>`. Zero reviewers records `council_verdict: SKIPPED round=<n> mode=unavailable head=<sha>` with all configured attempts/skips and reasons, never PASS. Land accepts this skipped review with green actual verification and matching local/remote HEAD via `--match-head-commit`; no no-tests waiver for single/unavailable. Actual review FAIL and unresolved accepted findings still block. Authorship is audit-only; active model distinctness, allowlists, privacy, effort limits and three-round caps remain.
 
 - **Core Council Invariants**:
-  - **Author-Reviewer Independence**: a model that authored code (`implementer`, `tester`, `patch`, or fixers) never reviews it. Seats run on pairwise-distinct models outside `author_models`.
-  - **Non-Blocking Model Independence**: normal council needs &ge;2 distinct non-author reviewer models; audited oneshot `mode=single` permits one with 1 or 2 eligible provider instances.
+  - **Authorship:** audit-only; self-review is allowed. Simultaneously active council seats use distinct models.
+  - **Availability:** unavailable members are skipped; one reviewer proceeds, zero records SKIPPED with actual green verification.
   - **Actionable Severity Syntax**: findings follow `path:line: emoji severity: problem. fix.` (RED = bug, YELLOW = risk, BLUE = nit on request). No praise.
   - **Closed Fixer Loop**: accepted findings trigger `implementer` fixes &rarr; `tester` regression checks &rarr; `make-ci-green` &rarr; re-review by all active seats plus a fresh ruling, for at most 3 rounds (15 reviewer dispatches: 9 seat, 3 rulings, 3 demotions). A round-3 FAIL stops to the user; there is no escalation seat.
 
@@ -325,7 +325,7 @@ Oneshot alone permits optional `mode=single` with 1 or 2 eligible profile provid
 - **Operational Ladder**: Shipped operational roles define `primary` &rarr; `fallback` &rarr; terminal `last-resort`, using separate provider pools. An unavailable terminal rung stops the original role.
 - **Same-Model Alternate**: before leaving a primary/fallback rung (never an operational terminal rung), the driver uses a `## Backup ladder` row with the identical model on another pool (when a custom profile supplies an eligible alternate).
 - **Balanced Seat Fallback**: a council seat that loses its primary takes the eligible rung whose quota pool has the fewest dispatches this run, within the active profile review allowlist; shipped council recovery includes Argon at high.
-- **Single-Provider Review**: Sol on Codex, Opus on Claude Code, Argon on Antigravity. Each requires audited oneshot single mode when alone. Normal quorum requires 2+ distinct non-author models.
+- **Single-Provider Review**: Sol on Codex, Opus on Claude Code, Argon on Antigravity. A sole available reviewer can PASS without provider-count gates.
 - **Context-scoped effort ceiling:** Non-council work, including driver sessions, defaults, advisory/design work, task-reviewer, fixing and testing, must never request or inherit effort above `high`. Only runtime council reviewer-a/b/c seats and fresh captain rulings may use profile-configured `xhigh`; council is the only skill permitting above high, with maximum `xhigh`. `max`, `ultra`, `ultrathink`, `ultracode`, and equivalent higher levels are forbidden everywhere. Verify provider capabilities before dispatch; use explicit provider-native options from `PROVIDERS.md`. Argon uses explicit `thinking_level=high` because it has no xhigh support. Unknown/unsafe defaults require an explicit safe option or an unreachable rung; non-council defaults must be verified at most `high`. Shared reviewer contracts do not grant task reviews the council exception. Invoking a skill never changes the driver session or its ceiling.
 - **Shared Quota Pools & Soft Caps**: Models sharing an underlying subscription pool (e.g. `claude-code`) are grouped into pools. Soft caps prevent workhorse tasks from consuming tokens reserved for critical seats.
 - **Machine-Local Quota Ledger (`state/quota-ledger.tsv`)**: When a 429 or rate limit occurs, the pool and its cooldown timestamp are recorded in the ledger. Subsequent dispatches immediately skip dead pools without burning API calls or latency.
@@ -374,7 +374,7 @@ flowchart TD
     L -- yes --> W
     L -- no --> C{"Pool over soft cap and R not in reserve list?"}
     C -- yes --> W
-    C -- no --> G{"Seat distinctness, privacy, author rules, effort cap OK?"}
+    C -- no --> G{"Seat distinctness, privacy, active-model checks, effort cap OK?"}
     G -- no --> W
     G -- yes --> X["delegate_task / native dispatch"]
     X --> O{"Outcome"}
@@ -405,9 +405,9 @@ Non-council work is at most high; only council seats and captain rulings may use
 | `designer` (optional draft) | Fable 5.2 | Sol | — |
 | `planner` (optional draft) | Fable 5.2 | Sol | — |
 | `task-reviewer` | Sol | Astra | Fable 5.2 |
-| Council A / B / C | Opus 5.5 (xhigh) / Sol (xhigh) / Argon (high) | Only eligible models from the same three-model set | Optional audited oneshot single quorum at 1 or 2 eligible provider instances |
+| Council A / B / C | Opus 5.5 (xhigh) / Sol (xhigh) / Argon (high) | Only eligible models from the same three-model set | One available reviewer proceeds; zero records SKIPPED |
 
-Claude Code provides the Opus primary. Antigravity has no Anthropic routes or Claude quota pool. Review backups and single-provider rows cannot widen the closed review set. Codex-only council permits Sol; Claude-only permits Opus; Antigravity-only permits Argon, each under audited oneshot single mode if non-author. Normal quorum requires two independent models. Never widen the council allowlist.
+Claude Code provides the Opus primary. Antigravity has no Anthropic routes or Claude quota pool. Review backups and single-provider rows cannot widen the closed review set. Codex-only council permits Sol; Claude-only permits Opus; Antigravity-only permits Argon. Each may review its own code and proceed alone. Zero available members records SKIPPED; never widen the council allowlist.
 
 ---
 
@@ -450,7 +450,7 @@ cp providers/tri.md ~/.config/oneshot/my-profile.md
 **Invariants:**
 - Harness files (`skills/**`, `agents/*.md`, `AGENTS.md`) contain **no** concrete model IDs or provider quotas.
 - Every profile defines a `primary` row for all nine dispatched roles; advisory rows (`driver`, `compaction`) remain optional. Optional ad-hoc `designer`/`planner` require a primary only when mentioned and never create native agent files. Shape/design skills and plan own these handoffs; workers return drafts without edits, commits, execution or child delegation. Already-dispatched workers draft directly without skill recursion. Profiles without these roles retain legacy driver drafting.
-- Council seats run on pairwise-distinct models outside `author_models` and normally require &ge;2 distinct non-author reviewer models (audited oneshot single exception below). The captain may defer out-of-scope findings but never a confirmed in-scope bug. Identical-model author self-review is strictly forbidden.
+- Council seats use distinct simultaneously active models. Self-review is allowed; unavailable members are skipped without an availability stop. The captain may defer out-of-scope findings but never a confirmed in-scope bug.
 - Non-council models/providers/roles may not request or inherit reasoning above `high`; council seats/rulings alone may use `xhigh`; unknown defaults require an explicit safe option or an unreachable rung.
 - In T3 Code, Path 1 (`delegate_task`) dispatches every provider; standalone OpenCode uses Path 2 only when the rung matches its installed pin, or Path 3 same-provider dispatch.
 - Never commit or push to `main`/`master`; work on `feat/<topic>` and land through a PR.
