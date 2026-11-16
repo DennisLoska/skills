@@ -24,7 +24,7 @@ Execute a plan by dispatching a fresh subagent per task, with two-stage review a
 <HARD-GATE>
 Before dispatching ANY subagent (`tester`, `implementer`, `implementer-deep`, `patch`, `task-reviewer`, `designer` or `planner`), verify all four bootstrap checks:
 1. **Load `HARNESS.md` and `PROVIDERS.md` into context:** Check whether `# Cybernetic SDLC Harness` (`HARNESS.md`) AND the active provider profile routing table (`PROVIDERS.md`) are BOTH already loaded verbatim in this session. If either is missing, read `../_harness/HARNESS.md` and `../_harness/PROVIDERS.md` (or `../../HARNESS.md` and `../../PROVIDERS.md`) relative to this skill's directory NOW before taking any other action.
-2. **Select the `HARNESS.md` Dispatch Adapter path (including lazy MCP servers):** Inspect both eager tools and any lazy-loaded MCP server schemas in your environment before choosing a subagent tool. Run the one-time session capability check required by `HARNESS.md` `## Dispatch Adapter` Path 1 when cross-provider orchestration tools are present (reading their lazy MCP schema files first when needed), and NEVER fall back to native same-session subagent tools while Path 1 orchestration tools are available.
+2. **Select the `HARNESS.md` Dispatch Adapter path (including lazy MCP servers):** Inspect both eager tools and any lazy-loaded MCP server schemas in your environment before choosing a subagent tool. Run the one-time session capability check required by `HARNESS.md` `## Dispatch Adapter` Path 1 when cross-provider orchestration tools are present (reading their lazy MCP schema files first when needed), and NEVER fall back to native same-session subagent tools while Path 1 orchestration tools are available. For Path 1, validate the `delegate_task` envelope before calling: `target: { providerInstanceId, model, options }`, explicit role, fresh `clientRequestId`, async default and selected isolation; never pass `modelSelection`, top-level `provider`, or `cwd`.
 3. **Forbid same-model inheritance:** Every dispatch MUST resolve its exact `<provider>/<model> (<effort>)` rung from `PROVIDERS.md` (checking `../../state/quota-ledger.tsv`) and start with the header defined in `HARNESS.md` `## Dispatch Adapter`: seat dispatches (`scout`, `tester`, `implementer`, `implementer-deep`, `patch`, `reviewer-*`) carry `Role contract:` + `Rung:` (or `Rung:` only on autoloaded pinned seats), while `task-reviewer`, `designer`, `planner` and `design` carry `Rung:` only (no `Role contract:`, as they have no agent file). Spawning native `inherit`/same-model subagents when `PROVIDERS.md` routes roles across distinct providers or model families is forbidden.
 4. **Forbid driver inline execution:** The main driver session orchestrates and NEVER writes implementation or production code inline. All implementation edits, test changes, and fixes MUST be performed through fresh subagents (`tester`, `implementer`, `implementer-deep`, or `patch`) routed via `HARNESS.md` Dispatch Adapter. Writing code directly inline in the main orchestrator session is a hard protocol violation.
 </HARD-GATE>
@@ -37,9 +37,13 @@ Driver procedure for each requested draft:
 
 1. Load canonical `HARNESS.md` and `PROVIDERS.md` using Step 0 paths above. Look up the requested logical role. Absent role: return to the owning skill's legacy driver drafting path. Present role: drafting MUST be delegated; never silently substitute driver or implementation roles.
 2. Walk that role's primary/fallback/last-resort with the Dispatch Adapter and Routing Rules: check quota ledger and run counts, privacy, capabilities, explicit safe effort at most `high`; record success/failure and demote as prescribed. Same-model alternates and backups must explicitly name this role; `*` generic backups and implementation sibling hand-offs are ineligible. If none is eligible, stop with the role's budget/unreachable report; do not draft inline.
-3. T3: call `orchestrator_capabilities` once, then `delegate_task` with `role: design`, `isolation: shared`, `mode: wait` (or `async` for alternative fan-out), `target.providerInstanceId`, `target.model`, `target.options` from the selected rung. Native Path 3: OpenCode general task with explicit model/variant; Claude general-purpose `Agent` with explicit model and `run_in_background: false`; Codex `spawn_agent` with explicit model and `reasoning_effort`, then wait. No native seat pin or agent file exists for these roles. Honor host reachability and safe-default checks.
+3. T3 Code: call `orchestrator_capabilities` once before the first dispatch, then `delegate_task` with `role: "design"` (role: design), `target: { providerInstanceId, model, options }` (`target.providerInstanceId`, `target.model`, `target.options`) resolved from the selected profile rung, `isolation: "shared"`, a self-contained `task` brief and fresh `clientRequestId`. Use `mode: "async"` by default so long drafts do not hit the 3-minute MCP call deadline; `mode: "wait"` is permitted only when this turn requires an immediate short result. Never pass `modelSelection`, top-level `provider`, or `cwd`. Apply the delegate lifecycle below. Native Path 3 (OpenCode general task, Claude general-purpose, Codex `spawn_agent`) retains explicit profile model/options and the existing host reachability and safe-default checks; these ad-hoc roles have no native seat pin or agent file.
 4. Start the brief with `Rung: <provider>/<model> (<effort>), privacy: <ok|trains>.` only; no `Role contract:` or invented agent path. Include `Logical role: designer|planner; scoped read-only draft worker`, the worker guard above, approved requirements, relevant file excerpts/paths, glossary terms, constraints and the owning skill's draft requirements. Request draft text, assumptions, alternatives/decisions, risks and open questions. Never delegate the whole workflow or pipeline.
-5. Wait for the draft. Driver reads it against canonical docs and requirements, resolves open questions with the user, applies the draft to canonical artifacts, self-reviews and owns approvals, commits and phase advancement. Draft-only work does not enter code `author_models`/`author_families`; actual code authors still do, including any driver implementation. Author metadata is audit-only.
+5. Receive the draft through the delegate lifecycle below; follow `next` and end the turn when awaiting an async completion wakeup. Driver reads it against canonical docs and requirements, resolves open questions with the user, applies the draft to canonical artifacts, self-reviews and owns approvals, commits and phase advancement. Draft-only work does not enter code `author_models`/`author_families`; actual code authors still do. Author metadata is audit-only.
+
+**T3 Code delegate lifecycle:** Save every returned `taskId` with its role, rung, scope and fresh `clientRequestId`; use a new request ID for every dispatch, replacement and review round. Retain `childThreadId` as storage/reference only. Never use `t3_thread_send`, `create_threads`, `t3_thread_launch`, or `t3_thread_interrupt` on `childThreadId`. Follow the returned `next`; end the turn when waiting for reactive completion. Never poll `task_status` before a completion wakeup. A timeout or missing reply neither approves work nor terminates the child: call `task_cancel` with the saved `taskId` for replaced, timed-out or aborted runs before starting a replacement. If the task ID was not returned, retain the original `clientRequestId` for recovery through the authoritative tool schema; do not blindly launch a duplicate.
+
+**Shared review scope:** No scoped-file edits while shared-checkout reviewers run. The driver and all delegates must keep the reviewed files unchanged until every reviewer of that scope completes or is cancelled. Resolve cancellation before dispatching fixers; use `isolation: "worktree"` for overlapping parallel edits.
 
 ## When to Use
 
@@ -78,10 +82,10 @@ digraph process {
         "Implementer implements, runs suite, commits tests + impl (or stages in parallel mode), self-reviews" [shape=box];
         "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)" [shape=box];
         "Spec reviewer confirms code matches spec?" [shape=diamond];
-        "Implementer fixes spec gaps" [shape=box];
+        "Dispatch fresh fixer subagent for spec gaps" [shape=box];
         "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" [shape=box];
         "Quality reviewer approves?" [shape=diamond];
-        "Implementer fixes quality issues" [shape=box];
+        "Dispatch fresh fixer subagent for quality issues" [shape=box];
         "Mark task complete in the todo list" [shape=box];
     }
 
@@ -102,12 +106,12 @@ digraph process {
     "Implementer asks questions?" -> "Implementer implements, runs suite, commits tests + impl (or stages in parallel mode), self-reviews" [label="no"];
     "Implementer implements, runs suite, commits tests + impl (or stages in parallel mode), self-reviews" -> "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)";
     "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)" -> "Spec reviewer confirms code matches spec?";
-    "Spec reviewer confirms code matches spec?" -> "Implementer fixes spec gaps" [label="no"];
-    "Implementer fixes spec gaps" -> "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)" [label="re-review"];
+    "Spec reviewer confirms code matches spec?" -> "Dispatch fresh fixer subagent for spec gaps" [label="no"];
+    "Dispatch fresh fixer subagent for spec gaps" -> "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)" [label="re-review"];
     "Spec reviewer confirms code matches spec?" -> "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" [label="yes"];
     "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" -> "Quality reviewer approves?";
-    "Quality reviewer approves?" -> "Implementer fixes quality issues" [label="no"];
-    "Implementer fixes quality issues" -> "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" [label="re-review"];
+    "Quality reviewer approves?" -> "Dispatch fresh fixer subagent for quality issues" [label="no"];
+    "Dispatch fresh fixer subagent for quality issues" -> "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" [label="re-review"];
     "Quality reviewer approves?" -> "Mark task complete in the todo list" [label="yes"];
     "Mark task complete in the todo list" -> "More tasks remain?";
     "More tasks remain?" -> "Task has behaviour to test?" [label="yes"];
@@ -167,10 +171,12 @@ Implementer subagents report one of four statuses. Handle each appropriately:
 
 Both review stages dispatch fresh reviewer subagents that follow the council review contract. One owner: use the reviewer instruction block from `skills/council/SKILL.md` verbatim for each single reviewer (never invoke the council skill via the skill tool, which would start the full 3-seat branch loop), with the one-line finding format (`path:line: severity: problem. fix.`), and receiving-side rigor (confirm every finding against real code before dispatching fixes).
 
-- **Stage 1, spec compliance:** verify the implementer built what was requested, nothing more, nothing less (and kept any `tester`-written tests intact unless a valid reason was stated in the report).
-- **Stage 2, code quality:** verify the implementation is well-built. Order is fixed. Start quality review after spec compliance passes or is explicitly recorded unavailable; unresolved spec findings still block.
+- **Stage 1, spec compliance:** dispatch a fresh task-reviewer using `spec-reviewer-prompt.md`; verify the implementer built what was requested, nothing more, nothing less, and preserved tester-written tests unless the report supplies a valid reason.
+- **Stage 2, code quality:** after Stage 1 passes or is explicitly recorded unavailable, dispatch another fresh task-reviewer using `quality-reviewer-prompt.md`; verify the implementation is well-built. Unresolved Stage 1 findings block Stage 2.
 
-Reviewers do not edit during review; fresh fixer and reviewer dispatches may use the same model. Record unavailable review stages as skipped after configured fallbacks.
+These are separate, sequential dispatches. Never combine Stage 1 and Stage 2 into one prompt or launch them concurrently. In T3 Code each uses `delegate_task` with `role: "review"`, `mode: "async"`, `target: { providerInstanceId, model, options }`, a fresh `clientRequestId`, a self-contained `task` and the selected isolation. Apply the saved `taskId`/`task_cancel` lifecycle above to every initial review and re-check.
+
+No scoped-file edits while shared-checkout reviewers run. Reviewers do not edit; driver and implementation delegates also wait until all reviewers of that scope finish or are cancelled. Fixes and re-checks use fresh dispatches, including fresh task IDs and request IDs. The same model may author and review. Record unavailable stages as skipped after configured fallbacks; unresolved findings still block.
 
 ## Prompt Templates
 
@@ -240,8 +246,8 @@ Spec reviewer: FAIL. Findings:
   - red: missing progress reporting (spec says "report every 100 items")
   - red: extra --json flag added, not requested
 
-[Implementer fixes issues]
-Implementer: Removed --json flag, added progress reporting
+[Dispatch fresh fixer subagent for spec findings]
+Fresh fixer: Removed --json flag, added progress reporting
 
 [Spec reviewer reviews again]
 Spec reviewer: PASS
@@ -249,8 +255,8 @@ Spec reviewer: PASS
 [Dispatch `task-reviewer` (quality) through the AGENTS.md Dispatch Adapter]
 Quality reviewer: Strengths: solid. Findings: yellow: magic number (100)
 
-[Implementer fixes]
-Implementer: Extracted PROGRESS_INTERVAL constant
+[Dispatch fresh fixer subagent for quality findings]
+Fresh fixer: Extracted PROGRESS_INTERVAL constant
 
 [Quality reviewer reviews again]
 Quality reviewer: PASS
@@ -440,7 +446,7 @@ Integration: all fixes independent, no conflicts, full suite green. 3 problems s
 
 **If the subagent asks questions:** answer clearly and completely, provide additional context if needed, don't rush into implementation.
 
-**If the reviewer finds issues:** the implementer (same subagent) fixes them, reviewer reviews again, repeat until approved. Never skip the re-review. Caps: at most 3 fix attempts per task, then route through the debug skill; at most 2 debug rotations; past that STOP and escalate to the user with the exact failing state. Budget exhaustion stops required non-review work; unavailable reviews are recorded as skipped, with unresolved findings still blocking.
+**If the reviewer finds issues:** after the reviewer completes or is cancelled, dispatch a fresh fixer for the confirmed findings and then a fresh reviewer re-check with the findings and objections in its brief; repeat until approved. Never skip the re-review. Caps: at most 3 fix attempts per task, then route through the debug skill; at most 2 debug rotations; past that STOP and escalate to the user with the exact failing state. Budget exhaustion stops required non-review work; unavailable reviews are recorded as skipped, with unresolved findings still blocking.
 
 **If the subagent fails the task:** dispatch a fix subagent with specific instructions. Don't fix manually (context pollution). If the failure is a bug to root-cause, route through the debug skill first, then re-dispatch.
 

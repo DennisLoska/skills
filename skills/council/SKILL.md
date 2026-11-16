@@ -34,6 +34,12 @@ Before dispatching ANY council reviewer, captain ruling, or fixer subagent, veri
 2. **Seating:** Try configured seats and fallback ladders under HARNESS.md. When only one provider is reachable, its `## Single-provider review` rows remain recovery candidates. Never edit the profile or widen the allowlist. Record all attempted/skipped members with reasons and HEAD; choose mode from the remaining active seats.
 3. **Captain:** `reviewer-a` holds the captaincy. If Seat A has no eligible rung, captaincy passes to the first healthy seat in order `reviewer-b`, `reviewer-c`. Write `captain: <seat> <provider>/<model>` with `head=<sha>` to the state artifact (update it whenever captaincy or the captain's rung changes).
 4. **Dispatch all selected active seats in parallel** through the AGENTS.md Dispatch Adapter, one fresh subagent each: `reviewer-a`, `reviewer-b`, `reviewer-c`, with explicitly resolved configured rungs. Same scope, same instruction block (the captain reviews exactly like the other seats; its ruling comes later as a separate dispatch). Every dispatch names a rung from the active provider profile, so no seat ever inherits the main session model. In single mode the selected sole reviewer is the captain, when only one reviewer is available.
+
+**T3 Code review dispatch:** Every task-review stage, council seat and captain ruling uses `delegate_task` with `role: "review"`, `mode: "async"`, `target: { providerInstanceId, model, options }` resolved from its permitted profile rung, a fresh `clientRequestId`, a self-contained `task` and `isolation: "shared"` for the stable review checkout. Never pass `modelSelection`, top-level `provider`, or `cwd`. Save the returned `taskId` with the reviewed HEAD, scope, seat/stage, rung and request ID; every re-check, replacement and round gets a new request ID and fresh dispatch.
+
+**Delegate lifecycle:** Retain `childThreadId` as storage/reference only; never use `t3_thread_send`, `create_threads`, `t3_thread_launch`, or `t3_thread_interrupt` on it. Follow `next` and end the turn when awaiting a reactive completion wakeup. Never poll `task_status` before a completion wakeup. Timeout or missing output is neither approval nor child termination: call `task_cancel` with the saved `taskId` for replaced, timed-out or aborted runs before starting a replacement. A missing task ID requires recovery using the original request ID and authoritative tool schema, never a blind duplicate.
+
+**Shared review scope:** No scoped-file edits while shared-checkout reviewers run. Driver and delegates wait for every active reviewer of that scope to finish or be cancelled before any fixer edits. Council seats may review the same frozen scope in parallel; task-review stages remain sequential. Overlapping parallel editing requires `isolation: "worktree"` and a fresh review of the integrated result.
 5. **Reviewer instruction block:**
 
 ```
@@ -79,7 +85,7 @@ announce: "seat <seat> demoted to <provider>/<model>" (or "backup: <seat> -> <pr
 
 **When:** after all seat verdicts are in, if any seat voted FAIL or any red/yellow finding exists. If every seat voted PASS with no red/yellow findings, skip the ruling (costs 0). If a required ruling is unavailable, retain FAIL and unresolved findings; availability cannot dismiss them.
 
-**Dispatch:** a fresh subagent on the captain's rung (the captain seat's current rung; `Role contract:` = the `reviewer-a` contract, ruling mode), with the merged list, the diff, the spec, and the plan. Ruling brief:
+**Dispatch:** a fresh subagent on the captain's rung (the captain seat's current rung; `Role contract:` = the `reviewer-a` contract, ruling mode), with the merged list, the diff, the spec, and the plan. Ruling brief: This is a new `role: "review"`, `mode: "async"` dispatch with a new `clientRequestId` and saved `taskId`; apply the review lifecycle and shared-scope freeze above.
 
 ```
 Review captain ruling. Rule on every merged finding below (ids F1..Fn, seat
@@ -158,6 +164,8 @@ Round N: [seat verdicts (3, 2 active + lost seat, 1 in mode=single, or 0 in mode
 Verdict: PASS | FAIL | SKIPPED (mode=<nominal|degraded|captain|single|unavailable>)
 Backlog: <n> deferred
 ```
+
+**Lossless state updates:** Preserve all canonical keys in `$(git rev-parse --git-dir)/info/oneshot-state.md`: `dispatch_adapter`, `primary_rungs`, `phase`, `branch`, `pr_url`, `author_models`, `author_families`, `author_commits`, `tests_status`, `council_round`, `council_verdict`, `captain`, `backlog`, and `soft_cap_counts`. Preserve existing values unless the current event explicitly updates them, and preserve unknown keys, standing findings, `earliest_resume`, member attempts/skips, votes, rulings, backlog filing receipts and task lifecycle records. Use append for event history or read-merge-write for a keyed update, retaining unrelated content and the effective-last-verdict convention. Never overwrite the state artifact with a truncated summary. A council-only run creates missing state but merges with existing pipeline state; it never replaces routing or author history.
 
 State artifact lines (`$(git rev-parse --git-dir)/info/oneshot-state.md`, creating `$(git rev-parse --git-dir)/info` if missing; standalone council runs in a git repo write them too):
 

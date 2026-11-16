@@ -14,7 +14,7 @@ Finish a development branch: PR body that leads with the problem, then the merge
 ## Part 1 - File the PR (oneshot Phase 5)
 
 1. Confirm clean tree, push feature branch: `git push -u origin <branch>`
-2. If no PR exists: `gh pr create --title <short> --body-file /tmp/pr-body.md`
+2. Inspect whether the branch already has an open PR before creating one. Use `gh pr view` normally, then `gh pr create --title <short> --body-file /tmp/pr-body.md` only when none exists. If GraphQL rate limits block `gh pr create`, `gh pr view` or `gh pr checks`, use the REST recovery procedure below; always check for an existing PR before retrying creation.
 3. PR body rules:
    - `## Summary` - 1-2 sentences. The problem it solves first, not an inventory of files touched
    - `## Changes` - bullets grouped by area, `path` in backticks
@@ -24,7 +24,21 @@ Finish a development branch: PR body that leads with the problem, then the merge
    - Local-only spec/plan (gitignored)? Reference them by path as local files
 4. Save PR URL, announce it.
 
+### T3 Code PR identity and REST recovery
+
+In T3 Code, immediately after a PR is created, taken over or pushed, make the next tool call `link_pull_request` with the full PR URL; use `link_pull_requests` for multiple PRs and include every stack layer. Resolve a known-existing PR (resume, takeover, wakeup, or an existing open PR found before push) and its URL before the step 1 push so linking follows the push immediately. A fresh branch with no existing PR pushes first, then runs the check/create flow below. Links persist across pushes, but linking remains required after the work described here. Report a linking failure; do not silently substitute a title, branch name or bare PR number.
+
+For GitHub GraphQL rate limits, use `gh api repos/{owner}/{repo}/pulls` through REST. Resolve `owner` and `repo` from the repository remote, `head_owner` from the pushed head repository, and `branch` from the head branch. Before creation, define `base` as the intended target branch: the user-chosen target, or the repository default resolved with `git symbolic-ref refs/remotes/origin/HEAD` (strip `refs/remotes/origin/`); if that symbolic ref is unset, fall back to `gh api repos/{owner}/{repo} --jq .default_branch`. For an existing PR, resolve `branch` and `base` from the actual PR branches. Use `gh api --method GET 'repos/{owner}/{repo}/pulls' -f state=open -f "head=$head_owner:$branch" -f "base=$base"` to check for an existing PR before retrying creation. Confirm the returned head repository, branch and `base.ref` match the intended PR before reusing its `html_url` and number; do not create a duplicate after an ambiguous CLI error.
+
+If no matching PR exists, use `gh api --method POST 'repos/{owner}/{repo}/pulls' -f "title=$pr_title" -f "head=$head_owner:$branch" -f "base=$base" -F body=@/tmp/pr-body.md`. On a 422 from POST, re-query with `gh api --method GET 'repos/{owner}/{repo}/pulls' -f state=all -f "head=$head_owner:$branch" -f "base=$base"`, confirm the returned head repository, branch and `base.ref`, and report the existing PR, including a previously merged or closed one, instead of retrying creation. If none matches, report the 422 and stop creation recovery. The `pr_title` variable holds the intended PR title; the body remains in the previously written file. Recover PR details with `gh api --method GET "repos/{owner}/{repo}/pulls/$pr_number"`; use `html_url` for linking and `head.sha` for remote-head verification. If a PR body update hits the same GraphQL limit, use `gh api --method PATCH "repos/{owner}/{repo}/pulls/$pr_number" -F body=@/tmp/pr-body.md`. The `pr_number` variable is the number returned by the matching GET or successful POST.
+
+For GraphQL-limited checks, inspect `gh api repos/{owner}/{repo}/commits/{sha}/check-runs` (`{owner}` and `{repo}` are `gh api` placeholders; `{sha}` is not a `gh` placeholder and must be substituted with the resolved remote head SHA, e.g. `commits/$sha/check-runs`) through REST with `--paginate --slurp` (aggregate all pages and reconcile the flattened check-run count against `total_count`), with `sha` set to the current remote PR head. Also inspect paginated combined commit statuses and review/comment endpoints when needed; check-runs alone do not prove every required check or review is satisfied. A REST transport fallback never relaxes the same-head merge, review or verification gates.
+
 ## Part 2 - Finish options (oneshot Phase 7, Gate 3)
+
+**T3 Code watcher ownership:** Only the parent thread owning the PR calls `watch_pull_request`; delegate_task children never call `watch_pull_request`. If an authorized merge is waiting on checks or reviews, inspect checks and comments first, finish any needed branch update and push, immediately call `link_pull_request` with the full PR URL, then maintain one watcher per PR with `watch_pull_request` and end the turn for T3 Code's wakeup. Do not use a manual CLI polling loop in T3 Code. Revalidate the current remote head and existing merge evidence on wakeup.
+
+For any watched PR, call `unwatch_pull_request` before handback, stopping, or asking the user a question, and before the next-feature handoff. The async turn ending solely to await a requested watcher wakeup keeps the watcher active; it is not a completed handback. Outside T3 Code, retain the existing CLI check and merge flow.
 
 When `auto-approve: true` is present (read from the spec header, or from the dispatch prompt when oneshot passes it), skip the menu: default to Keep PR open, report the URL, and continue to the handoff without waiting.
 
@@ -36,6 +50,8 @@ Otherwise present exactly these, get user choice:
 4. **Discard** - report state and stop; destructive removal only on explicit user instruction afterward
 
 ## Part 3 - Next-feature handoff
+
+Before this handoff in T3 Code, call `unwatch_pull_request` for each PR monitored by this parent thread.
 
 Same menu as the standalone flow, reusable any time a PR is merged:
 

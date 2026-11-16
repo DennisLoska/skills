@@ -2016,32 +2016,52 @@ if grep -rnE 'opencode-go/|req/5h|#(low|medium|high|xhigh|max)\b|gpt-[0-9]|gemin
   cat "$TMPROOT/leak-74.out" >&2
   fail "AGENTS.md, skills/ and agents/ carry no model ids or host quota strings"
 fi
-# Draft handoff needs concrete adapter calls; only that bounded section may
-# name transports. The model-id audit above still covers every source line.
+# Draft handoff may name provider transports. The five lifecycle skills may
+# name T3 tools; provider names elsewhere and model IDs remain forbidden.
 if python3 - "$ROOT" >"$TMPROOT/host-74.out" <<'PYHOST'
 from pathlib import Path
 import re
 import sys
+
 root = Path(sys.argv[1])
-pattern = re.compile(r'opencode|antigravity|codex|claude|t3[-_ ]code|delegate_task|orchestrator_capabilities', re.I)
+provider_pattern = re.compile(r'opencode|antigravity|codex|claude', re.I)
+transport_pattern = re.compile(
+    r't3[-_ ]code|delegate_task|orchestrator_capabilities', re.I
+)
+transport_docs = {
+    'skills/dispatch/SKILL.md',
+    'skills/oneshot/SKILL.md',
+    'skills/council/SKILL.md',
+    'skills/land/SKILL.md',
+    'skills/make-ci-green/SKILL.md',
+}
 found = False
 for folder in ('skills', 'agents'):
     for path in sorted((root / folder).rglob('*')):
         if not path.is_file():
             continue
+        relative = path.relative_to(root).as_posix()
         draft_adapter = False
         for number, line in enumerate(path.read_text().splitlines(), 1):
             if line.startswith('## '):
-                draft_adapter = (path == root / 'skills/dispatch/SKILL.md'
-                                 and line == '## Draft Delegation Adapter (shape/design/plan only)')
-            if pattern.search(line) and not draft_adapter:
+                draft_adapter = (
+                    relative == 'skills/dispatch/SKILL.md'
+                    and line == '## Draft Delegation Adapter (shape/design/plan only)'
+                )
+            provider_violation = provider_pattern.search(line) and not draft_adapter
+            transport_violation = (
+                transport_pattern.search(line)
+                and not draft_adapter
+                and relative not in transport_docs
+            )
+            if provider_violation or transport_violation:
                 print(f'{path}:{number}:{line}')
                 found = True
 sys.exit(0 if found else 1)
 PYHOST
 then
   cat "$TMPROOT/host-74.out" >&2
-  fail "skills/ and agents/ name no providers, hosts, or T3 tools outside the draft adapter"
+  fail "provider names remain draft-only; T3 transports stay in approved lifecycle skills"
 fi
 
 for skill_doc in \
