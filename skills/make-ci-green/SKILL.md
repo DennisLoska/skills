@@ -32,7 +32,7 @@ Finish any needed branch update and push before waiting. Immediately after a PR 
 
 Never run a manual 30-second `gh pr checks` polling loop in T3 Code. On wakeup, inspect the new checks/comments and current remote HEAD, classify new information, fix confirmed findings within the existing caps, and watch again only when work still waits on checks or reviews. Preserve fix counters and the monitored head across wakeups. Green evidence must match the final head.
 
-When `gh pr checks` or `gh pr view` hits GraphQL rate limits, use `gh api repos/{owner}/{repo}/commits/{sha}/check-runs` for checks and REST PR, review and comment endpoints for the remaining evidence. Resolve the current remote PR head before querying check runs; paginate responses and inspect combined commit statuses when required. Do not infer green from an empty or incomplete check-runs response.
+When `gh pr checks` or `gh pr view` hits GraphQL rate limits, use `gh api repos/{owner}/{repo}/commits/{sha}/check-runs` (`{owner}` and `{repo}` are `gh api` placeholders; `{sha}` is not a `gh` placeholder and must be substituted with the resolved remote head SHA, e.g. `commits/$sha/check-runs`) for checks and REST PR, review and comment endpoints for the remaining evidence. Resolve the current remote PR head before querying check runs; paginate responses and inspect combined commit statuses when required. Do not infer green from an empty or incomplete check-runs response.
 
 Call `unwatch_pull_request` before handback, stopping, or asking the user a question, and when monitoring completes or is cancelled. Ending a turn solely to await the requested reactive wakeup keeps the watcher active; completed handoff to council does not.
 
