@@ -156,36 +156,36 @@ for prof in "${shipped_profiles[@]}"; do
   # 5a. Profile has ## Single-provider review section
   grep -qF '## Single-provider review' "$prof_file" || fail "providers/$prof.md missing ## Single-provider review"
 
-  # 5b. Single-provider review table permits Claude Code Fable (claudeAgent or claude)
+  # 5b. Single-provider review table permits Claude Code Opus (claudeAgent or claude)
   # Extract single-provider section lines
   sp_text="$(awk '/^## Single-provider review/{flag=1; next} /^## /{flag=0} flag' "$prof_file")"
 
-  # Check if Claude Fable is in Single-provider review table
-  echo "$sp_text" | grep -qE '\|[[:space:]]*(claudeAgent|claude)[[:space:]]*\|[[:space:]]*claude-fable-5-2[[:space:]]*\|' || \
-    fail "providers/$prof.md Single-provider review table must permit Claude Code Fable"
+  # Check if Claude Opus is in Single-provider review table
+  echo "$sp_text" | grep -qE '\|[[:space:]]*(claudeAgent|claude)[[:space:]]*\|[[:space:]]*claude-opus-5-5[[:space:]]*\|' || \
+    fail "providers/$prof.md Single-provider review table must permit Claude Code Opus"
 
-  # 5c. Codex retains Astra and Sol
-  echo "$sp_text" | grep -qE '\|[[:space:]]*codex[[:space:]]*\|[[:space:]]*gpt-6-astra[[:space:]]*\|' || \
-    fail "providers/$prof.md Single-provider review table missing Codex Astra"
+  # 5c. Antigravity retains Argon and Codex retains Sol
+  echo "$sp_text" | grep -qE '\|[[:space:]]*antigravity[[:space:]]*\|[[:space:]]*gemini-4-argon[[:space:]]*\|' || \
+    fail "providers/$prof.md Single-provider review table missing Antigravity Argon"
   echo "$sp_text" | grep -qE '\|[[:space:]]*codex[[:space:]]*\|[[:space:]]*gpt-6.1-sol[[:space:]]*\|' || \
     fail "providers/$prof.md Single-provider review table missing Codex Sol"
 
-  # 5d. Antigravity and OpenCode must NOT have review models in Single-provider review
-  if echo "$sp_text" | grep -qE '\|[[:space:]]*(antigravity|opencode)[[:space:]]*\|'; then
-    fail "providers/$prof.md Single-provider review table must NOT contain Antigravity or OpenCode review models"
+  # 5d. OpenCode must NOT have review models in Single-provider review
+  if echo "$sp_text" | grep -qE '\|[[:space:]]*(opencode)[[:space:]]*\|'; then
+    fail "providers/$prof.md Single-provider review table must NOT contain OpenCode review models"
   fi
 
-  # 5e. 3 Primary review seats remain distinct: Fable, Astra, Sol
+  # 5e. 3 Primary review seats remain distinct: Opus, Astra, Sol
   python3 - "$prof_file" <<'PYSEATS'
 import sys
 from pathlib import Path
 rows = [[c.strip() for c in line.split('|')[1:-1]] for line in Path(sys.argv[1]).read_text().splitlines() if line.startswith('|')]
 primaries = {c[0]: c[3] for c in rows if len(c) == 7 and c[1] == 'primary' and c[0].startswith('reviewer-')}
-assert primaries == {'reviewer-a': 'claude-fable-5-2', 'reviewer-b': 'gpt-6-astra', 'reviewer-c': 'gpt-6.1-sol'}, primaries
+assert primaries == {'reviewer-a': 'claude-opus-5-5', 'reviewer-b': 'gpt-6.1-sol', 'reviewer-c': 'gemini-4-argon'}, primaries
 assert len(set(primaries.values())) == 3
 PYSEATS
 done
-pass "all shipped profiles satisfy single-provider review table policy (Claude Fable permitted, Antigravity/OpenCode excluded, 3 distinct primary seats preserved)"
+pass "all shipped profiles satisfy single-provider review table policy (Opus/Sol/Argon permitted, OpenCode excluded, 3 distinct primary seats preserved)"
 
 
 # ==============================================================================

@@ -1308,11 +1308,12 @@ validate_profile() {
     }
     # The profile vocabulary is a conservative ceiling, not a capability probe.
     # A default remains subject to runtime verification before dispatch.
-    function effort_error(effort,    v) {
+    function effort_error(effort, council,    v) {
       if (effort == "-") return ""
       v = effort
       sub(/^[^=]*=/, "", v)
       if (v ~ /^(none|minimal|low|medium|high)$/) return ""
+      if (v == "xhigh" && council) return ""
       if (v ~ /^(xhigh|max|ultra|ultrathink|ultracode)$/) return "effort above high"
       return "invalid effort"
     }
@@ -1369,7 +1370,8 @@ validate_profile() {
         if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid_backup("invalid effort")
         if ($7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_backup("invalid family")
         if ($8 != "ok" && $8 != "trains") invalid_backup("invalid privacy")
-        if (effort_error($6) != "") invalid_backup(effort_error($6))
+        council_backup = ($3 ~ /^reviewer-[abc](,reviewer-[abc])*$/)
+        if (effort_error($6, council_backup) != "") invalid_backup(effort_error($6, council_backup))
         next
       }
       if (section == "single") {
@@ -1382,7 +1384,7 @@ validate_profile() {
         if ($4 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid_single("invalid effort")
         if ($5 !~ /^[a-z0-9][a-z0-9-]*$/) invalid_single("invalid family")
         if ($6 != "ok" && $6 != "trains") invalid_single("invalid privacy")
-        if (effort_error($4) != "") invalid_single(effort_error($4))
+        if (effort_error($4, 1) != "") invalid_single(effort_error($4, 1))
         next
       }
       role = $2
@@ -1400,7 +1402,7 @@ validate_profile() {
       if (!(advisory && $5 == "-") && $5 !~ /^[A-Za-z0-9][A-Za-z0-9._\/-]*$/) invalid("invalid model")
       if ($6 !~ /^(-|[A-Za-z_]+=[A-Za-z0-9][A-Za-z0-9._-]*)$/) invalid("invalid effort")
       if (!(advisory && $7 == "-") && $7 !~ /^[a-z0-9][a-z0-9-]*$/) invalid("invalid family")
-      if (effort_error($6) != "") invalid(effort_error($6))
+      if (effort_error($6, role ~ /^reviewer-[abc]$/) != "") invalid(effort_error($6, role ~ /^reviewer-[abc]$/))
       key = role SUBSEP $3
       if (key in seen) invalid("duplicate rung")
       seen[key] = 1

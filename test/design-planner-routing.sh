@@ -177,7 +177,7 @@ valid_roles_fixture = clean_quad + """
 backup_fixture = valid_roles_fixture + """
 ## Backup ladder
 
-| 8 | designer,planner | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
+| 9 | designer,planner | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 """
 res, opencode_dir, codex_dir, _ = run_install(profile_text=backup_fixture, target='codex')
 assert res.returncode == 0, f"Expected backup ladder with designer,planner to be accepted, failed with: {res.stderr}"
@@ -257,7 +257,7 @@ for role in required_9_roles:
     assert not dest.exists(), role
 # Explicit optional references are validated in backup mode (including effort).
 for role in ('designer', 'planner'):
-    fixture = valid_roles_fixture + f"\n## Backup ladder\n| 8 | {role} | codex | gpt-6.1-sol | reasoningEffort=xhigh | openai | ok |\n"
+    fixture = valid_roles_fixture + f"\n## Backup ladder\n| 9 | {role} | codex | gpt-6.1-sol | reasoningEffort=xhigh | openai | ok |\n"
     result, _, dest, _ = run_install(profile_text=fixture)
     assert result.returncode == 1 and 'effort above high' in result.stderr, result.stderr
     assert not dest.exists()

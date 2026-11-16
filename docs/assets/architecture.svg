@@ -152,7 +152,7 @@
   <!-- ============ LAYER 3: PROVIDER INSTANCES ============ -->
   <rect x="60" y="558" width="1260" height="178" rx="16" fill="#111C2E" stroke="#2A3B57" stroke-width="1.5"/>
   <text class="sans title" x="84" y="590">3 · PROVIDER INSTANCES</text>
-  <text class="sans sub" x="306" y="590">every role resolves explicit safe effort ≤ high; quad reviews: Fable / Astra / Sol only</text>
+  <text class="sans sub" x="306" y="590">council: Opus / Sol xhigh, Argon high; other work ≤ high</text>
 
   <g>
     <rect x="84" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>

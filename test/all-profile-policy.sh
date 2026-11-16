@@ -20,8 +20,9 @@ import sys
 root, scratch = map(Path, sys.argv[1:])
 install_sh = root / 'install.sh'
 
-ALLOWED_REVIEW_MODELS = {'claude-fable-5-2', 'gpt-6-astra', 'gpt-6.1-sol'}
-REVIEW_ROLES = {'reviewer-a', 'reviewer-b', 'reviewer-c', 'task-reviewer'}
+ALLOWED_REVIEW_MODELS = {'claude-opus-5-5', 'gpt-6.1-sol', 'gemini-4-argon'}
+TASK_MODELS = {'claude-fable-5-2', 'gpt-6-astra', 'gpt-6.1-sol'}
+REVIEW_ROLES = {'reviewer-a', 'reviewer-b', 'reviewer-c'}
 VALID_EFFORT_LEVELS = {'none', 'minimal', 'low', 'medium', 'high'}
 
 def parse_markdown_tables(text):
@@ -133,6 +134,7 @@ def validate_profile_policy(name, text):
 
     # Structural guard: forbid gemini-4-hydrogen across all implementation/direct deep rungs
     for r in roles_table:
+        if r['role'] == 'task-reviewer': assert r['base_model'] in TASK_MODELS
         if r['role'] in ('implementer', 'implementer-deep'):
             assert r['base_model'] != 'gemini-4-hydrogen' and 'gemini-4-hydrogen' not in r['model'], (
                 f"[{name}] implementation role {r['role']} (rung {r['rung']}) has forbidden model gemini-4-hydrogen: {r['line']}"
@@ -195,7 +197,7 @@ def validate_profile_policy(name, text):
             f"[{name}] {role} primary must be DeepSeek 4.1 Flash, got {p[0]['model']}"
         )
 
-    # 6. Council seats: A Fable captain, B Astra, C Sol; each council model distinct
+    # 6. Council seats: A Opus captain, B Sol, C Argon; each council model distinct
     a_primary = [r for r in get_role_rows('reviewer-a') if r['rung'] == 'primary']
     b_primary = [r for r in get_role_rows('reviewer-b') if r['rung'] == 'primary']
     c_primary = [r for r in get_role_rows('reviewer-c') if r['rung'] == 'primary']
@@ -203,14 +205,14 @@ def validate_profile_policy(name, text):
     assert b_primary, f"[{name}] missing primary reviewer-b row"
     assert c_primary, f"[{name}] missing primary reviewer-c row"
 
-    assert a_primary[0]['base_model'] == 'claude-fable-5-2', (
-        f"[{name}] reviewer-a primary captain must be claude-fable-5-2, got {a_primary[0]['model']}"
+    assert a_primary[0]['base_model'] == 'claude-opus-5-5', (
+        f"[{name}] reviewer-a primary captain must be claude-opus-5-5, got {a_primary[0]['model']}"
     )
-    assert b_primary[0]['base_model'] == 'gpt-6-astra', (
-        f"[{name}] reviewer-b primary must be gpt-6-astra, got {b_primary[0]['model']}"
+    assert b_primary[0]['base_model'] == 'gpt-6.1-sol', (
+        f"[{name}] reviewer-b primary must be gpt-6.1-sol, got {b_primary[0]['model']}"
     )
-    assert c_primary[0]['base_model'] == 'gpt-6.1-sol', (
-        f"[{name}] reviewer-c primary must be gpt-6.1-sol, got {c_primary[0]['model']}"
+    assert c_primary[0]['base_model'] == 'gemini-4-argon', (
+        f"[{name}] reviewer-c primary must be gemini-4-argon, got {c_primary[0]['model']}"
     )
 
     council_models = {
@@ -229,9 +231,10 @@ def validate_profile_policy(name, text):
         f"[{name}] task-reviewer primary must be gpt-6.1-sol, got {task_rev_primary[0]['model']}"
     )
 
-    # 8. ALL review rungs/backups/singleprovideronly strictly Fable5.2/Astra/Sol
+    # 8. Council rungs/backups/single-provider strictly Opus/Sol/Argon; task review stays separate
     # No wildcard or mixed backups giving excluded review models
     for r in roles_table:
+        if r['role'] == 'task-reviewer': assert r['base_model'] in TASK_MODELS
         if r['role'] in REVIEW_ROLES:
             assert r['base_model'] in ALLOWED_REVIEW_MODELS, (
                 f"[{name}] review role {r['role']} (rung {r['rung']}) has disallowed model: {r['model']}"
@@ -239,6 +242,7 @@ def validate_profile_policy(name, text):
 
     for row in backup_ladder:
         roles = row['roles']
+        if roles == ['task-reviewer']: assert row['base_model'] in TASK_MODELS, row['line']
         has_review = any(r in REVIEW_ROLES for r in roles)
         if '*' in roles:
             assert not has_review, f"[{name}] wildcard backup ladder contains review: {row['line']}"
@@ -267,7 +271,7 @@ def validate_profile_policy(name, text):
 
     # Exact closed recovery set, including the sole Claude reviewer.
     assert {(r['provider'], r['base_model']) for r in single_provider_review} == {
-        ('claudeAgent', 'claude-fable-5-2'), ('codex', 'gpt-6-astra'),
+        ('claudeAgent', 'claude-opus-5-5'), ('antigravity', 'gemini-4-argon'),
         ('codex', 'gpt-6.1-sol')}, f"[{name}] incorrect single-provider recovery set"
     compaction = get_role_rows('compaction')
     assert compaction[0]['base_model'] == 'gemini-3.8-flash' and compaction[0]['effort'].endswith('=low')
@@ -282,7 +286,10 @@ def validate_profile_policy(name, text):
         eff = row['effort']
         if eff != '-':
             val = eff.split('=', 1)[-1] if '=' in eff else eff
-            assert val in VALID_EFFORT_LEVELS, (
+            council = (row.get('role') in REVIEW_ROLES or (row.get('roles') and set(row['roles']) <= REVIEW_ROLES) or row['section'] in ('Single-provider review', 'single'))
+            if council:
+                assert (row['provider'], row['base_model'], eff) in {('claudeAgent', 'claude-opus-5-5', 'effort=xhigh'), ('codex', 'gpt-6.1-sol', 'reasoningEffort=xhigh'), ('antigravity', 'gemini-4-argon', 'thinking_level=high')}, row['line']
+            assert council or val in VALID_EFFORT_LEVELS, (
                 f"[{name}] invalid effort level '{val}' in: {row['line']}"
             )
 
