@@ -8,7 +8,7 @@ All six shipped profiles and every `--providers` combination share the same mode
 - **Design and planning drafts:** `designer` (`shape`, `domain-modeling`, `codebase-design`) and `planner` (`plan`) delegate read-only drafts to Claude Fable 5.2 at `high`, falling back only to Sol at `high`. The driver owns conversation, approvals, canonical artifacts and phase advancement.
 - **Discovery, testing, patching:** OpenCode Go Deepseek V4.1 Flash at `variant=high`, then GPT Luna and Gemini 3.8 Flash at `low` for discovery or `medium` for testing and patching.
 - **Implementation:** Claude Code Opus 5.5 primary and Fable 5.2 deep at `high`; both fall back to Codex Sol at `high`, then terminal Antigravity Gemini Argon at `high`.
-- **Per-task review:** GPT Sol, then GPT Astra, then Claude Fable 5.2, all at `high`, with author-family/model exclusions enforced by the harness.
+- **Per-task review:** GPT Sol, then GPT Astra, then Claude Fable 5.2, all at `high`; self-review is allowed.
 - **Council:** Opus 5.5 is preferred captain (A) at `effort=xhigh`, Sol is Seat B at `reasoningEffort=xhigh`, and Argon is Seat C at `thinking_level=high` (no xhigh support). Council fallbacks, backups and captain rulings use only these models and efforts. Simultaneously active models stay distinct; self-review is allowed and unavailable members are skipped.
 - **Compaction:** Gemini 3.8 Flash at `low`, then GPT Luna at `low`.
 

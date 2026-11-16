@@ -15,6 +15,8 @@ docs = {
     "oneshot": (root / "skills/oneshot/SKILL.md").read_text(),
     "land": (root / "skills/land/SKILL.md").read_text(),
 }
+docs.update({f"profile {path.stem}": path.read_text()
+             for path in sorted((root / "providers").glob("*.md"))})
 
 def require(condition, message):
     if not condition:
@@ -25,8 +27,10 @@ def normalized(text):
 
 # Author history remains useful for attribution, but cannot make a configured
 # reviewer ineligible in either council or per-task review routing.
-for name in ("root contract", "council", "oneshot", "land"):
-    text = normalized(docs[name])
+for name, document in docs.items():
+    text = normalized(document)
+    require(not re.search(r"author[- /a-z]{0,40}exclusions\s+enforced", text),
+            f"{name}: author exclusions remain enforced")
     require(not re.search(r"(?:skip|exclude|demote|never|outside|non-author)[^.\n]{0,100}author_models", text),
             f"{name}: author_models still filters reviewer eligibility")
     require(not re.search(r"task-reviewer[^.\n]{0,120}(?:authoring family|author_models)", text),
