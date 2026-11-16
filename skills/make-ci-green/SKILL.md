@@ -11,9 +11,20 @@ Watch a PR through CI checks and bot reviews. Fix real findings. Kill flakes wit
 
 **Model routing:** `tester` (script runner) reads CI logs and reruns checks locally to return a compressed pass/fail report; fixer subagents come from the implementation seats (`implementer`, or `implementer-deep` for hard clusters) in the active provider profile (`PROVIDERS.md`), dispatched through the AGENTS.md Dispatch Adapter (same-model alternate and backup ladder on exhausted rungs; every rung at or below `high` effort). This skill never calls a model directly.
 
+## Shared finding and flake handling
+
+These rules apply to both T3 Code reactive monitoring and the non-T3 CLI loop, with counters preserved across wakeups and polls:
+
+- Classify each failing or blocked item: check bot review findings against the code; dispatch `tester` to read failing CI logs and reproduce locally, returning failing check/test names and a first-error excerpt. Treat confirmed infrastructure failures (network timeouts, rate limits, runner failure) as flakes only with log evidence.
+- For real findings, dispatch a fresh implementation-seat fixer (`implementer`, or `implementer-deep` for hard clusters), limited to 2 files, and require tests before completion. Dispatch `tester` to verify tests/lint/typecheck/build locally. Push one conventional commit per finding cluster; CI reruns automatically on push.
+- For a flake, document the run and log line in one PR comment, then rerun that single failed check with `gh run rerun <run-id> --failed` once. If a second flake fails in the same check, escalate to the user; never make a third blind rerun. Preserve the per-check rerun count across wakeups and polls.
+- For a false bot finding, comment once with the claim, code evidence and requested clarification. Treat controversial findings as real and note the doubt in the comment.
+
+Counter `fix_rounds`: initialized at 0, incremented once per fix commit on either monitoring path. Stop at 3 with the STOP behavior in Exit.
+
 ## T3 Code reactive monitoring
 
-Use this path in T3 Code. Inspect existing checks and comments first, including reviews and unresolved bot findings; do useful diagnosis before registering a watcher. Failing logs and local reproduction still go through tester, and confirmed findings still go through fresh implementation-seat fixers.
+Use this path in T3 Code. Apply Shared finding and flake handling, including classification, fixer routing, the single evidence-backed flake rerun and the 3-round fixer cap. Inspect existing checks and comments first, including reviews and unresolved bot findings; do useful diagnosis before registering a watcher. Failing logs and local reproduction still go through tester, and confirmed findings still go through fresh implementation-seat fixers.
 
 Only the parent thread owning the PR calls `watch_pull_request`; delegate_task children never call `watch_pull_request`. Children return the full PR URL, head SHA, check/review state and remaining blockers to their parent.
 
@@ -29,30 +40,14 @@ Outside T3 Code, use the bounded CLI loop below.
 
 ## Non-T3 CLI loop
 
+Apply Shared finding and flake handling, including classification, fixer routing, the single evidence-backed flake rerun and the 3-round fixer cap.
+
 ```
 while checks not green (bounded poll: run `gh pr checks <id>` in a loop with a 30-second wait, at most 10 minutes total; on timeout return `CI stalled at <sha>` and hand back to the controller):
   read state: gh pr checks <id>, gh pr view <id> --json reviews,labels
-  classifier, for each failing/blocked item:
-    - bot review finding -> real finding?
-    - failing check -> dispatch `tester` (script runner) to read CI logs / reproduce locally and return a compressed report (failing check/test names + first-error excerpt) -> root cause in log?
-    - infra flake (network timeouts, rate limits, runner died on rerun) -> flake
-  real finding:
-    dispatch fresh fixer subagent from an implementation seat (`implementer`, or `implementer-deep` for hard clusters) (max 2 files), fixer runs tests before done
-    verify checker: dispatch `tester` to run tests/lint/typecheck/build locally
-    push fix: one commit per finding cluster, conventional message
-    CI reruns automatically on push; no manual rerun needed
-  flake:
-    document evidence in the PR (one comment: which run, which log line)
-    rerun that single check via gh run rerun <run-id> --failed, once
-    second flake in same check -> escalate to user, never a third blind rerun
-  bot finding smells false:
-    confirm against code yourself
-    false -> one PR comment: claim, one-line evidence, requested-clarification
-      true -> treat as real finding
-    controversial (not clearly either) -> treat as real, note the doubt in the comment
+  apply Shared finding and flake handling to each failing/blocked item
   no new information since last poll -> re-poll at most 3 times with a short wait between attempts; after 3 polls with no change, return `CI stalled at <sha>` and hand back to the controller instead of waiting indefinitely.
 ```
-Counter `fix_rounds`: initialized at 0, incremented once per fix commit. Stop at 3 with the STOP behavior in Exit.
 
 ## Prevents
 
