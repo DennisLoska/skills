@@ -82,10 +82,10 @@ digraph process {
         "Implementer implements, runs suite, commits tests + impl (or stages in parallel mode), self-reviews" [shape=box];
         "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)" [shape=box];
         "Spec reviewer confirms code matches spec?" [shape=diamond];
-        "Implementer fixes spec gaps" [shape=box];
+        "Dispatch fresh fixer subagent for spec gaps" [shape=box];
         "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" [shape=box];
         "Quality reviewer approves?" [shape=diamond];
-        "Implementer fixes quality issues" [shape=box];
+        "Dispatch fresh fixer subagent for quality issues" [shape=box];
         "Mark task complete in the todo list" [shape=box];
     }
 
@@ -106,12 +106,12 @@ digraph process {
     "Implementer asks questions?" -> "Implementer implements, runs suite, commits tests + impl (or stages in parallel mode), self-reviews" [label="no"];
     "Implementer implements, runs suite, commits tests + impl (or stages in parallel mode), self-reviews" -> "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)";
     "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)" -> "Spec reviewer confirms code matches spec?";
-    "Spec reviewer confirms code matches spec?" -> "Implementer fixes spec gaps" [label="no"];
-    "Implementer fixes spec gaps" -> "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)" [label="re-review"];
+    "Spec reviewer confirms code matches spec?" -> "Dispatch fresh fixer subagent for spec gaps" [label="no"];
+    "Dispatch fresh fixer subagent for spec gaps" -> "Dispatch task-reviewer (spec) through the AGENTS.md Dispatch Adapter (spec-reviewer-prompt.md)" [label="re-review"];
     "Spec reviewer confirms code matches spec?" -> "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" [label="yes"];
     "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" -> "Quality reviewer approves?";
-    "Quality reviewer approves?" -> "Implementer fixes quality issues" [label="no"];
-    "Implementer fixes quality issues" -> "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" [label="re-review"];
+    "Quality reviewer approves?" -> "Dispatch fresh fixer subagent for quality issues" [label="no"];
+    "Dispatch fresh fixer subagent for quality issues" -> "Dispatch task-reviewer (quality) through the AGENTS.md Dispatch Adapter (quality-reviewer-prompt.md)" [label="re-review"];
     "Quality reviewer approves?" -> "Mark task complete in the todo list" [label="yes"];
     "Mark task complete in the todo list" -> "More tasks remain?";
     "More tasks remain?" -> "Task has behaviour to test?" [label="yes"];
@@ -246,8 +246,8 @@ Spec reviewer: FAIL. Findings:
   - red: missing progress reporting (spec says "report every 100 items")
   - red: extra --json flag added, not requested
 
-[Implementer fixes issues]
-Implementer: Removed --json flag, added progress reporting
+[Dispatch fresh fixer subagent for spec findings]
+Fresh fixer: Removed --json flag, added progress reporting
 
 [Spec reviewer reviews again]
 Spec reviewer: PASS
@@ -255,8 +255,8 @@ Spec reviewer: PASS
 [Dispatch `task-reviewer` (quality) through the AGENTS.md Dispatch Adapter]
 Quality reviewer: Strengths: solid. Findings: yellow: magic number (100)
 
-[Implementer fixes]
-Implementer: Extracted PROGRESS_INTERVAL constant
+[Dispatch fresh fixer subagent for quality findings]
+Fresh fixer: Extracted PROGRESS_INTERVAL constant
 
 [Quality reviewer reviews again]
 Quality reviewer: PASS

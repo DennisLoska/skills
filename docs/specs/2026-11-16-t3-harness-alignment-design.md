@@ -26,7 +26,7 @@ This change is built on top of `2cacea1` (`council-opus-sol-gemini`) and preserv
 Add short warnings against `modelSelection`, blocking `wait` calls, state truncation, and PR polling.
 - **Trade-offs:** Smallest diff, but leaves incomplete examples and missing `taskId`/`watch_pull_request`/`link_pull_request` contracts across the skills.
 
-### 2. Align the shared contract in `AGENTS.md` and every execution entry point (Recommended — Chosen)
+### 2. Align the shared contract in `AGENTS.md` and every execution entry point (Recommended - Chosen)
 Keep a concise, authoritative T3 Code Path 1 contract in `AGENTS.md` (within its 150-line / 24 KiB cap), align operational instructions across `skills/dispatch/SKILL.md`, `skills/oneshot/SKILL.md`, `skills/council/SKILL.md`, `skills/make-ci-green/SKILL.md`, and `skills/land/SKILL.md`, and add regression tests in `test/t3-harness-alignment.sh`.
 - **Trade-offs:** Updates multiple skill files, but eliminates drift between `AGENTS.md` and the phase skills while mechanically verifying the contract in CI/test suites.
 

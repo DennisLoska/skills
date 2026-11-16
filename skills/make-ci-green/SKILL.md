@@ -32,9 +32,9 @@ Finish any needed branch update and push before waiting. Immediately after a PR 
 
 Never run a manual 30-second `gh pr checks` polling loop in T3 Code. On wakeup, inspect the new checks/comments and current remote HEAD, classify new information, fix confirmed findings within the existing caps, and watch again only when work still waits on checks or reviews. Preserve fix counters and the monitored head across wakeups. Green evidence must match the final head.
 
-When `gh pr checks` or `gh pr view` hits GraphQL rate limits, use `gh api repos/{owner}/{repo}/commits/{sha}/check-runs` (`{owner}` and `{repo}` are `gh api` placeholders; `{sha}` is not a `gh` placeholder and must be substituted with the resolved remote head SHA, e.g. `commits/$sha/check-runs`) for checks and REST PR, review and comment endpoints for the remaining evidence. Resolve the current remote PR head before querying check runs; paginate responses and inspect combined commit statuses when required. Do not infer green from an empty or incomplete check-runs response.
+When `gh pr checks` or `gh pr view` hits GraphQL rate limits, use `gh api repos/{owner}/{repo}/commits/{sha}/check-runs` (`{owner}` and `{repo}` are `gh api` placeholders; `{sha}` is not a `gh` placeholder and must be substituted with the resolved remote head SHA, e.g. `commits/$sha/check-runs`) for checks and REST PR, review and comment endpoints for the remaining evidence. Resolve the current remote PR head before querying check runs; use `--paginate --slurp` to aggregate all pages and reconcile the flattened check-run count against `total_count`, and inspect combined commit statuses when required. Do not infer green from an empty or incomplete check-runs response.
 
-Call `unwatch_pull_request` before handback, stopping, or asking the user a question, and when monitoring completes or is cancelled. Ending a turn solely to await the requested reactive wakeup keeps the watcher active; completed handoff to council does not.
+For any watched PR, call `unwatch_pull_request` before handback, stopping, or asking the user a question, and when monitoring completes or is cancelled. Ending a turn solely to await the requested reactive wakeup keeps the watcher active; completed handoff to council does not.
 
 Outside T3 Code, use the bounded CLI loop below.
 
@@ -61,4 +61,4 @@ while checks not green (bounded poll: run `gh pr checks <id>` in a loop with a 3
 
 Green + no unresolved bot findings -> return `CI green at <sha>`, hand back to council flow. `fix_rounds` reaches 3 with checks still red -> STOP, report last failing log line, findings, what was tried.
 
-In T3 Code, call `unwatch_pull_request` before returning green to council or reporting a stop. Retain the watcher only when ending the turn to await its requested wakeup.
+In T3 Code, when a watcher is active, call `unwatch_pull_request` before returning green to council or reporting a stop. Retain the watcher only when ending the turn to await its requested wakeup.
