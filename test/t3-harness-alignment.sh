@@ -169,5 +169,74 @@ contains(install, (
     "skills/make-ci-green/SKILL.md",
 ), "bounded installer transport audit")
 
+land = read("skills/land/SKILL.md")
+ci = read("skills/make-ci-green/SKILL.md")
+
+for name, text in (("land", land), ("oneshot", oneshot)):
+    contains(text, (
+        "link_pull_request",
+        "link_pull_requests",
+        "full PR URL",
+        "immediately",
+        "created",
+        "taken over",
+        "pushed",
+        "GraphQL",
+        "gh api repos/{owner}/{repo}/pulls",
+        "existing PR before retrying creation",
+        "unwatch_pull_request",
+    ), f"{name} PR contract")
+
+for name, text in (("CI", ci), ("oneshot", oneshot)):
+    contains(text, (
+        "watch_pull_request",
+        "unwatch_pull_request",
+        "parent thread",
+        "delegate_task",
+        "one watcher per PR",
+        "checks and comments first",
+        "branch update",
+        "push",
+        "link_pull_request",
+        "end the turn",
+        "wakeup",
+        "Outside T3 Code",
+        "gh api repos/{owner}/{repo}/commits/{sha}/check-runs",
+        "Never run a manual 30-second",
+    ), f"{name} watcher contract")
+    require(re.search(r"children[^.]*never[^.]*watch_pull_request", text),
+            f"{name}: children must not own watchers")
+
+for name, text in (("land", land), ("CI", ci), ("oneshot", oneshot)):
+    contains(text, (
+        "before handback",
+        "stopping",
+        "asking the user a question",
+        "unwatch_pull_request",
+    ), f"{name} watcher cleanup")
+
+phase5 = section(oneshot, "## Phase 5: LAND - push and file the PR")
+phase65 = section(oneshot, "## Phase 6.5: MAKE-CI-GREEN")
+phase7 = section(oneshot, "## Phase 7: FINISH")
+contains(phase5, ("link_pull_request", "GraphQL", "existing PR"),
+         "oneshot Phase 5")
+contains(phase65, ("watch_pull_request", "parent thread", "end the turn",
+                   "check-runs"), "oneshot Phase 6.5")
+contains(phase7, ("link_pull_request", "unwatch_pull_request",
+                  "watch_pull_request", "GraphQL"), "oneshot Phase 7")
+
+t3loop = section(ci, "## T3 Code reactive monitoring")
+standalone = section(ci, "## Non-T3 CLI loop")
+require("sleep" not in t3loop and "30-second wait" not in t3loop,
+        "T3 monitoring must not contain a sleep/poll loop")
+contains(standalone, ("30-second wait", "10 minutes", "3 polls"),
+         "standalone bounded polling")
+contains(ci, ("fix_rounds", "Stop at 3", "CI green at <sha>"),
+         "existing CI completion and retry caps")
+contains(land, ("--method POST", "--method GET", "--method PATCH",
+                "head=", "state=open", "head.sha", "html_url"),
+         "REST PR recovery")
+
+print("T3 PR linking and watcher contracts passed")
 print("T3 delegation and state contracts passed")
 PY

@@ -140,7 +140,7 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 
 1. Invoke `land` via the `skill` tool.
 2. Push the feature branch, create the PR: body leads with the problem, not the change inventory (`## Summary`, `## Changes`, `## Test plan`, `## Budget`; Phase 6 adds `## Backlog` when the captain defers findings). The `## Budget` block reports pools hit, demotions, backup rungs used, and any degraded seats (updated again in Phase 7 if CI or council rounds trigger further budget events). Reference local spec/plan paths when they are gitignored.
-3. Save the PR URL.
+3. Save the full PR URL as `pr_url` using the lossless state policy. In T3 Code, immediately after the PR is created, taken over or pushed, make the next tool call `link_pull_request` with the full PR URL, or `link_pull_requests` for multiple PRs. Resolve an existing PR URL before pushing. If `gh pr create`, `gh pr view` or `gh pr checks` hits GraphQL rate limits, follow land's REST fallback using `gh api repos/{owner}/{repo}/pulls`; check for an existing PR before retrying creation. Reuse `html_url`, and preserve all existing same-head evidence.
 
 ---
 
@@ -150,6 +150,10 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 
 1. Invoke `make-ci-green` via the `skill` tool (skip if the repo has no CI/review bots; say "no CI to babysit" and move on).
 2. Watch checks and bot reviews. Failing check logs and local reruns are inspected via `tester` (script runner, compressed failure report). Real finding -> fresh fixer subagent (`implementer`, or `implementer-deep` for hard clusters) -> rerun CI (record the fixer rung's `<provider>/<model>` and family per commit in the author commit log and update `author_models:` and `author_families:` in the state artifact, as in Phase 3). No new information -> no rerun. No blind loops, no flake chasing.
+3. In T3 Code, the parent thread inspects checks and comments first, finishes any needed branch update and push, immediately calls `link_pull_request` with the full PR URL, then uses `watch_pull_request` with one watcher per PR and ends the turn for a reactive wakeup. delegate_task children never call `watch_pull_request`; they report PR URL, head SHA, check/review state and blockers to the parent. Existing watchers persist across pushes; avoid duplicates. Never run a manual 30-second polling loop in T3 Code. On wakeup, re-read current checks/comments and remote HEAD before acting. For GraphQL-limited checks use `gh api repos/{owner}/{repo}/commits/{sha}/check-runs`, plus paginated commit-status/review evidence as needed. Outside T3 Code, retain make-ci-green's bounded CLI polling flow.
+4. Call `unwatch_pull_request` before handback, stopping, or asking the user a question, including the completed handoff to council. A turn ending solely to await the requested watcher wakeup keeps monitoring active. Preserve phase, head and fix counters across wakeups; do not mark CI green until actual checks on the final HEAD are green.
+
+While awaiting the reactive wakeup, end the turn.
 
 ---
 
@@ -179,6 +183,8 @@ Fix-loop caps: at most 3 implementer fix attempts per task, then route to `debug
 ## Phase 7: FINISH
 
 **Skill:** `land` (Gate 3)
+
+**T3 Code finish lifecycle:** If finishing creates, takes over or pushes to a PR, immediately call `link_pull_request` with the full PR URL, or `link_pull_requests` for multiple PRs. On GraphQL rate limits use land's REST PR/check recovery, checking for an existing PR before retrying creation. If an authorized merge still waits on checks or reviews, inspect current evidence, complete any branch update/push and linking, then call parent-owned `watch_pull_request` and end the turn. Revalidate merge evidence and remote HEAD on wakeup. Call `unwatch_pull_request` before handback, stopping, or asking the user a question; only a turn ending to await the requested watcher wakeup retains it.
 
 1. Read the effective last `council_verdict` in `$(git rev-parse --git-dir)/info/oneshot-state.md` immediately before merge. Accept `council_verdict: PASS` with mode in `nominal|degraded|captain|single`, or `council_verdict: SKIPPED` with `mode=unavailable` and all configured attempted/skipped members and reasons recorded. Require `head=<sha>` matching local `git rev-parse HEAD` and remote PR head via `gh pr merge --squash --match-head-commit <sha>`. Verify the profile review allowlist, same-head available reviewer votes/rulings, zero unresolved accepted findings and green actual checks (no no-tests exception for single/unavailable). For mode=single, require the final real `reviewer_vote: PASS reviewer=<provider/model> head=<sha>` matching the verdict reviewer and captain. A skipped review never means PASS. Actual review FAIL, unresolved review failures, stale/missing evidence and unrecognized verdict/mode combinations refuse merge. Standalone uses the same evidence in the current session or state; run council if absent. Authorship and provider counts are not gates.
 2. Refresh the PR body's `## Budget` block and include a **Budget** summary block in the final report (pools hit, demotions, backup rungs used, and any degraded seats; `AGENTS.md` Routing Rules, budget stop & resume). Landed options: merge PR and clean up, keep PR open, keep branch, discard. Present options (skip under bypass: default keep PR open).
