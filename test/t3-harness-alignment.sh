@@ -237,6 +237,20 @@ contains(land, ("--method POST", "--method GET", "--method PATCH",
                 "head=", "state=open", "head.sha", "html_url"),
          "REST PR recovery")
 
+contains(land, ("base=$base", "base.ref", "git symbolic-ref refs/remotes/origin/HEAD",
+                "state=all", "422", "before the step 1 push",
+                "fresh branch with no existing PR", "--paginate"),
+         "REST PR target, recovery, ordering and pagination")
+contains(phase65, ("only when checks or reviews remain pending", "proceed directly to step 4",
+                   "re-enters step 3/4 before any green handoff"),
+         "oneshot conditional monitoring and wakeup re-entry")
+contains(phase7, ("Do not remove state when merely awaiting a watcher wakeup",),
+         "oneshot state retention")
+require(phase7.count("Do not remove state when merely awaiting a watcher wakeup") == 2,
+        "oneshot lifecycle and completion step must both retain state during wakeup waits")
+for name, loop in (("T3", t3loop), ("non-T3", standalone)):
+    contains(loop, ("Shared finding and flake handling",), f"{name} shared CI handling")
+
 print("T3 PR linking and watcher contracts passed")
 print("T3 delegation and state contracts passed")
 PY
