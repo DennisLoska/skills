@@ -985,7 +985,7 @@ if grep -nE '^\| .* \| opencode \| opencode-go/(kimi|qwen3.8-max|deepseek-v4-pro
   cat "$TMPROOT/quad-expensive.out" >&2
   fail "quad profile contains no expensive or purged opencode models in ladder"
 fi
-grep -qF '| task-reviewer | fallback | codex | gpt-6-astra | reasoningEffort=high | openai | ok |' "$QUAD_DEST/PROVIDERS.md" || fail "quad task-reviewer fallback is codex Astra"
+grep -qF '| task-reviewer | fallback | codex | gpt-6.2-astra | reasoningEffort=high | openai | ok |' "$QUAD_DEST/PROVIDERS.md" || fail "quad task-reviewer fallback is codex Astra"
 pass "quad installs cleanly and leaves its delegate-only seats unpinned"
 
 # 53. provider ids accept camelCase but reject underscores and a leading hyphen
@@ -2446,17 +2446,54 @@ prov_purged_models() {
   done
 }
 
-prov_pool_independence() {
-  awk -F '|' -v check_lr="$2" -v closed_review="${3:-0}" '
-    function pool_of(prov, model) {
-      if (prov == "antigravity") {
-        if (model ~ /^claude-/) return "antigravity-claude"
-        return "antigravity-gemini"
-      }
-      if (prov == "codex") return "codex"
-      if (prov == "claudeAgent") return "claude-code"
-      return "opencode:" model
+# POOL_RESOLVE_AWK: first-match `## Quota pools` resolution (AGENTS.md Routing
+# Rules: first matching row, else `<provider>/<model>`). Callers pass the profile
+# twice: pass 1 (FNR == NR) collects pool rows, pass 2 runs the caller rules.
+POOL_RESOLVE_AWK='
+  function pool_glob_re(g,   r) { r = g; gsub(/[.]/, "[.]", r); gsub(/[*]/, ".*", r); return "^" r "$" }
+  function pool_of(prov, model,   i) {
+    for (i = 1; i <= npool; i++) if (pool_prov[i] == prov && model ~ pool_re[i]) return pool_name[i]
+    return prov "/" model
+  }
+  FNR == NR {
+    if ($0 ~ /^[[:space:]]*```/) { pool_fenced = !pool_fenced; next }
+    if (pool_fenced) next
+    if ($0 ~ /^##[[:space:]]+Quota pools([[:space:]]|$)/) { pool_section = 1; next }
+    if ($0 ~ /^##[[:space:]]+/) { pool_section = 0; next }
+    if (pool_section && $0 ~ /^[[:space:]]*[|]/) {
+      pool_n = split($0, pool_c, "|")
+      for (pool_i = 1; pool_i <= pool_n; pool_i++) gsub(/^[[:space:]]+|[[:space:]]+$/, "", pool_c[pool_i])
+      if (pool_c[2] == "pool" || pool_c[2] ~ /^:?-+:?$/) next
+      npool++
+      pool_name[npool] = pool_c[2]; pool_prov[npool] = pool_c[3]; pool_re[npool] = pool_glob_re(pool_c[4])
     }
+    next
+  }
+'
+
+# profile_pool_of <profile> <provider> <model>: resolved pool for one rung.
+profile_pool_of() {
+  awk -F '|' -v want_prov="$2" -v want_model="$3" "$POOL_RESOLVE_AWK"'
+    END { print pool_of(want_prov, want_model) }
+  ' "$1" "$1"
+}
+
+# assert_claude_pool_split <profile> <label>: Fable has its own Claude Code
+# usage limit; the other Claude models share claude-code.
+assert_claude_pool_split() {
+  [ "$(profile_pool_of "$1" claudeAgent claude-fable-5-2)" = "claude-fable" ] || fail "$2 resolves claudeAgent/claude-fable-5-2 to the claude-fable pool"
+  for csplit_model in claude-opus-5-5 claude-sonnet-5-5 claude-haiku-5-5; do
+    [ "$(profile_pool_of "$1" claudeAgent "$csplit_model")" = "claude-code" ] || fail "$2 resolves claudeAgent/$csplit_model to the claude-code pool"
+  done
+  csplit_fable="$(grep -nF '| claude-fable | claudeAgent | claude-fable* | 5h | - | - |' "$1" | cut -d: -f1 | head -n1)"
+  csplit_code="$(grep -nF '| claude-code | claudeAgent | * | 5h | - | - |' "$1" | cut -d: -f1 | head -n1)"
+  [ -n "$csplit_fable" ] || fail "$2 carries the claude-fable quota pool row"
+  [ -n "$csplit_code" ] || fail "$2 carries the claude-code quota pool row"
+  [ "$csplit_fable" -lt "$csplit_code" ] || fail "$2 lists claude-fable before claude-code (first match wins)"
+}
+
+prov_pool_independence() {
+  awk -F '|' -v check_lr="$2" -v closed_review="${3:-0}" "$POOL_RESOLVE_AWK"'
     /^##[[:space:]]+Quota pools/ { exit }
     NF > 7 && $2 !~ /^ *role *$/ && $2 !~ /^ *:?-+:? *$/ {
       role = $2; gsub(/^ +| +$/, "", role)
@@ -2485,28 +2522,35 @@ prov_pool_independence() {
         }
       }
     }
-  ' "$1"
+  ' "$1" "$1"
 }
 
 prov_role_rung_pool() {
-  awk -F '|' -v want_role="$2" -v want_rung="$3" '
-    function pool_of(prov, model) {
-      if (prov == "antigravity") {
-        if (model ~ /^claude-/) return "antigravity-claude"
-        return "antigravity-gemini"
-      }
-      if (prov == "codex") return "codex"
-      if (prov == "claudeAgent") return "claude-code"
-      return "opencode:" model
-    }
+  awk -F '|' -v want_role="$2" -v want_rung="$3" "$POOL_RESOLVE_AWK"'
     /^##[[:space:]]+Quota pools/ { exit }
     $2 == " " want_role " " && $3 == " " want_rung " " {
       p = $4; gsub(/^ +| +$/, "", p)
       m = $5; gsub(/^ +| +$/, "", m)
       print pool_of(p, m)
     }
-  ' "$1"
+  ' "$1" "$1"
 }
+
+# Every shipped profile splits the Fable usage limit from the other Claude models.
+for csplit_profile in "$ROOT"/providers/*.md; do
+  assert_claude_pool_split "$csplit_profile" "providers/$(basename "$csplit_profile")"
+done
+pass "shipped profiles resolve claude-fable* to claude-fable and other Claude models to claude-code"
+
+# A rung's usage-limit error records only its resolved pool; provider-wide only on explicit account caps.
+exhausted_bullet="$(grep -F -- '- `exhausted` (' "$ROOT/AGENTS.md")"
+printf '%s\n' "$exhausted_bullet" | grep -qF "records ONLY that rung's resolved pool" || fail "AGENTS.md exhausted bullet scopes the ledger write to the rung's resolved pool"
+printf '%s\n' "$exhausted_bullet" | grep -qF 'a Fable 429 records only the Fable pool, an Opus 429 only `claude-code`' || fail "AGENTS.md exhausted bullet carries the Fable/Opus pool example (model ids stay out of AGENTS.md)"
+printf '%s\n' "$exhausted_bullet" | grep -qF 'account/organization-wide spend or billing cap across all models' || fail "AGENTS.md exhausted bullet limits provider-wide records to explicit account caps"
+if printf '%s\n' "$exhausted_bullet" | grep -qF 'provider-wide limits: every pool of that provider'; then
+  fail "AGENTS.md exhausted bullet drops the unconditional provider-wide pool record"
+fi
+pass "AGENTS.md exhausted failure class records only the rung's resolved pool"
 
 prov_case=0
 for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode codex,opencode antigravity,opencode opencode; do
@@ -2536,6 +2580,7 @@ for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode c
   if grep -qF '| opencode-go | opencode | opencode-go/*' "$prov_md"; then
     fail "--providers $prov_combo does not emit wildcard opencode-go/* quota pool row"
   fi
+  assert_claude_pool_split "$prov_md" "--providers $prov_combo"
   case "$prov_combo" in
     *,*)
       closed_review=0
@@ -2587,13 +2632,14 @@ for non_oc_combo in antigravity,codex antigravity,claude claude,codex; do
   if [ "$non_oc_combo" = "antigravity,claude" ]; then
     [ "$(prov_role_rung_pool "$prov_md" implementer primary)" = "claude-code" ] || fail "--providers implementer primary uses Claude Code"
     [ "$(prov_role_rung_pool "$prov_md" implementer fallback)" = "codex" ] || fail "--providers implementer fallback is Sol"
-    [ "$(prov_role_rung_pool "$prov_md" implementer-deep primary)" = "claude-code" ] || fail "--providers antigravity,claude implementer-deep primary is claudeAgent Fable"
+    [ "$(prov_role_rung_pool "$prov_md" implementer-deep primary)" = "claude-fable" ] || fail "--providers antigravity,claude implementer-deep primary is claudeAgent Fable on the claude-fable pool"
     grep -qF '| implementer | primary | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |' "$prov_md" || fail "--providers implementer uses Claude Code Opus"
   fi
   case "$non_oc_combo" in
     *claude*)
       grep -q '| claudeAgent |' "$prov_md" || fail "--providers $non_oc_combo canonicalizes claude alias to claudeAgent in PROVIDERS.md"
       grep -qF '| claude-code | claudeAgent | * | 5h | - | - |' "$prov_md" || fail "--providers $non_oc_combo emits claudeAgent quota pool"
+      assert_claude_pool_split "$prov_md" "--providers $non_oc_combo"
       ;;
   esac
   rc=0
@@ -2744,19 +2790,19 @@ for oc_seat in reviewer-a reviewer-b reviewer-c; do
   [ "$(seat_cell "$oc_md" "$oc_seat" 4)" != "opencode" ] || fail "claude,opencode $oc_seat stays off opencode"
 done
 
-awk -F '|' '
+awk -F '|' "$POOL_RESOLVE_AWK"'
   /^[|] (driver|scout|implementer|implementer-deep|tester|patch|task-reviewer|reviewer-a|reviewer-b|reviewer-c|compaction) [|]/ {
     role = $2; gsub(/^ +| +$/, "", role)
     prov = $4; gsub(/^ +| +$/, "", prov)
     model = $5; gsub(/^ +| +$/, "", model)
-    pool = (prov == "antigravity" ? (model ~ /^claude-/ ? "antigravity-claude" : "antigravity-gemini") : (prov == "codex" ? "codex" : (prov == "claudeAgent" ? "claude-code" : "opencode-go")))
+    pool = pool_of(prov, model)
     if (role ~ /^(reviewer-[abc]|task-reviewer)$/) next
     if ((role SUBSEP pool) in seen) {
       exit 1
     }
     seen[role SUBSEP pool] = 1
   }
-' "$oc_md" || fail "claude,opencode violates per-role pool distinctness"
+' "$oc_md" "$oc_md" || fail "claude,opencode violates per-role pool distinctness"
 
 if backup_ladder "$oc_md" | grep -qF '| opencode |'; then fail "dynamic backups must be review-only"; fi
 awk '/^## Backup ladder/,0' "$oc_md" | grep -qF '| claudeAgent |' || fail "dynamic backup ladder carries claudeAgent"
@@ -2865,10 +2911,10 @@ for cap_effort in effort=xhigh effort=max effort=ultrathink effort=ultracode thi
   awk -v e="$cap_effort" '{ if ($0 == "| driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |") print "| driver | fallback | claudeAgent | claude-sonnet-5-5 | " e " | anthropic | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
   cap_reject "role row $cap_effort" "install.sh: profile $CAP_ABS invalid row: driver fallback: effort above high"
 done
-awk '{ if ($0 == "| 3 | task-reviewer | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |") print "| 3 | task-reviewer | codex | gpt-6.1-sol | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
+awk '{ if ($0 == "| 3 | task-reviewer | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |") print "| 3 | task-reviewer | codex | gpt-6.2-sol | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
 cap_reject "backup row effort=max" "install.sh: profile $CAP_ABS invalid backup row: 3: effort above high"
-awk '{ if ($0 == "| codex | gpt-6.1-sol | reasoningEffort=xhigh | openai | ok |") print "| codex | gpt-6.1-sol | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
-cap_reject "single-provider row reasoningEffort=max" "install.sh: profile $CAP_ABS invalid single-provider row: codex gpt-6.1-sol: effort above high"
+awk '{ if ($0 == "| codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |") print "| codex | gpt-6.2-sol | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
+cap_reject "single-provider row reasoningEffort=max" "install.sh: profile $CAP_ABS invalid single-provider row: codex gpt-6.2-sol: effort above high"
 for cap_ok in - effort=low effort=medium effort=high; do
   awk -v e="$cap_ok" '{ if ($0 == "| driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |") print "| driver | fallback | claudeAgent | claude-sonnet-5-5 | " e " | anthropic | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
   rm -rf "$TMPROOT/cap-ok-dest"
@@ -2891,13 +2937,13 @@ while IFS=';' read -r label row diagnostic; do
   grep -qxF "install.sh: profile $SP_ABS invalid single-provider row: $diagnostic" "$TMPROOT/sp.err" || { cat "$TMPROOT/sp.err" >&2; fail "80c: single-provider $label diagnostic"; }
   [ ! -e "$TMPROOT/sp-dest" ] || fail "80c: single-provider $label writes nothing"
 done <<'SPROWS'
-four cells;| codex | gpt-6-astra | reasoningEffort=high | openai |;codex gpt-6-astra: expected 5 cells
+four cells;| codex | gpt-6.2-astra | reasoningEffort=high | openai |;codex gpt-6.2-astra: expected 5 cells
 empty model;| codex |  | reasoningEffort=high | openai | ok |;codex : empty cell
-bad provider;| bad_id | gpt-6-astra | reasoningEffort=high | openai | ok |;bad_id gpt-6-astra: invalid provider
+bad provider;| bad_id | gpt-6.2-astra | reasoningEffort=high | openai | ok |;bad_id gpt-6.2-astra: invalid provider
 bad model;| codex | x: | reasoningEffort=high | openai | ok |;codex x:: invalid model
-bad effort;| codex | gpt-6-astra | high | openai | ok |;codex gpt-6-astra: invalid effort
-bad family;| codex | gpt-6-astra | reasoningEffort=high | OpenAI | ok |;codex gpt-6-astra: invalid family
-bad privacy;| codex | gpt-6-astra | reasoningEffort=high | openai | maybe |;codex gpt-6-astra: invalid privacy
+bad effort;| codex | gpt-6.2-astra | high | openai | ok |;codex gpt-6.2-astra: invalid effort
+bad family;| codex | gpt-6.2-astra | reasoningEffort=high | OpenAI | ok |;codex gpt-6.2-astra: invalid family
+bad privacy;| codex | gpt-6.2-astra | reasoningEffort=high | openai | maybe |;codex gpt-6.2-astra: invalid privacy
 SPROWS
 { cat "$SP_BASE"; printf '\n## Project management\n\nbacklog_tracker: linear\n\n| not | a | validated | table |\n| scout | primary | bogus |\n'; } >"$TMPROOT/sp.md"
 rc=0
@@ -3028,7 +3074,7 @@ check_council_profile() {
   [ "$(seat_cell "$md" reviewer-a 5)" = "claude-opus-5-5" ] || fail "$label captain is Opus"
   [ "$(seat_cell "$md" implementer-deep 5)" = "claude-fable-5-2" ] || fail "$label deep implementer is Fable"
   [ "$(seat_cell "$md" implementer 5)" = "claude-opus-5-5" ] || fail "$label implementer is Opus"
-  [ "$(seat_cell "$md" reviewer-b 5)" = "gpt-6.1-sol" ] || fail "$label seat B is Sol"
+  [ "$(seat_cell "$md" reviewer-b 5)" = "gpt-6.2-sol" ] || fail "$label seat B is Sol"
   [ "$(seat_cell "$md" reviewer-c 5)" = "gemini-4-argon" ] || fail "$label seat C is Argon"
   return 0
 }
@@ -3037,15 +3083,15 @@ for shipped in quad tri opencode-go codex antigravity claude; do
   check_council_profile "$shipped_md" "providers/$shipped.md" 1 1 1 1
     for quad_spec in \
       'implementer|last-resort|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
-      'implementer|fallback|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
+      'implementer|fallback|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
       'implementer-deep|last-resort|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
-      'implementer-deep|fallback|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
-      'task-reviewer|primary|codex|gpt-6.1-sol|reasoningEffort=high|openai|ok' \
-      'task-reviewer|fallback|codex|gpt-6-astra|reasoningEffort=high|openai|ok' \
+      'implementer-deep|fallback|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
+      'task-reviewer|primary|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
+      'task-reviewer|fallback|codex|gpt-6.2-astra|reasoningEffort=high|openai|ok' \
       'task-reviewer|last-resort|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
       'implementer-deep|primary|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
       'reviewer-a|primary|claudeAgent|claude-opus-5-5|effort=xhigh|anthropic|ok' \
-      'reviewer-b|primary|codex|gpt-6.1-sol|reasoningEffort=xhigh|openai|ok' \
+      'reviewer-b|primary|codex|gpt-6.2-sol|reasoningEffort=xhigh|openai|ok' \
       'reviewer-c|primary|antigravity|gemini-4-argon|thinking_level=high|google|ok'; do
       profile_rows "$shipped_md" roles | grep -qxF "$quad_spec" || fail "80e: providers/$shipped.md carries spec row $quad_spec"
     done
@@ -3062,15 +3108,15 @@ for shipped in quad tri opencode-go codex antigravity claude; do
       profile_rows "$shipped_md" roles | grep -qxF "$quad_cheap" || fail "80e: providers/$shipped.md carries cheap seat row $quad_cheap"
     done
     awk -F '|' '
-      $1 ~ /^reviewer-[abc]$/ && $4 != "claude-opus-5-5" && $4 != "gemini-4-argon" && $4 != "gpt-6.1-sol" {
+      $1 ~ /^reviewer-[abc]$/ && $4 != "claude-opus-5-5" && $4 != "gemini-4-argon" && $4 != "gpt-6.2-sol" {
         print "forbidden policy reviewer model in roles: " $0
       }' "$TMPROOT/cp-roles.txt" >>"$TMPROOT/cp-bad.txt"
     awk -F '|' '
-      ($2 == "*" || $2 ~ /(^|,)reviewer-[abc](,|$)/) && $4 != "claude-opus-5-5" && $4 != "gemini-4-argon" && $4 != "gpt-6.1-sol" {
+      ($2 == "*" || $2 ~ /(^|,)reviewer-[abc](,|$)/) && $4 != "claude-opus-5-5" && $4 != "gemini-4-argon" && $4 != "gpt-6.2-sol" {
         print "forbidden policy reviewer model in backup: " $0
       }' "$TMPROOT/cp-backup.txt" >>"$TMPROOT/cp-bad.txt"
     awk -F '|' '
-      $1 != "provider" && $1 != "---" && !(($1 == "codex" && ($2 == "gpt-6.1-sol")) || (($1 == "claude" || $1 == "claudeAgent") && $2 == "claude-opus-5-5") || ($1 == "antigravity" && $2 == "gemini-4-argon")) {
+      $1 != "provider" && $1 != "---" && !(($1 == "codex" && ($2 == "gpt-6.2-sol")) || (($1 == "claude" || $1 == "claudeAgent") && $2 == "claude-opus-5-5") || ($1 == "antigravity" && $2 == "gemini-4-argon")) {
         print "forbidden policy model in single-provider review: " $0
       }' "$TMPROOT/cp-single.txt" >>"$TMPROOT/cp-bad.txt"
     if [ -s "$TMPROOT/cp-bad.txt" ]; then cat "$TMPROOT/cp-bad.txt" >&2; fail "80e: providers/$shipped.md reviewer whitelist"; fi
@@ -3123,20 +3169,20 @@ pass "council permits distinct primary models within the same family"
 
 # 1. Non-Anthropic effort above high rejected across role/advisory, backup, and single-provider rows
 for bad_effort in reasoningEffort=max reasoningEffort=xhigh variant=max variant=xhigh thinking_level=max thinking_level=xhigh; do
-  awk -v e="$bad_effort" '{ if ($0 ~ /\| driver \| primary \|/) print "| driver | primary | codex | gpt-6.1-sol | " e " | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap-nonanth.md"
+  awk -v e="$bad_effort" '{ if ($0 ~ /\| driver \| primary \|/) print "| driver | primary | codex | gpt-6.2-sol | " e " | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap-nonanth.md"
   rc=0
   OPENCODE_CONFIG="$TMPROOT/cap-na-dest" "$INSTALL" --profile-file "$TMPROOT/cap-nonanth.md" </dev/null >"$TMPROOT/cap-na.out" 2>"$TMPROOT/cap-na.err" || rc=$?
   [ "$rc" -eq 1 ] || fail "80h: role row non-Anthropic $bad_effort exits 1 (got $rc)"
   grep -qE 'effort above high' "$TMPROOT/cap-na.err" || fail "80h: role row non-Anthropic $bad_effort diagnostic"
 done
 
-awk '{ if ($0 ~ /\| 4 \| task-reviewer \|/) print "| 4 | task-reviewer | codex | gpt-6-astra | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap-na-b.md"
+awk '{ if ($0 ~ /\| 4 \| task-reviewer \|/) print "| 4 | task-reviewer | codex | gpt-6.2-astra | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap-na-b.md"
 rc=0
 OPENCODE_CONFIG="$TMPROOT/cap-na-b-dest" "$INSTALL" --profile-file "$TMPROOT/cap-na-b.md" </dev/null >"$TMPROOT/cap-na-b.out" 2>"$TMPROOT/cap-na-b.err" || rc=$?
 [ "$rc" -eq 1 ] || fail "80h: backup row non-Anthropic effort above high exits 1 (got $rc)"
 grep -qE 'effort above high' "$TMPROOT/cap-na-b.err" || fail "80h: backup row non-Anthropic effort above high diagnostic"
 
-awk '{ if ($0 == "| codex | gpt-6.1-sol | reasoningEffort=xhigh | openai | ok |") print "| codex | gpt-6.1-sol | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap-na-sp.md"
+awk '{ if ($0 == "| codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |") print "| codex | gpt-6.2-sol | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap-na-sp.md"
 rc=0
 OPENCODE_CONFIG="$TMPROOT/cap-na-sp-dest" "$INSTALL" --profile-file "$TMPROOT/cap-na-sp.md" </dev/null >"$TMPROOT/cap-na-sp.out" 2>"$TMPROOT/cap-na-sp.err" || rc=$?
 [ "$rc" -eq 1 ] || fail "80h: single-provider non-Anthropic effort above high exits 1 (got $rc)"
@@ -3152,20 +3198,20 @@ cat <<'TWO_FAM' >"$TMPROOT/two-fam.md"
 | implementer-deep | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | tester | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | patch | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
-| task-reviewer | primary | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| task-reviewer | primary | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
 | reviewer-a | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
-| reviewer-a | fallback | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
-| reviewer-b | primary | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
-| reviewer-b | fallback | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
-| reviewer-c | primary | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
-| reviewer-c | fallback | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
+| reviewer-a | fallback | codex | gpt-6.2-astra | reasoningEffort=high | openai | ok |
+| reviewer-b | primary | codex | gpt-6.2-astra | reasoningEffort=high | openai | ok |
+| reviewer-b | fallback | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
+| reviewer-c | primary | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
+| reviewer-c | fallback | codex | gpt-6.2-astra | reasoningEffort=high | openai | ok |
 TWO_FAM
 rc=0
 OPENCODE_CONFIG="$TMPROOT/two-fam-dest" "$INSTALL" --profile-file "$TMPROOT/two-fam.md" </dev/null >"$TMPROOT/two-fam.out" 2>&1 || rc=$?
 [ "$rc" -eq 0 ] || { cat "$TMPROOT/two-fam.out" >&2; fail "80h: distinct-model same-family reviewers install cleanly"; }
 
 # 3. Duplicate reviewer primary models rejected
-awk '{ if ($0 ~ /\| reviewer-c \| primary \|/) print "| reviewer-c | primary | codex | gpt-6-astra | reasoningEffort=high | openai | ok |"; else print }' "$TMPROOT/two-fam.md" >"$TMPROOT/dup-rev.md"
+awk '{ if ($0 ~ /\| reviewer-c \| primary \|/) print "| reviewer-c | primary | codex | gpt-6.2-astra | reasoningEffort=high | openai | ok |"; else print }' "$TMPROOT/two-fam.md" >"$TMPROOT/dup-rev.md"
 rc=0
 OPENCODE_CONFIG="$TMPROOT/dup-rev-dest" "$INSTALL" --profile-file "$TMPROOT/dup-rev.md" </dev/null >"$TMPROOT/dup-rev.out" 2>"$TMPROOT/dup-rev.err" || rc=$?
 [ "$rc" -eq 1 ] || fail "80h: duplicate reviewer primary model exits 1 (got $rc)"
@@ -3181,8 +3227,8 @@ for policy in "$TMPROOT/capt-impl-dest/HARNESS.md" "$TMPROOT/capt-impl-dest/skil
   grep -qF 'Self-review is allowed' "$policy" || fail "80h: installed policy permits author captain"
   grep -qF 'council_verdict: SKIPPED' "$policy" || fail "80h: installed availability verdict"
 done
-[ "$(seat_cell "$TMPROOT/two-fam-dest/PROVIDERS.md" reviewer-b 5)" = gpt-6-astra ] || fail "80h: independent GPT Seat B available for captain handoff"
-[ "$(seat_cell "$TMPROOT/two-fam-dest/PROVIDERS.md" reviewer-c 5)" = gpt-6.1-sol ] || fail "80h: independent GPT Seat C available for captain handoff"
+[ "$(seat_cell "$TMPROOT/two-fam-dest/PROVIDERS.md" reviewer-b 5)" = gpt-6.2-astra ] || fail "80h: independent GPT Seat B available for captain handoff"
+[ "$(seat_cell "$TMPROOT/two-fam-dest/PROVIDERS.md" reviewer-c 5)" = gpt-6.2-sol ] || fail "80h: independent GPT Seat C available for captain handoff"
 
 # 5. Audit shipped and generated profiles: <= high effort and no Carbon
 for prof in "$ROOT"/providers/*.md "$TMPROOT"/pv-*/.config/opencode/PROVIDERS.md; do

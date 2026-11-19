@@ -112,12 +112,12 @@
     <text class="cell" x="84" y="406">implementer</text>
     <text class="cell" x="224" y="406">antigravity / claude-opus-5-5 · high</text>
     <text class="cellMuted" x="600" y="406">antigravity / gemini-4-argon · high</text>
-    <text class="cellMuted" x="960" y="406">codex / gpt-6.1-sol · high</text>
+    <text class="cellMuted" x="960" y="406">codex / gpt-6.2-sol · high</text>
 
     <text class="cell" x="84" y="426">impl-deep</text>
     <text class="cell" x="224" y="426">claudeAgent / claude-fable-5-2 · high</text>
     <text class="cellMuted" x="600" y="426">antigravity / gemini-4-argon · high</text>
-    <text class="cellMuted" x="960" y="426">codex / gpt-6.1-sol · high</text>
+    <text class="cellMuted" x="960" y="426">codex / gpt-6.2-sol · high</text>
 
     <text class="cell" x="84" y="446">tester</text>
     <text class="cell" x="224" y="446">opencode / deepseek-v4.1-flash · high</text>
@@ -126,12 +126,12 @@
 
     <text class="cell" x="84" y="466">reviewer-a ★</text>
     <text class="cell" x="224" y="466">claudeAgent / claude-fable-5-2 · high</text>
-    <text class="cellMuted" x="600" y="466">codex / gpt-6-astra · high</text>
-    <text class="cellMuted" x="960" y="466">codex / gpt-6.1-sol · high</text>
+    <text class="cellMuted" x="600" y="466">codex / gpt-6.2-astra · high</text>
+    <text class="cellMuted" x="960" y="466">codex / gpt-6.2-sol · high</text>
 
     <text class="cell" x="84" y="486">reviewer-c</text>
-    <text class="cell" x="224" y="486">codex / gpt-6.1-sol · high</text>
-    <text class="cellMuted" x="600" y="486">codex / gpt-6-astra · high</text>
+    <text class="cell" x="224" y="486">codex / gpt-6.2-sol · high</text>
+    <text class="cellMuted" x="600" y="486">codex / gpt-6.2-astra · high</text>
     <text class="cellMuted" x="960" y="486">claudeAgent / claude-fable-5-2 · high</text>
   </g>
 
@@ -164,7 +164,7 @@
     <rect x="391" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
     <text class="sans pname" x="411" y="630">Codex</text>
     <text class="sans pmeta" x="411" y="648">openai · reasoningEffort</text>
-    <text class="mono pmodels" x="411" y="668">gpt-6-astra (high) · gpt-6.1-sol</text>
+    <text class="mono pmodels" x="411" y="668">gpt-6.2-astra (high) · gpt-6.2-sol</text>
     <text class="mono pmodels" x="411" y="686">gpt-6-luna (operations fallback)</text>
 
     <rect x="698" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>

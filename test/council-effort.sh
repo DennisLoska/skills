@@ -61,7 +61,7 @@ for role in ('reviewer-a', 'reviewer-b', 'reviewer-c'):
     expect_ok(replace_effort(quad, role, 'primary', 'effort=xhigh'), f'{role} primary')
 
 # Exclusively council reviewer backup rows may use xhigh.
-review_backup = quad + '\n## Backup ladder\n| 9 | reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.1-sol | reasoningEffort=xhigh | openai | ok |\n'
+review_backup = quad + '\n## Backup ladder\n| 9 | reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |\n'
 expect_ok(review_backup, 'reviewer-only backup')
 
 # Single-provider review rows are also council-only.
@@ -72,7 +72,7 @@ expect_ok(single_review, 'single-provider review row')
 # Ordinary roles, task-reviewer, driver/advisory roles and non-exclusive backups reject xhigh.
 for role in ('scout', 'implementer', 'implementer-deep', 'tester', 'patch', 'task-reviewer', 'driver', 'designer', 'planner'):
     if role in ('driver',):
-        line = '| driver | primary | codex | gpt-6.1-sol | reasoningEffort=medium | openai | ok |'
+        line = '| driver | primary | codex | gpt-6.2-sol | reasoningEffort=medium | openai | ok |'
         fixture = quad.replace(line, line.replace('reasoningEffort=medium', 'reasoningEffort=xhigh'), 1)
     elif role in ('designer', 'planner'):
         fixture = replace_effort(quad, role, 'primary', 'effort=xhigh')
@@ -81,7 +81,7 @@ for role in ('scout', 'implementer', 'implementer-deep', 'tester', 'patch', 'tas
     expect_rejected(fixture, f'{role} primary')
 
 for roles in ('*', 'reviewer-a,scout', 'reviewer-a,task-reviewer'):
-    fixture = quad + f'\n## Backup ladder\n| 9 | {roles} | codex | gpt-6.1-sol | reasoningEffort=xhigh | openai | ok |\n'
+    fixture = quad + f'\n## Backup ladder\n| 9 | {roles} | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |\n'
     expect_rejected(fixture, f'{roles} backup')
 
 # Nothing above xhigh is usable in any profile context.
@@ -89,7 +89,7 @@ for effort in ('effort=max', 'effort=ultra', 'effort=ultrathink', 'effort=ultrac
     for context, fixture in (
         ('council seat', replace_effort(quad, 'reviewer-a', 'primary', effort)),
         ('task reviewer', replace_effort(quad, 'task-reviewer', 'primary', effort)),
-        ('review backup', quad + f'\n## Backup ladder\n| 9 | reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.1-sol | {effort} | openai | ok |\n'),
+        ('review backup', quad + f'\n## Backup ladder\n| 9 | reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.2-sol | {effort} | openai | ok |\n'),
         ('single-provider review', quad.replace(
             '| claudeAgent | claude-opus-5-5 | effort=xhigh | anthropic | ok |',
             f'| claudeAgent | claude-opus-5-5 | {effort} | anthropic | ok |', 1)),

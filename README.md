@@ -299,7 +299,7 @@ All six shipped profiles and all 15 `--providers` combinations use the same mode
 - **Why multiple models?** Single-model reviews suffer from self-confirmation bias, hallucinated validations, and identical blind spots. The council runs three distinct models in parallel when available, using the active profile's allowed review models. Every shipped/generated policy permits only Opus, Sol, and Argon for council; task review retains Sol, Astra, and Fable at high.
 - **Council Seats**:
   - **Seat A (`reviewer-a`), review captain**: Anthropic `claude-opus-5-5` via Claude Code at `effort=xhigh`. If Seat A has no eligible rung, captaincy passes to Seat B, then Seat C.
-  - **Seat B (`reviewer-b`)**: OpenAI `gpt-6.1-sol` via Codex at `reasoningEffort=xhigh`.
+  - **Seat B (`reviewer-b`)**: OpenAI `gpt-6.2-sol` via Codex at `reasoningEffort=xhigh`.
   - **Seat C (`reviewer-c`) in every shipped profile**: Google `gemini-4-argon` via Antigravity at `thinking_level=high`.
 - **Captain ruling**: the captain reviews like every seat. When any seat votes FAIL or raises a red/yellow finding, a fresh captain ruling labels each merged finding `accept` (fix in this PR), `defer` (valid but unrelated, overengineering, or out of scope: it becomes a backlog ticket), or `reject` (wrong, with `path:line` evidence), then votes `Captain verdict: PASS | FAIL`.
 - **Captain limits**: a red the driver confirms as an in-scope correctness, security, or data-loss bug introduced by the diff can never be deferred or rejected (`captain overruled: <finding-id>`). Green tests are always required. Fixers address only accepted findings.
@@ -327,7 +327,7 @@ Council tries configured members and quota/reachability fallbacks, skipping unav
 - **Balanced Seat Fallback**: a council seat that loses its primary takes the eligible rung whose quota pool has the fewest dispatches this run, within the active profile review allowlist; shipped council recovery includes Argon at high.
 - **Single-Provider Review**: Sol on Codex, Opus on Claude Code, Argon on Antigravity. A sole available reviewer can PASS without provider-count gates.
 - **Context-scoped effort ceiling:** Non-council work, including driver sessions, defaults, advisory/design work, task-reviewer, fixing and testing, must never request or inherit effort above `high`. Only runtime council reviewer-a/b/c seats and fresh captain rulings may use profile-configured `xhigh`; council is the only skill permitting above high, with maximum `xhigh`. `max`, `ultra`, `ultrathink`, `ultracode`, and equivalent higher levels are forbidden everywhere. Verify provider capabilities before dispatch; use explicit provider-native options from `PROVIDERS.md`. Argon uses explicit `thinking_level=high` because it has no xhigh support. Unknown/unsafe defaults require an explicit safe option or an unreachable rung; non-council defaults must be verified at most `high`. Shared reviewer contracts do not grant task reviews the council exception. Invoking a skill never changes the driver session or its ceiling.
-- **Shared Quota Pools & Soft Caps**: Models sharing an underlying subscription pool (e.g. `claude-code`) are grouped into pools. Soft caps prevent workhorse tasks from consuming tokens reserved for critical seats.
+- **Shared Quota Pools & Soft Caps**: Models sharing an underlying subscription pool (e.g. `claude-code`; Fable has its own `claude-fable` limit) are grouped into pools. Soft caps prevent workhorse tasks from consuming tokens reserved for critical seats.
 - **Machine-Local Quota Ledger (`state/quota-ledger.tsv`)**: When a 429 or rate limit occurs, the pool and its cooldown timestamp are recorded in the ledger. Subsequent dispatches immediately skip dead pools without burning API calls or latency.
 - **Legacy Emergency Routing**: Only operational roles without explicit `last-resort` retain sibling hand-off and backup walks. Reviews keep balanced backup routing; shipped backups are review-only.
 - **Hard Budget Stops**: When all eligible rungs are exhausted, the harness stops cleanly with `budget stop: <role>` and reports the earliest reset time, refusing to silently downgrade to an inferior model or hallucinate.
@@ -354,7 +354,7 @@ Council tries configured members and quota/reachability fallbacks, skipping unav
 | --- | --- | --- | --- | --- |
 | **OpenCode Go** | `opencode` | `variant` (`low\|medium\|high`, or verified safe `-`) | `muse-spark-1.3-contributor`, `deepseek-v4.1-flash`, `mimo-v2.6-flash`, `glm-5.3-flash` | `opencode.ai/docs/go` console (monthly $ allowance + 5h rolling cap) |
 | **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-argon`, `gemini-3.8-flash` | `/status` in Antigravity (rolling 5-hour window) |
-| **Codex** | `codex` | `reasoningEffort` (`low\|medium\|high`; council Sol also `xhigh`) | `gpt-6-astra`, `gpt-6.1-sol`, `gpt-6-luna`, `gpt-6-sol` | `/status` in Codex (rolling 5-hour window) |
+| **Codex** | `codex` | `reasoningEffort` (`low\|medium\|high`; council Sol also `xhigh`) | `gpt-6.2-astra`, `gpt-6.2-sol`, `gpt-6-luna`, `gpt-6-sol` | `/status` in Codex (rolling 5-hour window) |
 | **Claude Code** | `claudeAgent` | `effort` (`low\|medium\|high`; only council seats/rulings permit `xhigh`) | `claude-fable-5-2`, `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` | `/status` in Claude Code (rolling 5-hour window) |
 
 ### Dispatch Adapter Paths
@@ -384,7 +384,7 @@ flowchart TD
     W -- "no rungs left" --> STOP["Stop and report: exhausted pools and earliest reset time"]
 ```
 
-- **Shared Quota Pools:** Groups models sharing a subscription bucket (e.g., `claude-code` for Claude Code models).
+- **Shared Quota Pools:** Groups models sharing a subscription bucket (e.g., `claude-fable` for Claude Code Fable models, `claude-code` for the other Claude Code models; first matching row wins).
 - **Soft Caps & Reserves:** Limits non-essential dispatches so a pool's remaining quota stays reserved for the roles listed in `reserve`. Per-pool dispatch counts (`soft_cap_counts`) also drive balanced seat fallback.
 - **Machine-Local Ledger:** Tracks exhausted pools at `<dest>/state/quota-ledger.tsv`. Pruned automatically on read; can be inspected or cleared anytime:
   ```sh

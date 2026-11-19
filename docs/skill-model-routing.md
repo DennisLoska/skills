@@ -12,7 +12,7 @@ Non-council work uses explicit provider-native options at `low`, `medium`, or `h
 
 | Role | Primary model and provider | Effort / routing notes |
 | --- | --- | --- |
-| `driver` (advisory) | GPT6.1 Sol (`gpt-6.1-sol`), Codex | At most high; stays in-session. |
+| `driver` (advisory) | GPT6.2 Sol (`gpt-6.2-sol`), Codex | At most high; stays in-session. |
 | `designer` (optional ad-hoc) | Fable 5.2 (`claude-fable-5-2`), Claude Code | Read-only design draft, `effort=high`; only fallback Sol/Codex `reasoningEffort=high`. |
 | `planner` (optional ad-hoc) | Fable 5.2, Claude Code | Read-only implementation-plan draft, high; only fallback Sol/Codex high. |
 | `scout` | Deepseek V4.1 Flash (`opencode-go/deepseek-v4.1-flash`), OpenCode Go | `variant=high`; fallback GPT6 Luna, then terminal Gemini 3.8 Flash. |
