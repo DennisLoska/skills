@@ -173,14 +173,17 @@ def validate_profile_policy(name, text):
         assert opt_rows, f"[{name}] missing {opt_role}"
         if opt_rows:
             rungs = [r['rung'] for r in opt_rows]
-            assert rungs == ['primary', 'fallback'], (
-                f"[{name}] {opt_role} must have exactly primary and fallback rungs only, got {rungs}"
+            assert rungs == ['primary', 'fallback', 'last-resort'], (
+                f"[{name}] {opt_role} must have primary, fallback, and last-resort rungs, got {rungs}"
             )
             assert opt_rows[0]['base_model'] == 'claude-fable-5-2', (
                 f"[{name}] {opt_role} primary must be claude-fable-5-2, got {opt_rows[0]['model']}"
             )
             assert opt_rows[1]['base_model'] == 'gpt-6.2-sol', (
                 f"[{name}] {opt_role} fallback must be gpt-6.2-sol, got {opt_rows[1]['model']}"
+            )
+            assert opt_rows[2]['base_model'] == 'gemini-4-carbon', (
+                f"[{name}] {opt_role} last-resort must be gemini-4-carbon, got {opt_rows[2]['model']}"
             )
 
     # 4. Scout: DeepSeek 4.1 Flash
@@ -279,11 +282,12 @@ def validate_profile_policy(name, text):
     for role in ('scout', 'tester', 'patch'):
         rows = get_role_rows(role)
         assert [r['base_model'] for r in rows] == ['deepseek-v4.1-flash', 'gpt-6-luna', 'gemini-3.8-flash']
-    # 9. Safe efforts <= high everywhere, no Carbon
+    # 9. Safe efforts <= high everywhere, Carbon only on designer/planner last-resort
     for row in all_rows:
-        assert row['base_model'] != 'gemini-4-carbon', (
-            f"[{name}] retired model gemini-4-carbon found in: {row['line']}"
-        )
+        if row['base_model'] == 'gemini-4-carbon':
+            assert row.get('role') in ('designer', 'planner') and row.get('rung') == 'last-resort', (
+                f"[{name}] gemini-4-carbon only allowed on designer/planner last-resort, found in: {row['line']}"
+            )
         if row['provider'] == 'codex':
             assert row['base_model'] in CODEX_MODELS, (
                 f"[{name}] codex rung must use a current OpenAI model {sorted(CODEX_MODELS)}: {row['line']}"

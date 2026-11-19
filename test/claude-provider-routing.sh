@@ -262,11 +262,19 @@ def audit_profile_policy(name, text):
     for draft_role in ('designer', 'planner'):
         dp = get_role_rung(draft_role, 'primary')
         dfb = get_role_rung(draft_role, 'fallback')
+        dlr = get_role_rung(draft_role, 'last-resort')
         if dp: check(dp['base_model'] == 'claude-fable-5-2', f"[{name}] {draft_role} primary must be claude-fable-5-2, got {dp['model']}")
         if dfb: check(dfb['base_model'] == 'gpt-6.2-sol', f"[{name}] {draft_role} fallback must be gpt-6.2-sol, got {dfb['model']}")
+        if dlr:
+            check(dlr['provider'] == 'antigravity', f"[{name}] {draft_role} last-resort provider must be antigravity, got {dlr['provider']}")
+            check(dlr['base_model'] == 'gemini-4-carbon', f"[{name}] {draft_role} last-resort must be gemini-4-carbon, got {dlr['model']}")
+            check(dlr['effort'] == 'thinking_level=high', f"[{name}] {draft_role} last-resort effort must be thinking_level=high, got {dlr['effort']}")
+            check(dlr['family'] == 'google', f"[{name}] {draft_role} last-resort family must be google, got {dlr['family']}")
 
     for r in all_rows:
         for fmod in FORBIDDEN_MODELS:
+            if fmod == 'gemini-4-carbon' and r.get('role') in ('designer', 'planner') and r.get('rung') == 'last-resort':
+                continue
             check(fmod not in r['model'] and r['base_model'] != fmod, f"[{name}] forbidden model {fmod} found in: {r['line']}")
         eff = r['effort']
         if eff != '-':

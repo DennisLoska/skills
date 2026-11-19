@@ -13,8 +13,8 @@ Non-council work uses explicit provider-native options at `low`, `medium`, or `h
 | Role | Primary model and provider | Effort / routing notes |
 | --- | --- | --- |
 | `driver` (advisory) | GPT6.2 Sol (`gpt-6.2-sol`), Codex | At most high; stays in-session. |
-| `designer` (optional ad-hoc) | Fable 5.2 (`claude-fable-5-2`), Claude Code | Read-only design draft, `effort=high`; only fallback Sol/Codex `reasoningEffort=high`. |
-| `planner` (optional ad-hoc) | Fable 5.2, Claude Code | Read-only implementation-plan draft, high; only fallback Sol/Codex high. |
+| `designer` (optional ad-hoc) | Fable 5.2 (`claude-fable-5-2`), Claude Code | Read-only design draft, `effort=high`; fallback Sol/Codex `reasoningEffort=high`, then last-resort Gemini 4 Carbon (`gemini-4-carbon`)/Antigravity `thinking_level=high`. |
+| `planner` (optional ad-hoc) | Fable 5.2, Claude Code | Read-only implementation-plan draft, high; fallback Sol/Codex high, then last-resort Gemini 4 Carbon/Antigravity high. |
 | `scout` | Deepseek V4.1 Flash (`opencode-go/deepseek-v4.1-flash`), OpenCode Go | `variant=high`; fallback GPT6 Luna, then terminal Gemini 3.8 Flash. |
 | `tester` | Deepseek V4.1 Flash, OpenCode Go | High; fallback GPT6 Luna, then terminal Gemini 3.8 Flash. |
 | `patch` | Deepseek V4.1 Flash, OpenCode Go | High; fallback GPT6 Luna, then terminal Gemini 3.8 Flash; 1–2 file edits without test runs. |
@@ -32,20 +32,20 @@ Fallback Gemini 3.8 Flash uses Antigravity's explicit safe `thinking_level`; GPT
 
 ## All 12 skills
 
-The recommended driver is Sol. Design and planning drafts are delegated to Fable with Sol fallback; invoking a skill keeps the driver session and its gates in place.
+The recommended driver is Sol. Design and planning drafts are delegated to Fable with Sol fallback and Gemini 4 Carbon last resort; invoking a skill keeps the driver session and its gates in place.
 
 | Skill | In-session responsibility | Delegated seats/roles and primary models |
 | --- | --- | --- |
-| `codebase-design` | Module/interface decisions and canonical artifacts | `scout` → Deepseek; `designer` → Fable, Sol fallback; design-it-twice uses only designer rungs across distinct reachable families. |
+| `codebase-design` | Module/interface decisions and canonical artifacts | `scout` → Deepseek; `designer` → Fable, Sol fallback, Carbon last resort; design-it-twice uses only designer rungs across distinct reachable families (Fable, Sol, Carbon). |
 | `council` | Orchestrate review, verify findings and record verdicts | A/captain → Opus (xhigh); B → Sol (xhigh); C → Argon (high); ruling → healthy captain; accepted-finding fixers → Opus/Fable; `tester` → Deepseek. |
 | `debug` | Root-cause discipline and escalation decisions | `scout` → Deepseek for discovery; `tester` → Deepseek for reproduction/checks; fixers → Opus, or Fable for resistant bugs. |
 | `dispatch` | Plan/task orchestration and review loop | `tester` → Deepseek; `implementer` → Opus; deep → Fable; `patch` → Deepseek; `task-reviewer` → Sol (Astra then Fable). |
-| `domain-modeling` | Glossary/ADR decisions and domain terminology | `scout` → Deepseek when discovery needs delegation; substantive draft via `designer` → Fable, Sol fallback. |
+| `domain-modeling` | Glossary/ADR decisions and domain terminology | `scout` → Deepseek when discovery needs delegation; substantive draft via `designer` → Fable, Sol fallback, Carbon last resort. |
 | `land` | Branch/PR/merge decisions and backlog handoff | No dedicated landing model; uses `tester` → Deepseek and routes verification, council or CI work through their owning skills when needed. |
 | `make-ci-green` | Monitor checks, assess findings, orchestrate fixes | `tester` → Deepseek for logs/reruns; fixers → Opus or Fable; `patch` is not a test-running fixer. |
 | `oneshot` | Full controller pipeline in the driver session | All workflow roles above via owning skills; no whole-pipeline child or standalone oneshot model. |
-| `plan` | Approve/apply decomposition of approved requirements | `scout` → Deepseek for discovery; `planner` → Fable, Sol fallback for draft only; execution belongs to `dispatch`. |
-| `shape` | Intent/conversation, design approval and spec artifact | `scout` → Deepseek; `designer` → Fable, Sol fallback for design draft; includes domain/module guidance or design-it-twice alternatives without duplicate drafts. |
+| `plan` | Approve/apply decomposition of approved requirements | `scout` → Deepseek for discovery; `planner` → Fable, Sol fallback, Carbon last resort for draft only; execution belongs to `dispatch`. |
+| `shape` | Intent/conversation, design approval and spec artifact | `scout` → Deepseek; `designer` → Fable, Sol fallback, Carbon last resort for design draft; includes domain/module guidance or design-it-twice alternatives without duplicate drafts. |
 | `tdd` | Red/green/refactor discipline applied by the current worker | Under dispatch: `tester` → Deepseek for red; `implementer` → Opus or deep → Fable for green/refactor. No independent TDD model. |
 | `verify` | Evidence-before-assertions gate | `tester` → Deepseek for suites/scripts/checks; failures route through `debug` and implementation seats. |
 
@@ -55,7 +55,7 @@ The recommended driver is Sol. Design and planning drafts are delegated to Fable
 
 The driver owns user conversation, approvals, canonical document application/self-review, commits and phase advancement. Oneshot invokes shape and plan once each; they own the draft handoffs. Domain/module guidance for the same draft is included in that brief, not duplicated. Draft-only authors are not automatically code authors; actual implementation authors are recorded for audit only.
 
-Only the nine original dispatched roles are required for old profiles. Optional roles require primary iff mentioned, with ordinary rung/effort validation. Profiles without them retain driver drafting and the legacy deep/implementation family ladder for design-it-twice. Present roles use only their profile ladders and explicitly named backups, never generic `*` backups or implementation siblings; exhaustion/unreachability stops rather than using the driver. All privacy, quotas and at-most-high rules apply. Every shipped/generated profile has exactly Fable primary and Sol fallback for each, with no other backup.
+Only the nine original dispatched roles are required for old profiles. Optional roles require primary iff mentioned, with ordinary rung/effort validation. Profiles without them retain driver drafting and the legacy deep/implementation family ladder for design-it-twice. Present roles use only their profile ladders and explicitly named backups, never generic `*` backups or implementation siblings; exhaustion/unreachability stops rather than using the driver. All privacy, quotas and at-most-high rules apply. Every shipped/generated profile has Fable primary, Sol fallback, and Gemini 4 Carbon last-resort for each, with no other backup.
 
 ## Closed review set and availability
 

@@ -99,7 +99,8 @@ for profile in profiles:
             model, effort = cells[3:5]
         else:
             continue
-        assert model != 'gemini-4-carbon' and not model.endswith('/gemini-4-carbon'), (profile, line)
+        if model == 'gemini-4-carbon' or model.endswith('/gemini-4-carbon'):
+            assert len(cells) == 7 and cells[0] in ('designer', 'planner') and cells[1] == 'last-resort', (profile, line)
         council = (section == 'Single-provider review' or (len(cells) == 7 and (cells[0] in ('reviewer-a', 'reviewer-b', 'reviewer-c') or set(cells[1].split(',')) <= {'reviewer-a', 'reviewer-b', 'reviewer-c'})))
         assert (council and effort in {'effort=xhigh', 'reasoningEffort=xhigh', 'thinking_level=high'}) or effort == '-' or effort.split('=', 1)[-1] in {'none', 'minimal', 'low', 'medium', 'high'}, (profile, line)
 print(f'ok: {count} installer validation cases and quad review route audit')

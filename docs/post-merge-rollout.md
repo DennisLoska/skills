@@ -19,7 +19,7 @@ This checklist applies only to this repository's role-policy PR and the user's r
 ## Refresh and verify
 
 - [ ] From the confirmed merged default-branch revision, run the installer with `--force` against the recorded installed target set and actual overrides. Omit profile/provider/PM overrides so each root reuses its recorded binding. Do not add new targets, prune custom content, use sudo, request secrets, or replace a custom profile with a shipped one.
-- [ ] Run `--verify` and `--doctor` for those same roots. Verify host instruction limits, generated model tables, native pins and delegate-only seats, designer/planner Fable→Sol ladders, closed Fable/Astra/Sol review routes and Codex-only recovery, at-most-high effort, and the absence of retired routes.
+- [ ] Run `--verify` and `--doctor` for those same roots. Verify host instruction limits, generated model tables, native pins and delegate-only seats, designer/planner Fable→Sol→Carbon ladders, closed review routes, at-most-high effort, and the absence of retired routes (with Carbon allowed only on `designer`/`planner` `last-resort`).
 - [ ] Confirm all recorded profile/provider/PM bindings and custom state/files survived. Confirm the resolved quota ledger SHA-256 hash is unchanged, including on shared/symlinked state paths.
 - [ ] Record the source revision and installed manifest revision per host/root, merge SHA, verification results, ledger hash comparison and any blocked host. Do not claim MacBook updated until remote evidence confirms it.
 
