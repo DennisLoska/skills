@@ -5,7 +5,7 @@ All six shipped profiles and every `--providers` combination share the same mode
 ## Role distribution
 
 - **Driver:** Codex `gpt-6.2-sol` at `medium`, with Claude Sonnet 5.5 at `medium` as fallback. Invoking a skill does not switch the driver.
-- **Design and planning drafts:** `designer` (`shape`, `domain-modeling`, `codebase-design`) and `planner` (`plan`) delegate read-only drafts to Claude Fable 5.2 at `high`, falling back only to Sol at `high`. The driver owns conversation, approvals, canonical artifacts and phase advancement.
+- **Design and planning drafts:** `designer` (`shape`, `domain-modeling`, `codebase-design`) and `planner` (`plan`) delegate read-only drafts to Claude Fable 5.2 at `high`, falling back to Sol at `high`, then Gemini 4 Carbon at `high`. The driver owns conversation, approvals, canonical artifacts and phase advancement.
 - **Discovery, testing, patching:** OpenCode Go Deepseek V4.1 Flash at `variant=high`, then GPT Luna and Gemini 3.8 Flash at `low` for discovery or `medium` for testing and patching.
 - **Implementation:** Claude Code Opus 5.5 primary and Fable 5.2 deep at `high`; both fall back to Codex Sol at `high`, then terminal Antigravity Gemini Argon at `high`.
 - **Per-task review:** GPT Sol, then GPT Astra, then Claude Fable 5.2, all at `high`; self-review is allowed.
@@ -22,8 +22,10 @@ Antigravity carries only Gemini routes. Claude Code carries Opus implementation,
 | driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |
 | designer | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | designer | fallback | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
+| designer | last-resort | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | planner | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | planner | fallback | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
+| planner | last-resort | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
 | scout | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | scout | fallback | codex | gpt-6-luna | reasoningEffort=low | openai | ok |
 | scout | last-resort | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |

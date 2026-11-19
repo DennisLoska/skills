@@ -288,7 +288,7 @@ The harness separates concerns into three decoupled layers:
 
 All six shipped profiles and all 15 `--providers` combinations use the same model policy, documented in [the complete 12-skill routing map](docs/skill-model-routing.md). Names record connection preferences and preserve portable cross-provider roles; they do not limit dispatch to a provider subset.
 
-- **Drafts:** `designer` and `planner` use Fable 5.2 with Sol fallback only. Workers return read-only drafts; the driver owns conversation, approvals, canonical documents and phase advancement.
+- **Drafts:** `designer` and `planner` use Fable 5.2 with Sol fallback, then Gemini 4 Carbon as last resort. Workers return read-only drafts; the driver owns conversation, approvals, canonical documents and phase advancement.
 - **Cheap work:** scout, tester and patch use Deepseek V4.1 Flash, then Luna, then terminal Gemini 3.8 Flash. Compaction uses Gemini Flash then Luna at low effort. OpenCode routes only Deepseek Flash.
 - **Implementation:** Claude Code Opus 5.5 primary and Fable 5.2 deep; both use Codex Sol fallback, then terminal Antigravity Gemini Argon. Every shipped profile and generated combination uses these exact provider paths.
 - **Reviews:** task review starts on Sol; council A/captain is Opus at xhigh, B Sol at xhigh, C Argon at high. Council fallbacks, backups and recovery stay within those three models; task reviews retain Sol/Astra/Fable at high. Self-review is allowed.
@@ -353,7 +353,7 @@ Council tries configured members and quota/reachability fallbacks, skipping unav
 | Provider | Instance ID | Effort Option ID & Values | Example Model IDs | Limit Inspection |
 | --- | --- | --- | --- | --- |
 | **OpenCode Go** | `opencode` | `variant` (`low\|medium\|high`, or verified safe `-`) | `muse-spark-1.3-contributor`, `deepseek-v4.1-flash`, `mimo-v2.6-flash`, `glm-5.3-flash` | `opencode.ai/docs/go` console (monthly $ allowance + 5h rolling cap) |
-| **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-argon`, `gemini-3.8-flash` | `/status` in Antigravity (rolling 5-hour window) |
+| **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-argon`, `gemini-4-carbon`, `gemini-3.8-flash` | `/status` in Antigravity (rolling 5-hour window) |
 | **Codex** | `codex` | `reasoningEffort` (`low\|medium\|high`; council Sol also `xhigh`) | `gpt-6.2-astra`, `gpt-6.2-sol`, `gpt-6-luna`, `gpt-6-sol` | `/status` in Codex (rolling 5-hour window) |
 | **Claude Code** | `claudeAgent` | `effort` (`low\|medium\|high`; only council seats/rulings permit `xhigh`) | `claude-fable-5-2`, `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` | `/status` in Claude Code (rolling 5-hour window) |
 
@@ -402,8 +402,8 @@ Non-council work is at most high; only council seats and captain rulings may use
 | `scout`, `tester`, `patch` | Deepseek V4.1 Flash (high) | GPT6 Luna | Gemini 3.8 Flash (terminal) |
 | `implementer` | Opus 5.5 (Claude Code) | Sol | Gemini 4 Argon (terminal) |
 | `implementer-deep` | Fable 5.2 | Sol | Gemini 4 Argon (terminal) |
-| `designer` (optional draft) | Fable 5.2 | Sol | — |
-| `planner` (optional draft) | Fable 5.2 | Sol | — |
+| `designer` (optional draft) | Fable 5.2 | Sol | Gemini 4 Carbon |
+| `planner` (optional draft) | Fable 5.2 | Sol | Gemini 4 Carbon |
 | `task-reviewer` | Sol | Astra | Fable 5.2 |
 | Council A / B / C | Opus 5.5 (xhigh) / Sol (xhigh) / Argon (high) | Only eligible models from the same three-model set | One available reviewer proceeds; zero records SKIPPED |
 

@@ -3082,6 +3082,12 @@ for shipped in quad tri opencode-go codex antigravity claude; do
   shipped_md="$ROOT/providers/$shipped.md"
   check_council_profile "$shipped_md" "providers/$shipped.md" 1 1 1 1
     for quad_spec in \
+      'designer|primary|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
+      'designer|fallback|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
+      'designer|last-resort|antigravity|gemini-4-carbon|thinking_level=high|google|ok' \
+      'planner|primary|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
+      'planner|fallback|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
+      'planner|last-resort|antigravity|gemini-4-carbon|thinking_level=high|google|ok' \
       'implementer|last-resort|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
       'implementer|fallback|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
       'implementer-deep|last-resort|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
@@ -3230,10 +3236,10 @@ done
 [ "$(seat_cell "$TMPROOT/two-fam-dest/PROVIDERS.md" reviewer-b 5)" = gpt-6.2-astra ] || fail "80h: independent GPT Seat B available for captain handoff"
 [ "$(seat_cell "$TMPROOT/two-fam-dest/PROVIDERS.md" reviewer-c 5)" = gpt-6.2-sol ] || fail "80h: independent GPT Seat C available for captain handoff"
 
-# 5. Audit shipped and generated profiles: <= high effort and no Carbon
+# 5. Audit shipped and generated profiles: <= high effort and Carbon only on designer/planner last-resort
 for prof in "$ROOT"/providers/*.md "$TMPROOT"/pv-*/.config/opencode/PROVIDERS.md; do
-  if grep -n 'gemini-4-carbon' "$prof" >"$TMPROOT/carbon-audit.txt"; then
-    fail "80h: $prof contains forbidden gemini-4-carbon"
+  if grep -n 'gemini-4-carbon' "$prof" | grep -vE '\|[[:space:]]*(designer|planner)[[:space:]]*\|[[:space:]]*last-resort[[:space:]]*\|[[:space:]]*antigravity[[:space:]]*\|[[:space:]]*gemini-4-carbon[[:space:]]*\|[[:space:]]*thinking_level=high[[:space:]]*\|[[:space:]]*google[[:space:]]*\|[[:space:]]*ok[[:space:]]*\|' >"$TMPROOT/carbon-audit.txt"; then
+    fail "80h: $prof contains forbidden gemini-4-carbon outside designer/planner last-resort"
   fi
   for section in roles 'Backup ladder' 'Single-provider review'; do
     profile_rows "$prof" "$section" | awk -F '|' -v section="$section" '
