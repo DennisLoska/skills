@@ -69,12 +69,12 @@ assert res.returncode == 0, f"Quad install failed: {res.stderr}"
 rendered_providers = (opencode_dir / 'PROVIDERS.md').read_text()
 
 # Required quad roles for designer and planner:
-# Both roles: primary claudeAgent/claude-fable-5-2 effort=high and fallback codex/gpt-6.1-sol reasoningEffort=high only.
+# Both roles: primary claudeAgent/claude-fable-5-2 effort=high and fallback codex/gpt-6.2-sol reasoningEffort=high only.
 quad_rows = [
     r'\|\s*designer\s*\|\s*primary\s*\|\s*claudeAgent\s*\|\s*claude-fable-5-2\s*\|\s*effort=high\s*\|\s*anthropic\s*\|\s*ok\s*\|',
-    r'\|\s*designer\s*\|\s*fallback\s*\|\s*codex\s*\|\s*gpt-6\.1-sol\s*\|\s*reasoningEffort=high\s*\|\s*openai\s*\|\s*ok\s*\|',
+    r'\|\s*designer\s*\|\s*fallback\s*\|\s*codex\s*\|\s*gpt-6\.2-sol\s*\|\s*reasoningEffort=high\s*\|\s*openai\s*\|\s*ok\s*\|',
     r'\|\s*planner\s*\|\s*primary\s*\|\s*claudeAgent\s*\|\s*claude-fable-5-2\s*\|\s*effort=high\s*\|\s*anthropic\s*\|\s*ok\s*\|',
-    r'\|\s*planner\s*\|\s*fallback\s*\|\s*codex\s*\|\s*gpt-6\.1-sol\s*\|\s*reasoningEffort=high\s*\|\s*openai\s*\|\s*ok\s*\|',
+    r'\|\s*planner\s*\|\s*fallback\s*\|\s*codex\s*\|\s*gpt-6\.2-sol\s*\|\s*reasoningEffort=high\s*\|\s*openai\s*\|\s*ok\s*\|',
 ]
 for pattern in quad_rows:
     assert re.search(pattern, rendered_providers), f"Missing quad row matching pattern: {pattern}"
@@ -142,7 +142,7 @@ for role in ('designer', 'planner'):
 for role in ('designer', 'planner'):
     fixture = clean_quad + f"""
 | {role} | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
-| {role} | primary | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| {role} | primary | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
 """
     res, opencode_dir, codex_dir, _ = run_install(profile_text=fixture, target='codex')
     assert res.returncode != 0, f"Expected failure for {role} with duplicate primary rung, but succeeded"
@@ -152,7 +152,7 @@ for role in ('designer', 'planner'):
 # C. Reject missing primary (fallback without primary)
 for role in ('designer', 'planner'):
     fixture = clean_quad + f"""
-| {role} | fallback | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| {role} | fallback | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
 """
     res, opencode_dir, codex_dir, _ = run_install(profile_text=fixture, target='codex')
     assert res.returncode != 0, f"Expected failure for {role} missing primary, but succeeded"
@@ -168,9 +168,9 @@ print("ok: generic validator rejects above-high, duplicate-rung, and missing-pri
 print("Checking reserve and backup ladder role eligibility for designer and planner...")
 valid_roles_fixture = clean_quad + """
 | designer | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
-| designer | fallback | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| designer | fallback | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
 | planner | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
-| planner | fallback | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| planner | fallback | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
 """
 
 # Backup ladder accepting narrow references to designer,planner
@@ -257,7 +257,7 @@ for role in required_9_roles:
     assert not dest.exists(), role
 # Explicit optional references are validated in backup mode (including effort).
 for role in ('designer', 'planner'):
-    fixture = valid_roles_fixture + f"\n## Backup ladder\n| 9 | {role} | codex | gpt-6.1-sol | reasoningEffort=xhigh | openai | ok |\n"
+    fixture = valid_roles_fixture + f"\n## Backup ladder\n| 9 | {role} | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |\n"
     result, _, dest, _ = run_install(profile_text=fixture)
     assert result.returncode == 1 and 'effort above high' in result.stderr, result.stderr
     assert not dest.exists()

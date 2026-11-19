@@ -137,7 +137,7 @@ for prof in "${shipped_profiles[@]}"; do
   # 5c. Antigravity retains Argon and Codex retains Sol
   echo "$sp_text" | grep -qE '\|[[:space:]]*antigravity[[:space:]]*\|[[:space:]]*gemini-4-argon[[:space:]]*\|' || \
     fail "providers/$prof.md Single-provider review table missing Antigravity Argon"
-  echo "$sp_text" | grep -qE '\|[[:space:]]*codex[[:space:]]*\|[[:space:]]*gpt-6.1-sol[[:space:]]*\|' || \
+  echo "$sp_text" | grep -qE '\|[[:space:]]*codex[[:space:]]*\|[[:space:]]*gpt-6.2-sol[[:space:]]*\|' || \
     fail "providers/$prof.md Single-provider review table missing Codex Sol"
 
   # 5d. OpenCode must NOT have review models in Single-provider review
@@ -151,7 +151,7 @@ import sys
 from pathlib import Path
 rows = [[c.strip() for c in line.split('|')[1:-1]] for line in Path(sys.argv[1]).read_text().splitlines() if line.startswith('|')]
 primaries = {c[0]: c[3] for c in rows if len(c) == 7 and c[1] == 'primary' and c[0].startswith('reviewer-')}
-assert primaries == {'reviewer-a': 'claude-opus-5-5', 'reviewer-b': 'gpt-6.1-sol', 'reviewer-c': 'gemini-4-argon'}, primaries
+assert primaries == {'reviewer-a': 'claude-opus-5-5', 'reviewer-b': 'gpt-6.2-sol', 'reviewer-c': 'gemini-4-argon'}, primaries
 assert len(set(primaries.values())) == 3
 PYSEATS
 done

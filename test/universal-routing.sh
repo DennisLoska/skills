@@ -47,7 +47,7 @@ def invoke(text, expected, diagnostic=''):
 
 # Guard replacement fixtures so profile migrations cannot make negative tests no-ops.
 for fixture in (
-    '| 3 | task-reviewer | codex | gpt-6.1-sol | reasoningEffort=high |',
+    '| 3 | task-reviewer | codex | gpt-6.2-sol | reasoningEffort=high |',
     '| implementer | primary | claudeAgent | claude-opus-5-5 | effort=high |',
 ):
     assert fixture in base, f'missing live mutation fixture: {fixture}'
@@ -61,16 +61,16 @@ for effort in ('xhigh', 'max', 'ultra', 'ultrathink', 'ultracode', 'unknown'):
                 cells[4] = 'reasoningEffort=' + effort
                 lines[i] = '| ' + ' | '.join(cells) + ' |'
         invoke('\n'.join(lines), 1, diagnostic)
-    invoke(base.replace('| 3 | task-reviewer | codex | gpt-6.1-sol | reasoningEffort=high |', f'| 3 | task-reviewer | codex | gpt-6.1-sol | reasoningEffort={effort} |'), 1, diagnostic)
-    invoke(base.replace('| codex | gpt-6.1-sol | reasoningEffort=xhigh |', f'| codex | gpt-6.1-sol | reasoningEffort={effort} |'), 0 if effort == 'xhigh' else 1, '' if effort == 'xhigh' else diagnostic)
+    invoke(base.replace('| 3 | task-reviewer | codex | gpt-6.2-sol | reasoningEffort=high |', f'| 3 | task-reviewer | codex | gpt-6.2-sol | reasoningEffort={effort} |'), 1, diagnostic)
+    invoke(base.replace('| codex | gpt-6.2-sol | reasoningEffort=xhigh |', f'| codex | gpt-6.2-sol | reasoningEffort={effort} |'), 0 if effort == 'xhigh' else 1, '' if effort == 'xhigh' else diagnostic)
 for effort in ('-', 'reasoningEffort=none', 'reasoningEffort=minimal', 'reasoningEffort=low', 'reasoningEffort=medium', 'reasoningEffort=high'):
-    invoke(base.replace('| driver | primary | codex | gpt-6.1-sol | reasoningEffort=medium |', f'| driver | primary | codex | gpt-6.1-sol | {effort} |'), 0)
-invoke(base.replace('| reviewer-c | primary | antigravity | gemini-4-argon | thinking_level=high | google |', '| reviewer-c | primary | codex | gpt-6.1-sol | reasoningEffort=xhigh | openai |'), 1, 'share primary model gpt-6.1-sol')
+    invoke(base.replace('| driver | primary | codex | gpt-6.2-sol | reasoningEffort=medium |', f'| driver | primary | codex | gpt-6.2-sol | {effort} |'), 0)
+invoke(base.replace('| reviewer-c | primary | antigravity | gemini-4-argon | thinking_level=high | google |', '| reviewer-c | primary | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai |'), 1, 'share primary model gpt-6.2-sol')
 # The preferred captain can be an implementation model in a profile; runtime
 # self-review is allowed without captain handoff.
 invoke(base.replace('| implementer | primary | claudeAgent | claude-opus-5-5 | effort=high |', '| implementer | primary | claudeAgent | claude-fable-5-2 | effort=high |'), 0)
-allowed = {'gpt-6.1-sol', 'claude-opus-5-5', 'gemini-4-argon'}
-task_allowed = {'gpt-6.1-sol', 'gpt-6-astra', 'claude-fable-5-2'}
+allowed = {'gpt-6.2-sol', 'claude-opus-5-5', 'gemini-4-argon'}
+task_allowed = {'gpt-6.2-sol', 'gpt-6.2-astra', 'claude-fable-5-2'}
 section = 'roles'
 for line in base.splitlines():
     if line.startswith('## '): section = line[3:]
@@ -80,7 +80,7 @@ for line in base.splitlines():
         if cells[1] == '*' or any(r.startswith('reviewer-') or r == 'task-reviewer' for r in cells[1].split(',')):
             assert cells[3] in (task_allowed if cells[0] == 'task-reviewer' or cells[1] == 'task-reviewer' else allowed), line
     elif section == 'Single-provider review' and cells[0] not in ('provider', '---'):
-        assert (cells[0], cells[1]) in {('claudeAgent', 'claude-opus-5-5'), ('antigravity', 'gemini-4-argon'), ('codex', 'gpt-6.1-sol')}, line
+        assert (cells[0], cells[1]) in {('claudeAgent', 'claude-opus-5-5'), ('antigravity', 'gemini-4-argon'), ('codex', 'gpt-6.2-sol')}, line
     elif len(cells) == 7 and cells[0] in ('task-reviewer', 'reviewer-a', 'reviewer-b', 'reviewer-c'):
         assert cells[3] in (task_allowed if cells[0] == 'task-reviewer' or cells[1] == 'task-reviewer' else allowed), line
 # Audit configured rows rather than forbidden-level prose or negative fixtures.

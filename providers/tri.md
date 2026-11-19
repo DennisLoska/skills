@@ -4,7 +4,7 @@ All six shipped profiles and every `--providers` combination share the same mode
 
 ## Role distribution
 
-- **Driver:** Codex `gpt-6.1-sol` at `medium`, with Claude Sonnet 5.5 at `medium` as fallback. Invoking a skill does not switch the driver.
+- **Driver:** Codex `gpt-6.2-sol` at `medium`, with Claude Sonnet 5.5 at `medium` as fallback. Invoking a skill does not switch the driver.
 - **Design and planning drafts:** `designer` (`shape`, `domain-modeling`, `codebase-design`) and `planner` (`plan`) delegate read-only drafts to Claude Fable 5.2 at `high`, falling back only to Sol at `high`. The driver owns conversation, approvals, canonical artifacts and phase advancement.
 - **Discovery, testing, patching:** OpenCode Go Deepseek V4.1 Flash at `variant=high`, then GPT Luna and Gemini 3.8 Flash at `low` for discovery or `medium` for testing and patching.
 - **Implementation:** Claude Code Opus 5.5 primary and Fable 5.2 deep at `high`; both fall back to Codex Sol at `high`, then terminal Antigravity Gemini Argon at `high`.
@@ -18,20 +18,20 @@ Antigravity carries only Gemini routes. Claude Code carries Opus implementation,
 
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
-| driver | primary | codex | gpt-6.1-sol | reasoningEffort=medium | openai | ok |
+| driver | primary | codex | gpt-6.2-sol | reasoningEffort=medium | openai | ok |
 | driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |
 | designer | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
-| designer | fallback | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| designer | fallback | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
 | planner | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
-| planner | fallback | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| planner | fallback | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
 | scout | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | scout | fallback | codex | gpt-6-luna | reasoningEffort=low | openai | ok |
 | scout | last-resort | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |
 | implementer | primary | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |
-| implementer | fallback | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| implementer | fallback | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
 | implementer | last-resort | antigravity | gemini-4-argon | thinking_level=high | google | ok |
 | implementer-deep | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
-| implementer-deep | fallback | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
+| implementer-deep | fallback | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
 | implementer-deep | last-resort | antigravity | gemini-4-argon | thinking_level=high | google | ok |
 | tester | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | tester | fallback | codex | gpt-6-luna | reasoningEffort=medium | openai | ok |
@@ -39,18 +39,18 @@ Antigravity carries only Gemini routes. Claude Code carries Opus implementation,
 | patch | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | patch | fallback | codex | gpt-6-luna | reasoningEffort=medium | openai | ok |
 | patch | last-resort | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |
-| task-reviewer | primary | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
-| task-reviewer | fallback | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
+| task-reviewer | primary | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
+| task-reviewer | fallback | codex | gpt-6.2-astra | reasoningEffort=high | openai | ok |
 | task-reviewer | last-resort | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | reviewer-a | primary | claudeAgent | claude-opus-5-5 | effort=xhigh | anthropic | ok |
-| reviewer-a | fallback | codex | gpt-6.1-sol | reasoningEffort=xhigh | openai | ok |
+| reviewer-a | fallback | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |
 | reviewer-a | last-resort | antigravity | gemini-4-argon | thinking_level=high | google | ok |
-| reviewer-b | primary | codex | gpt-6.1-sol | reasoningEffort=xhigh | openai | ok |
+| reviewer-b | primary | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |
 | reviewer-b | fallback | antigravity | gemini-4-argon | thinking_level=high | google | ok |
 | reviewer-b | last-resort | claudeAgent | claude-opus-5-5 | effort=xhigh | anthropic | ok |
 | reviewer-c | primary | antigravity | gemini-4-argon | thinking_level=high | google | ok |
 | reviewer-c | fallback | claudeAgent | claude-opus-5-5 | effort=xhigh | anthropic | ok |
-| reviewer-c | last-resort | codex | gpt-6.1-sol | reasoningEffort=xhigh | openai | ok |
+| reviewer-c | last-resort | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |
 | compaction | primary | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |
 | compaction | fallback | codex | gpt-6-luna | reasoningEffort=low | openai | ok |
 
@@ -70,11 +70,11 @@ Only review backup rows ship; operational last-resort rungs are terminal. Resolv
 
 | order | roles | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
-| 3 | task-reviewer | codex | gpt-6.1-sol | reasoningEffort=high | openai | ok |
-| 4 | task-reviewer | codex | gpt-6-astra | reasoningEffort=high | openai | ok |
+| 3 | task-reviewer | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
+| 4 | task-reviewer | codex | gpt-6.2-astra | reasoningEffort=high | openai | ok |
 | 5 | task-reviewer | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | 6 | reviewer-a,reviewer-b,reviewer-c | claudeAgent | claude-opus-5-5 | effort=xhigh | anthropic | ok |
-| 7 | reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.1-sol | reasoningEffort=xhigh | openai | ok |
+| 7 | reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |
 | 8 | reviewer-a,reviewer-b,reviewer-c | antigravity | gemini-4-argon | thinking_level=high | google | ok |
 
 ## Single-provider review
@@ -84,7 +84,7 @@ Council tries configured seats and fallbacks, skipping unavailable/exhausted mem
 | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- |
 | claudeAgent | claude-opus-5-5 | effort=xhigh | anthropic | ok |
-| codex | gpt-6.1-sol | reasoningEffort=xhigh | openai | ok |
+| codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |
 | antigravity | gemini-4-argon | thinking_level=high | google | ok |
 
 ## Supported driver setups

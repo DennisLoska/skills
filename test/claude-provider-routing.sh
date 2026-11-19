@@ -25,8 +25,8 @@ install_sh = root / 'install.sh'
 
 OPERATIONAL_ROLES = {'implementer', 'implementer-deep', 'scout', 'tester', 'patch'}
 REVIEW_ROLES = {'reviewer-a', 'reviewer-b', 'reviewer-c'}
-ALLOWED_REVIEW_MODELS = {'claude-opus-5-5', 'gpt-6.1-sol', 'gemini-4-argon'}
-TASK_MODELS = {'claude-fable-5-2', 'gpt-6-astra', 'gpt-6.1-sol'}
+ALLOWED_REVIEW_MODELS = {'claude-opus-5-5', 'gpt-6.2-sol', 'gemini-4-argon'}
+TASK_MODELS = {'claude-fable-5-2', 'gpt-6.2-astra', 'gpt-6.2-sol'}
 VALID_EFFORT_LEVELS = {'none', 'minimal', 'low', 'medium', 'high'}
 FORBIDDEN_MODELS = {'gemini-4-carbon', 'gemini-4-hydrogen'}
 
@@ -124,7 +124,7 @@ def parse_markdown_tables(text):
 def audit_profile_policy(name, text):
     """
     Enforce requested policy on a profile markdown:
-    1. implementer: claudeAgent/claude-opus-5-5 effort=high -> codex/gpt-6.1-sol reasoningEffort=high -> antigravity/gemini-4-argon thinking_level=high
+    1. implementer: claudeAgent/claude-opus-5-5 effort=high -> codex/gpt-6.2-sol reasoningEffort=high -> antigravity/gemini-4-argon thinking_level=high
     2. deep: claudeAgent/claude-fable-5-2 high -> Sol high -> Argon high
     3. scout/tester/patch: DeepSeek high -> codex/Luna (low scout, medium tester+patch) -> antigravity/Gemini3.8Flash (low scout, medium tester+patch)
     4. Antigravity purity: no Anthropic-family or Claude model routes or Claude quota pools through Antigravity
@@ -161,7 +161,7 @@ def audit_profile_policy(name, text):
     imp_fallback = get_role_rung('implementer', 'fallback')
     if imp_fallback:
         check(imp_fallback['provider'] == 'codex', f"[{name}] implementer fallback provider must be codex, got {imp_fallback['provider']}")
-        check(imp_fallback['base_model'] == 'gpt-6.1-sol', f"[{name}] implementer fallback model must be gpt-6.1-sol, got {imp_fallback['model']}")
+        check(imp_fallback['base_model'] == 'gpt-6.2-sol', f"[{name}] implementer fallback model must be gpt-6.2-sol, got {imp_fallback['model']}")
         check(imp_fallback['effort'] == 'reasoningEffort=high', f"[{name}] implementer fallback effort must be high, got {imp_fallback['effort']}")
         check(imp_fallback['family'] == 'openai', f"[{name}] implementer fallback family must be openai, got {imp_fallback['family']}")
 
@@ -183,7 +183,7 @@ def audit_profile_policy(name, text):
     deep_fallback = get_role_rung('implementer-deep', 'fallback')
     if deep_fallback:
         check(deep_fallback['provider'] == 'codex', f"[{name}] implementer-deep fallback provider must be codex, got {deep_fallback['provider']}")
-        check(deep_fallback['base_model'] == 'gpt-6.1-sol', f"[{name}] implementer-deep fallback model must be gpt-6.1-sol, got {deep_fallback['model']}")
+        check(deep_fallback['base_model'] == 'gpt-6.2-sol', f"[{name}] implementer-deep fallback model must be gpt-6.2-sol, got {deep_fallback['model']}")
         check(deep_fallback['effort'] == 'reasoningEffort=high', f"[{name}] implementer-deep fallback effort must be high, got {deep_fallback['effort']}")
         check(deep_fallback['family'] == 'openai', f"[{name}] implementer-deep fallback family must be openai, got {deep_fallback['family']}")
 
@@ -246,9 +246,9 @@ def audit_profile_policy(name, text):
     task_rev = get_role_rung('task-reviewer', 'primary')
 
     if rev_a: check(rev_a['base_model'] == 'claude-opus-5-5', f"[{name}] reviewer-a primary must be claude-opus-5-5, got {rev_a['model']}")
-    if rev_b: check(rev_b['base_model'] == 'gpt-6.1-sol', f"[{name}] reviewer-b primary must be gpt-6.1-sol, got {rev_b['model']}")
+    if rev_b: check(rev_b['base_model'] == 'gpt-6.2-sol', f"[{name}] reviewer-b primary must be gpt-6.2-sol, got {rev_b['model']}")
     if rev_c: check(rev_c['base_model'] == 'gemini-4-argon', f"[{name}] reviewer-c primary must be gemini-4-argon, got {rev_c['model']}")
-    if task_rev: check(task_rev['base_model'] == 'gpt-6.1-sol', f"[{name}] task-reviewer primary must be gpt-6.1-sol, got {task_rev['model']}")
+    if task_rev: check(task_rev['base_model'] == 'gpt-6.2-sol', f"[{name}] task-reviewer primary must be gpt-6.2-sol, got {task_rev['model']}")
     if rev_a and rev_b and rev_c:
         check(len({rev_a['base_model'], rev_b['base_model'], rev_c['base_model']}) == 3, f"[{name}] council models must be distinct")
 
@@ -263,7 +263,7 @@ def audit_profile_policy(name, text):
         dp = get_role_rung(draft_role, 'primary')
         dfb = get_role_rung(draft_role, 'fallback')
         if dp: check(dp['base_model'] == 'claude-fable-5-2', f"[{name}] {draft_role} primary must be claude-fable-5-2, got {dp['model']}")
-        if dfb: check(dfb['base_model'] == 'gpt-6.1-sol', f"[{name}] {draft_role} fallback must be gpt-6.1-sol, got {dfb['model']}")
+        if dfb: check(dfb['base_model'] == 'gpt-6.2-sol', f"[{name}] {draft_role} fallback must be gpt-6.2-sol, got {dfb['model']}")
 
     for r in all_rows:
         for fmod in FORBIDDEN_MODELS:
@@ -273,7 +273,7 @@ def audit_profile_policy(name, text):
             val = eff.split('=', 1)[-1] if '=' in eff else eff
             council = (r.get('role') in REVIEW_ROLES or (r.get('roles') and set(r['roles']) <= REVIEW_ROLES) or r['section'] in ('Single-provider review', 'single'))
             if council:
-                check((r['provider'], r['base_model'], eff) in {('claudeAgent', 'claude-opus-5-5', 'effort=xhigh'), ('codex', 'gpt-6.1-sol', 'reasoningEffort=xhigh'), ('antigravity', 'gemini-4-argon', 'thinking_level=high')}, r['line'])
+                check((r['provider'], r['base_model'], eff) in {('claudeAgent', 'claude-opus-5-5', 'effort=xhigh'), ('codex', 'gpt-6.2-sol', 'reasoningEffort=xhigh'), ('antigravity', 'gemini-4-argon', 'thinking_level=high')}, r['line'])
             check(council or val in VALID_EFFORT_LEVELS, f"[{name}] invalid effort level '{val}' in: {r['line']}")
 
     if errors:
