@@ -327,7 +327,7 @@ Council tries configured members and quota/reachability fallbacks, skipping unav
 - **Balanced Seat Fallback**: a council seat that loses its primary takes the eligible rung whose quota pool has the fewest dispatches this run, within the active profile review allowlist; shipped council recovery includes Argon at high.
 - **Single-Provider Review**: Sol on Codex, Opus on Claude Code, Argon on Antigravity. A sole available reviewer can PASS without provider-count gates.
 - **Context-scoped effort ceiling:** Non-council work, including driver sessions, defaults, advisory/design work, task-reviewer, fixing and testing, must never request or inherit effort above `high`. Only runtime council reviewer-a/b/c seats and fresh captain rulings may use profile-configured `xhigh`; council is the only skill permitting above high, with maximum `xhigh`. `max`, `ultra`, `ultrathink`, `ultracode`, and equivalent higher levels are forbidden everywhere. Verify provider capabilities before dispatch; use explicit provider-native options from `PROVIDERS.md`. Argon uses explicit `thinking_level=high` because it has no xhigh support. Unknown/unsafe defaults require an explicit safe option or an unreachable rung; non-council defaults must be verified at most `high`. Shared reviewer contracts do not grant task reviews the council exception. Invoking a skill never changes the driver session or its ceiling.
-- **Shared Quota Pools & Soft Caps**: Models sharing an underlying subscription pool (e.g. `claude-code`) are grouped into pools. Soft caps prevent workhorse tasks from consuming tokens reserved for critical seats.
+- **Shared Quota Pools & Soft Caps**: Models sharing an underlying subscription pool (e.g. `claude-code`; Fable has its own `claude-fable` limit) are grouped into pools. Soft caps prevent workhorse tasks from consuming tokens reserved for critical seats.
 - **Machine-Local Quota Ledger (`state/quota-ledger.tsv`)**: When a 429 or rate limit occurs, the pool and its cooldown timestamp are recorded in the ledger. Subsequent dispatches immediately skip dead pools without burning API calls or latency.
 - **Legacy Emergency Routing**: Only operational roles without explicit `last-resort` retain sibling hand-off and backup walks. Reviews keep balanced backup routing; shipped backups are review-only.
 - **Hard Budget Stops**: When all eligible rungs are exhausted, the harness stops cleanly with `budget stop: <role>` and reports the earliest reset time, refusing to silently downgrade to an inferior model or hallucinate.
@@ -384,7 +384,7 @@ flowchart TD
     W -- "no rungs left" --> STOP["Stop and report: exhausted pools and earliest reset time"]
 ```
 
-- **Shared Quota Pools:** Groups models sharing a subscription bucket (e.g., `claude-code` for Claude Code models).
+- **Shared Quota Pools:** Groups models sharing a subscription bucket (e.g., `claude-fable` for Claude Code Fable models, `claude-code` for the other Claude Code models; first matching row wins).
 - **Soft Caps & Reserves:** Limits non-essential dispatches so a pool's remaining quota stays reserved for the roles listed in `reserve`. Per-pool dispatch counts (`soft_cap_counts`) also drive balanced seat fallback.
 - **Machine-Local Ledger:** Tracks exhausted pools at `<dest>/state/quota-ledger.tsv`. Pruned automatically on read; can be inspected or cleared anytime:
   ```sh

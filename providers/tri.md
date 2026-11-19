@@ -59,6 +59,7 @@ Antigravity carries only Gemini routes. Claude Code carries Opus implementation,
 | pool | provider | models | window | soft-cap | reserve |
 | --- | --- | --- | --- | --- | --- |
 | opencode-go | opencode | * | 5h | - | - |
+| claude-fable | claudeAgent | claude-fable* | 5h | - | - |
 | claude-code | claudeAgent | * | 5h | - | - |
 | antigravity-gemini | antigravity | gemini-* | 5h | - | - |
 | codex | codex | * | 5h | - | - |
