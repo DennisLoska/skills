@@ -28,7 +28,7 @@ REVIEW_ROLES = {'reviewer-a', 'reviewer-b', 'reviewer-c'}
 ALLOWED_REVIEW_MODELS = {'claude-opus-5-5', 'gpt-6.2-sol', 'gemini-4-neon'}
 TASK_MODELS = {'claude-fable-5-2', 'gpt-6.2-astra', 'gpt-6.2-sol'}
 VALID_EFFORT_LEVELS = {'none', 'minimal', 'low', 'medium', 'high'}
-FORBIDDEN_MODELS = {'gemini-4-carbon', 'gemini-4-hydrogen'}
+FORBIDDEN_MODELS = {'gemini-4-carbon', 'gemini-3.8-flash'}
 
 def parse_markdown_tables(text):
     """
@@ -150,6 +150,28 @@ def audit_profile_policy(name, text):
             return None
         return matches[0]
 
+    # 0. Advisory driver ladder: antigravity/Neon high -> codex/Sol high -> claudeAgent/Fable high
+    drv_primary = get_role_rung('driver', 'primary')
+    if drv_primary:
+        check(drv_primary['provider'] == 'antigravity', f"[{name}] driver primary provider must be antigravity, got {drv_primary['provider']}")
+        check(drv_primary['base_model'] == 'gemini-4-neon', f"[{name}] driver primary model must be gemini-4-neon, got {drv_primary['model']}")
+        check(drv_primary['effort'] == 'thinking_level=high', f"[{name}] driver primary effort must be thinking_level=high, got {drv_primary['effort']}")
+        check(drv_primary['family'] == 'google', f"[{name}] driver primary family must be google, got {drv_primary['family']}")
+
+    drv_fallback = get_role_rung('driver', 'fallback')
+    if drv_fallback:
+        check(drv_fallback['provider'] == 'codex', f"[{name}] driver fallback provider must be codex, got {drv_fallback['provider']}")
+        check(drv_fallback['base_model'] == 'gpt-6.2-sol', f"[{name}] driver fallback model must be gpt-6.2-sol, got {drv_fallback['model']}")
+        check(drv_fallback['effort'] == 'reasoningEffort=high', f"[{name}] driver fallback effort must be reasoningEffort=high, got {drv_fallback['effort']}")
+        check(drv_fallback['family'] == 'openai', f"[{name}] driver fallback family must be openai, got {drv_fallback['family']}")
+
+    drv_last = get_role_rung('driver', 'last-resort')
+    if drv_last:
+        check(drv_last['provider'] == 'claudeAgent', f"[{name}] driver last-resort provider must be claudeAgent, got {drv_last['provider']}")
+        check(drv_last['base_model'] == 'claude-fable-5-2', f"[{name}] driver last-resort model must be claude-fable-5-2, got {drv_last['model']}")
+        check(drv_last['effort'] == 'effort=high', f"[{name}] driver last-resort effort must be effort=high, got {drv_last['effort']}")
+        check(drv_last['family'] == 'anthropic', f"[{name}] driver last-resort family must be anthropic, got {drv_last['family']}")
+
     # 1. Implementer ladder: antigravity/Neon -> claudeAgent/Opus 5.5 -> codex/Sol
     imp_primary = get_role_rung('implementer', 'primary')
     if imp_primary:
@@ -194,7 +216,7 @@ def audit_profile_policy(name, text):
         check(deep_last['effort'] == 'thinking_level=high', f"[{name}] implementer-deep last-resort effort must be high, got {deep_last['effort']}")
         check(deep_last['family'] == 'google', f"[{name}] implementer-deep last-resort family must be google, got {deep_last['family']}")
 
-    # 3. Scout / tester / patch ladders: DeepSeek high -> codex/Luna -> antigravity/Gemini Flash
+    # 3. Scout / tester / patch ladders: DeepSeek high -> codex/Luna -> antigravity/Gemini 4 Hydrogen
     for role in ('scout', 'tester', 'patch'):
         p = get_role_rung(role, 'primary')
         if p:
@@ -214,7 +236,7 @@ def audit_profile_policy(name, text):
         lr = get_role_rung(role, 'last-resort')
         if lr:
             check(lr['provider'] == 'antigravity', f"[{name}] {role} last-resort provider must be antigravity, got {lr['provider']}")
-            check(lr['base_model'] == 'gemini-3.8-flash', f"[{name}] {role} last-resort model must be gemini-3.8-flash, got {lr['model']}")
+            check(lr['base_model'] == 'gemini-4-hydrogen', f"[{name}] {role} last-resort model must be gemini-4-hydrogen, got {lr['model']}")
             exp_lr_effort = 'thinking_level=low' if role == 'scout' else 'thinking_level=medium'
             check(lr['effort'] == exp_lr_effort, f"[{name}] {role} last-resort effort must be {exp_lr_effort}, got {lr['effort']}")
             check(lr['family'] == 'google', f"[{name}] {role} last-resort family must be google, got {lr['family']}")
@@ -239,7 +261,7 @@ def audit_profile_policy(name, text):
             check(role in REVIEW_ROLES or role == 'task-reviewer', f"[{name}] non-review backup ladder row forbidden for role '{role}': {b['line']}")
         check(b['base_model'] in (TASK_MODELS if b['roles'] == ['task-reviewer'] else ALLOWED_REVIEW_MODELS), f"[{name}] backup ladder review model must be in {ALLOWED_REVIEW_MODELS}, got {b['model']}")
 
-    # 6. Exact model policy unchanged
+    # 6. Exact model policy
     rev_a = get_role_rung('reviewer-a', 'primary')
     rev_b = get_role_rung('reviewer-b', 'primary')
     rev_c = get_role_rung('reviewer-c', 'primary')
@@ -267,21 +289,25 @@ def audit_profile_policy(name, text):
         if dfb: check(dfb['base_model'] == 'gpt-6.2-sol', f"[{name}] {draft_role} fallback must be gpt-6.2-sol, got {dfb['model']}")
         if dlr:
             check(dlr['provider'] == 'antigravity', f"[{name}] {draft_role} last-resort provider must be antigravity, got {dlr['provider']}")
-            check(dlr['base_model'] == 'gemini-4-carbon', f"[{name}] {draft_role} last-resort must be gemini-4-carbon, got {dlr['model']}")
+            check(dlr['base_model'] == 'gemini-4-neon', f"[{name}] {draft_role} last-resort must be gemini-4-neon, got {dlr['model']}")
             check(dlr['effort'] == 'thinking_level=high', f"[{name}] {draft_role} last-resort effort must be thinking_level=high, got {dlr['effort']}")
             check(dlr['family'] == 'google', f"[{name}] {draft_role} last-resort family must be google, got {dlr['family']}")
 
     for r in all_rows:
         for fmod in FORBIDDEN_MODELS:
-            if fmod == 'gemini-4-carbon' and r.get('role') in ('designer', 'planner') and r.get('rung') == 'last-resort':
-                continue
             check(fmod not in r['model'] and r['base_model'] != fmod, f"[{name}] forbidden model {fmod} found in: {r['line']}")
+        if r['base_model'] == 'gemini-4-hydrogen':
+            allowed_h = (
+                (r.get('role') in ('scout', 'tester', 'patch') and r.get('rung') == 'last-resort') or
+                (r.get('role') == 'compaction' and r.get('rung') == 'primary')
+            )
+            check(allowed_h, f"[{name}] gemini-4-hydrogen only allowed on scout/tester/patch last-resort and compaction primary: {r['line']}")
         eff = r['effort']
         if eff != '-':
             val = eff.split('=', 1)[-1] if '=' in eff else eff
             council = (r.get('role') in REVIEW_ROLES or (r.get('roles') and set(r['roles']) <= REVIEW_ROLES) or r['section'] in ('Single-provider review', 'single'))
             if council:
-                check((r['provider'], r['base_model'], eff) in {('claudeAgent', 'claude-opus-5-5', 'effort=xhigh'), ('codex', 'gpt-6.2-sol', 'reasoningEffort=xhigh'), ('antigravity', 'gemini-4-neon', 'thinking_level=high')}, r['line'])
+                check((r['provider'], r['base_model'], eff) in {('claudeAgent', 'claude-opus-5-5', 'effort=xhigh'), ('codex', 'gpt-6.2-sol', 'reasoningEffort=xhigh'), ('antigravity', 'gemini-4-neon', 'thinking_level=xhigh')}, r['line'])
             check(council or val in VALID_EFFORT_LEVELS, f"[{name}] invalid effort level '{val}' in: {r['line']}")
 
     if errors:

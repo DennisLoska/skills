@@ -71,11 +71,8 @@ expect_ok(single_review, 'single-provider review row')
 
 # Ordinary roles, task-reviewer, driver/advisory roles and non-exclusive backups reject xhigh.
 for role in ('scout', 'implementer', 'implementer-deep', 'tester', 'patch', 'task-reviewer', 'driver', 'designer', 'planner'):
-    if role in ('driver',):
-        line = '| driver | primary | codex | gpt-6.2-sol | reasoningEffort=medium | openai | ok |'
-        fixture = quad.replace(line, line.replace('reasoningEffort=medium', 'reasoningEffort=xhigh'), 1)
-    elif role in ('designer', 'planner'):
-        fixture = replace_effort(quad, role, 'primary', 'effort=xhigh')
+    if role == 'driver':
+        fixture = replace_effort(quad, 'driver', 'primary', 'thinking_level=xhigh')
     else:
         fixture = replace_effort(quad, role, 'primary', 'effort=xhigh')
     expect_rejected(fixture, f'{role} primary')

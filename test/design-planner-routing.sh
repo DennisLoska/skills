@@ -69,14 +69,14 @@ assert res.returncode == 0, f"Quad install failed: {res.stderr}"
 rendered_providers = (opencode_dir / 'PROVIDERS.md').read_text()
 
 # Required quad roles for designer and planner:
-# Both roles: primary claudeAgent/claude-fable-5-2 effort=high, fallback codex/gpt-6.2-sol reasoningEffort=high, and last-resort antigravity/gemini-4-carbon thinking_level=high.
+# Both roles: primary claudeAgent/claude-fable-5-2 effort=high, fallback codex/gpt-6.2-sol reasoningEffort=high, and last-resort antigravity/gemini-4-neon thinking_level=high.
 quad_rows = [
     r'\|\s*designer\s*\|\s*primary\s*\|\s*claudeAgent\s*\|\s*claude-fable-5-2\s*\|\s*effort=high\s*\|\s*anthropic\s*\|\s*ok\s*\|',
     r'\|\s*designer\s*\|\s*fallback\s*\|\s*codex\s*\|\s*gpt-6\.2-sol\s*\|\s*reasoningEffort=high\s*\|\s*openai\s*\|\s*ok\s*\|',
-    r'\|\s*designer\s*\|\s*last-resort\s*\|\s*antigravity\s*\|\s*gemini-4-carbon\s*\|\s*thinking_level=high\s*\|\s*google\s*\|\s*ok\s*\|',
+    r'\|\s*designer\s*\|\s*last-resort\s*\|\s*antigravity\s*\|\s*gemini-4-neon\s*\|\s*thinking_level=high\s*\|\s*google\s*\|\s*ok\s*\|',
     r'\|\s*planner\s*\|\s*primary\s*\|\s*claudeAgent\s*\|\s*claude-fable-5-2\s*\|\s*effort=high\s*\|\s*anthropic\s*\|\s*ok\s*\|',
     r'\|\s*planner\s*\|\s*fallback\s*\|\s*codex\s*\|\s*gpt-6\.2-sol\s*\|\s*reasoningEffort=high\s*\|\s*openai\s*\|\s*ok\s*\|',
-    r'\|\s*planner\s*\|\s*last-resort\s*\|\s*antigravity\s*\|\s*gemini-4-carbon\s*\|\s*thinking_level=high\s*\|\s*google\s*\|\s*ok\s*\|',
+    r'\|\s*planner\s*\|\s*last-resort\s*\|\s*antigravity\s*\|\s*gemini-4-neon\s*\|\s*thinking_level=high\s*\|\s*google\s*\|\s*ok\s*\|',
 ]
 for pattern in quad_rows:
     assert re.search(pattern, rendered_providers), f"Missing quad row matching pattern: {pattern}"

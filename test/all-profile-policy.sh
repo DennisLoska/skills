@@ -119,6 +119,15 @@ def validate_profile_policy(name, text):
     def get_role_rows(role_name):
         return [r for r in roles_table if r['role'] == role_name]
 
+    # 0. Advisory driver ladder: Neon high -> Sol high -> Fable high
+    driver_rows = get_role_rows('driver')
+    assert [r['rung'] for r in driver_rows] == ['primary', 'fallback', 'last-resort'], (
+        f"[{name}] driver must have primary, fallback, and last-resort rungs, got {[r['rung'] for r in driver_rows]}"
+    )
+    assert (driver_rows[0]['provider'], driver_rows[0]['base_model'], driver_rows[0]['effort']) == ('antigravity', 'gemini-4-neon', 'thinking_level=high'), driver_rows[0]['line']
+    assert (driver_rows[1]['provider'], driver_rows[1]['base_model'], driver_rows[1]['effort']) == ('codex', 'gpt-6.2-sol', 'reasoningEffort=high'), driver_rows[1]['line']
+    assert (driver_rows[2]['provider'], driver_rows[2]['base_model'], driver_rows[2]['effort']) == ('claudeAgent', 'claude-fable-5-2', 'effort=high'), driver_rows[2]['line']
+
     # 1. Primary implementer: Gemini 4 Neon
     imp_primary = [r for r in get_role_rows('implementer') if r['rung'] == 'primary']
     assert imp_primary, f"[{name}] missing primary implementer row"
@@ -182,8 +191,11 @@ def validate_profile_policy(name, text):
             assert opt_rows[1]['base_model'] == 'gpt-6.2-sol', (
                 f"[{name}] {opt_role} fallback must be gpt-6.2-sol, got {opt_rows[1]['model']}"
             )
-            assert opt_rows[2]['base_model'] == 'gemini-4-carbon', (
-                f"[{name}] {opt_role} last-resort must be gemini-4-carbon, got {opt_rows[2]['model']}"
+            assert opt_rows[2]['base_model'] == 'gemini-4-neon', (
+                f"[{name}] {opt_role} last-resort must be gemini-4-neon, got {opt_rows[2]['model']}"
+            )
+            assert opt_rows[2]['effort'] == 'thinking_level=high', (
+                f"[{name}] {opt_role} last-resort effort must be thinking_level=high, got {opt_rows[2]['effort']}"
             )
 
     # 4. Scout: DeepSeek 4.1 Flash
@@ -278,16 +290,15 @@ def validate_profile_policy(name, text):
         ('claudeAgent', 'claude-opus-5-5'), ('antigravity', 'gemini-4-neon'),
         ('codex', 'gpt-6.2-sol')}, f"[{name}] incorrect single-provider recovery set"
     compaction = get_role_rows('compaction')
-    assert compaction[0]['base_model'] == 'gemini-3.8-flash' and compaction[0]['effort'].endswith('=low')
+    assert compaction[0]['base_model'] == 'gemini-4-hydrogen' and compaction[0]['effort'].endswith('=low')
     for role in ('scout', 'tester', 'patch'):
         rows = get_role_rows(role)
-        assert [r['base_model'] for r in rows] == ['deepseek-v4.1-flash', 'gpt-6-luna', 'gemini-3.8-flash']
-    # 9. Safe efforts <= high everywhere, Carbon only on designer/planner last-resort
+        assert [r['base_model'] for r in rows] == ['deepseek-v4.1-flash', 'gpt-6-luna', 'gemini-4-hydrogen']
+    # 9. Safe efforts <= high everywhere; no Carbon or Gemini 3.8 Flash; council Neon uses xhigh
     for row in all_rows:
-        if row['base_model'] == 'gemini-4-carbon':
-            assert row.get('role') in ('designer', 'planner') and row.get('rung') == 'last-resort', (
-                f"[{name}] gemini-4-carbon only allowed on designer/planner last-resort, found in: {row['line']}"
-            )
+        assert row['base_model'] not in ('gemini-4-carbon', 'gemini-3.8-flash'), (
+            f"[{name}] retired model {row['base_model']} forbidden in shipped profiles: {row['line']}"
+        )
         if row['provider'] == 'codex':
             assert row['base_model'] in CODEX_MODELS, (
                 f"[{name}] codex rung must use a current OpenAI model {sorted(CODEX_MODELS)}: {row['line']}"
@@ -297,7 +308,7 @@ def validate_profile_policy(name, text):
             val = eff.split('=', 1)[-1] if '=' in eff else eff
             council = (row.get('role') in REVIEW_ROLES or (row.get('roles') and set(row['roles']) <= REVIEW_ROLES) or row['section'] in ('Single-provider review', 'single'))
             if council:
-                assert (row['provider'], row['base_model'], eff) in {('claudeAgent', 'claude-opus-5-5', 'effort=xhigh'), ('codex', 'gpt-6.2-sol', 'reasoningEffort=xhigh'), ('antigravity', 'gemini-4-neon', 'thinking_level=high')}, row['line']
+                assert (row['provider'], row['base_model'], eff) in {('claudeAgent', 'claude-opus-5-5', 'effort=xhigh'), ('codex', 'gpt-6.2-sol', 'reasoningEffort=xhigh'), ('antigravity', 'gemini-4-neon', 'thinking_level=xhigh')}, row['line']
             assert council or val in VALID_EFFORT_LEVELS, (
                 f"[{name}] invalid effort level '{val}' in: {row['line']}"
             )

@@ -2659,7 +2659,7 @@ for sc_list in antigravity,claude,opencode claude,codex,opencode claude,opencode
   prov_md="$prov_home/.config/opencode/PROVIDERS.md"
   for sc_row in \
     '| scout | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |' \
-    '| scout | last-resort | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |' \
+    '| scout | last-resort | antigravity | gemini-4-hydrogen | thinking_level=low | google | ok |' \
     '| scout | fallback | codex | gpt-6-luna | reasoningEffort=low | openai | ok |'; do
     grep -qxF "$sc_row" "$prov_md" || fail "$sc_list missing $sc_row"
   done
@@ -2910,15 +2910,15 @@ cap_reject() {
 }
 CAP_ABS="$(cd "$TMPROOT" && pwd -P)/cap.md"
 for cap_effort in effort=xhigh effort=max effort=ultrathink effort=ultracode thinking_level=max variant=xhigh; do
-  awk -v e="$cap_effort" '{ if ($0 == "| driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |") print "| driver | fallback | claudeAgent | claude-sonnet-5-5 | " e " | anthropic | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
-  cap_reject "role row $cap_effort" "install.sh: profile $CAP_ABS invalid row: driver fallback: effort above high"
+  awk -v e="$cap_effort" '{ if ($0 == "| driver | last-resort | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |") print "| driver | last-resort | claudeAgent | claude-fable-5-2 | " e " | anthropic | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
+  cap_reject "role row $cap_effort" "install.sh: profile $CAP_ABS invalid row: driver last-resort: effort above high"
 done
 awk '{ if ($0 == "| 3 | task-reviewer | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |") print "| 3 | task-reviewer | codex | gpt-6.2-sol | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
 cap_reject "backup row effort=max" "install.sh: profile $CAP_ABS invalid backup row: 3: effort above high"
 awk '{ if ($0 == "| codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |") print "| codex | gpt-6.2-sol | reasoningEffort=max | openai | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
 cap_reject "single-provider row reasoningEffort=max" "install.sh: profile $CAP_ABS invalid single-provider row: codex gpt-6.2-sol: effort above high"
 for cap_ok in - effort=low effort=medium effort=high; do
-  awk -v e="$cap_ok" '{ if ($0 == "| driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |") print "| driver | fallback | claudeAgent | claude-sonnet-5-5 | " e " | anthropic | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
+  awk -v e="$cap_ok" '{ if ($0 == "| driver | last-resort | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |") print "| driver | last-resort | claudeAgent | claude-fable-5-2 | " e " | anthropic | ok |"; else print }' "$CAP_BASE" >"$TMPROOT/cap.md"
   rm -rf "$TMPROOT/cap-ok-dest"
   rc=0
   OPENCODE_CONFIG="$TMPROOT/cap-ok-dest" "$INSTALL" --profile-file "$TMPROOT/cap.md" </dev/null >"$TMPROOT/cap-ok.out" 2>&1 || rc=$?
@@ -3084,12 +3084,15 @@ for shipped in quad tri opencode-go codex antigravity claude; do
   shipped_md="$ROOT/providers/$shipped.md"
   check_council_profile "$shipped_md" "providers/$shipped.md" 1 1 1 1
     for quad_spec in \
+      'driver|primary|antigravity|gemini-4-neon|thinking_level=high|google|ok' \
+      'driver|fallback|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
+      'driver|last-resort|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
       'designer|primary|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
       'designer|fallback|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
-      'designer|last-resort|antigravity|gemini-4-carbon|thinking_level=high|google|ok' \
+      'designer|last-resort|antigravity|gemini-4-neon|thinking_level=high|google|ok' \
       'planner|primary|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
       'planner|fallback|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
-      'planner|last-resort|antigravity|gemini-4-carbon|thinking_level=high|google|ok' \
+      'planner|last-resort|antigravity|gemini-4-neon|thinking_level=high|google|ok' \
       'implementer|last-resort|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
       'implementer|fallback|claudeAgent|claude-opus-5-5|effort=high|anthropic|ok' \
       'implementer-deep|last-resort|antigravity|gemini-4-neon|thinking_level=high|google|ok' \
@@ -3099,20 +3102,23 @@ for shipped in quad tri opencode-go codex antigravity claude; do
       'task-reviewer|last-resort|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
       'implementer-deep|primary|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
       'reviewer-a|primary|claudeAgent|claude-opus-5-5|effort=xhigh|anthropic|ok' \
+      'reviewer-a|last-resort|antigravity|gemini-4-neon|thinking_level=xhigh|google|ok' \
       'reviewer-b|primary|codex|gpt-6.2-sol|reasoningEffort=xhigh|openai|ok' \
-      'reviewer-c|primary|antigravity|gemini-4-neon|thinking_level=high|google|ok'; do
+      'reviewer-b|fallback|antigravity|gemini-4-neon|thinking_level=xhigh|google|ok' \
+      'reviewer-c|primary|antigravity|gemini-4-neon|thinking_level=xhigh|google|ok'; do
       profile_rows "$shipped_md" roles | grep -qxF "$quad_spec" || fail "80e: providers/$shipped.md carries spec row $quad_spec"
     done
     for quad_cheap in \
       'scout|primary|opencode|opencode-go/deepseek-v4.1-flash|variant=high|deepseek|ok' \
-      'scout|last-resort|antigravity|gemini-3.8-flash|thinking_level=low|google|ok' \
+      'scout|last-resort|antigravity|gemini-4-hydrogen|thinking_level=low|google|ok' \
       'scout|fallback|codex|gpt-6-luna|reasoningEffort=low|openai|ok' \
       'tester|primary|opencode|opencode-go/deepseek-v4.1-flash|variant=high|deepseek|ok' \
-      'tester|last-resort|antigravity|gemini-3.8-flash|thinking_level=medium|google|ok' \
+      'tester|last-resort|antigravity|gemini-4-hydrogen|thinking_level=medium|google|ok' \
       'tester|fallback|codex|gpt-6-luna|reasoningEffort=medium|openai|ok' \
       'patch|primary|opencode|opencode-go/deepseek-v4.1-flash|variant=high|deepseek|ok' \
-      'patch|last-resort|antigravity|gemini-3.8-flash|thinking_level=medium|google|ok' \
-      'patch|fallback|codex|gpt-6-luna|reasoningEffort=medium|openai|ok'; do
+      'patch|last-resort|antigravity|gemini-4-hydrogen|thinking_level=medium|google|ok' \
+      'patch|fallback|codex|gpt-6-luna|reasoningEffort=medium|openai|ok' \
+      'compaction|primary|antigravity|gemini-4-hydrogen|thinking_level=low|google|ok'; do
       profile_rows "$shipped_md" roles | grep -qxF "$quad_cheap" || fail "80e: providers/$shipped.md carries cheap seat row $quad_cheap"
     done
     awk -F '|' '
@@ -3238,10 +3244,10 @@ done
 [ "$(seat_cell "$TMPROOT/two-fam-dest/PROVIDERS.md" reviewer-b 5)" = gpt-6.2-astra ] || fail "80h: independent GPT Seat B available for captain handoff"
 [ "$(seat_cell "$TMPROOT/two-fam-dest/PROVIDERS.md" reviewer-c 5)" = gpt-6.2-sol ] || fail "80h: independent GPT Seat C available for captain handoff"
 
-# 5. Audit shipped and generated profiles: <= high effort and Carbon only on designer/planner last-resort
+# 5. Audit shipped and generated profiles: <= high effort (xhigh council-only) and no retired Carbon or 3.8 Flash
 for prof in "$ROOT"/providers/*.md "$TMPROOT"/pv-*/.config/opencode/PROVIDERS.md; do
-  if grep -n 'gemini-4-carbon' "$prof" | grep -vE '\|[[:space:]]*(designer|planner)[[:space:]]*\|[[:space:]]*last-resort[[:space:]]*\|[[:space:]]*antigravity[[:space:]]*\|[[:space:]]*gemini-4-carbon[[:space:]]*\|[[:space:]]*thinking_level=high[[:space:]]*\|[[:space:]]*google[[:space:]]*\|[[:space:]]*ok[[:space:]]*\|' >"$TMPROOT/carbon-audit.txt"; then
-    fail "80h: $prof contains forbidden gemini-4-carbon outside designer/planner last-resort"
+  if grep -nE 'gemini-4-carbon|gemini-3\.8-flash' "$prof" >"$TMPROOT/retired-audit.txt"; then
+    fail "80h: $prof contains retired gemini-4-carbon or gemini-3.8-flash"
   fi
   for section in roles 'Backup ladder' 'Single-provider review'; do
     profile_rows "$prof" "$section" | awk -F '|' -v section="$section" '
