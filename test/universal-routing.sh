@@ -64,8 +64,8 @@ for effort in ('xhigh', 'max', 'ultra', 'ultrathink', 'ultracode', 'unknown'):
     invoke(base.replace('| 3 | task-reviewer | codex | gpt-6.2-sol | reasoningEffort=high |', f'| 3 | task-reviewer | codex | gpt-6.2-sol | reasoningEffort={effort} |'), 1, diagnostic)
     invoke(base.replace('| codex | gpt-6.2-sol | reasoningEffort=xhigh |', f'| codex | gpt-6.2-sol | reasoningEffort={effort} |'), 0 if effort == 'xhigh' else 1, '' if effort == 'xhigh' else diagnostic)
 for effort in ('-', 'reasoningEffort=none', 'reasoningEffort=minimal', 'reasoningEffort=low', 'reasoningEffort=medium', 'reasoningEffort=high'):
-    invoke(base.replace('| driver | primary | codex | gpt-6.2-sol | reasoningEffort=medium |', f'| driver | primary | codex | gpt-6.2-sol | {effort} |'), 0)
-invoke(base.replace('| reviewer-c | primary | antigravity | gemini-4-neon | thinking_level=high | google |', '| reviewer-c | primary | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai |'), 1, 'share primary model gpt-6.2-sol')
+    invoke(base.replace('| driver | fallback | codex | gpt-6.2-sol | reasoningEffort=high |', f'| driver | fallback | codex | gpt-6.2-sol | {effort} |'), 0)
+invoke(base.replace('| reviewer-c | primary | antigravity | gemini-4-neon | thinking_level=xhigh | google |', '| reviewer-c | primary | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai |'), 1, 'share primary model gpt-6.2-sol')
 # The preferred captain can be an implementation model in a profile; runtime
 # self-review is allowed without captain handoff.
 invoke(base.replace('| implementer | primary | antigravity | gemini-4-neon | thinking_level=high | google |', '| implementer | primary | claudeAgent | claude-opus-5-5 | effort=high | anthropic |'), 0)
@@ -99,10 +99,10 @@ for profile in profiles:
             model, effort = cells[3:5]
         else:
             continue
-        if model == 'gemini-4-carbon' or model.endswith('/gemini-4-carbon'):
-            assert len(cells) == 7 and cells[0] in ('designer', 'planner') and cells[1] == 'last-resort', (profile, line)
+        base_model = model.split('/')[-1]
+        assert base_model not in {'gemini-4-carbon', 'gemini-3.8-flash'}, (profile, line)
         council = (section == 'Single-provider review' or (len(cells) == 7 and (cells[0] in ('reviewer-a', 'reviewer-b', 'reviewer-c') or set(cells[1].split(',')) <= {'reviewer-a', 'reviewer-b', 'reviewer-c'})))
-        assert (council and effort in {'effort=xhigh', 'reasoningEffort=xhigh', 'thinking_level=high'}) or effort == '-' or effort.split('=', 1)[-1] in {'none', 'minimal', 'low', 'medium', 'high'}, (profile, line)
+        assert (council and effort in {'effort=xhigh', 'reasoningEffort=xhigh', 'thinking_level=xhigh'}) or effort == '-' or effort.split('=', 1)[-1] in {'none', 'minimal', 'low', 'medium', 'high'}, (profile, line)
 print(f'ok: {count} installer validation cases and quad review route audit')
 print(f'ok: {len(profiles)} shipped profiles audited for configured effort and retired models')
 PY

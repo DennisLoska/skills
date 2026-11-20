@@ -122,15 +122,15 @@
     <text class="cell" x="84" y="446">tester</text>
     <text class="cell" x="224" y="446">opencode / deepseek-v4.1-flash · high</text>
     <text class="cellMuted" x="600" y="446">codex / gpt-6-luna · medium</text>
-    <text class="cellMuted" x="960" y="446">antigravity / gemini-3.8-flash · medium</text>
+    <text class="cellMuted" x="960" y="446">antigravity / gemini-4-hydrogen · medium</text>
 
     <text class="cell" x="84" y="466">reviewer-a ★</text>
     <text class="cell" x="224" y="466">claudeAgent / claude-opus-5-5 · xhigh</text>
     <text class="cellMuted" x="600" y="466">codex / gpt-6.2-sol · xhigh</text>
-    <text class="cellMuted" x="960" y="466">antigravity / gemini-4-neon · high</text>
+    <text class="cellMuted" x="960" y="466">antigravity / gemini-4-neon · xhigh</text>
 
     <text class="cell" x="84" y="486">reviewer-c</text>
-    <text class="cell" x="224" y="486">antigravity / gemini-4-neon · high</text>
+    <text class="cell" x="224" y="486">antigravity / gemini-4-neon · xhigh</text>
     <text class="cellMuted" x="600" y="486">claudeAgent / claude-opus-5-5 · xhigh</text>
     <text class="cellMuted" x="960" y="486">codex / gpt-6.2-sol · xhigh</text>
   </g>
@@ -152,14 +152,14 @@
   <!-- ============ LAYER 3: PROVIDER INSTANCES ============ -->
   <rect x="60" y="558" width="1260" height="178" rx="16" fill="#111C2E" stroke="#2A3B57" stroke-width="1.5"/>
   <text class="sans title" x="84" y="590">3 · PROVIDER INSTANCES</text>
-  <text class="sans sub" x="306" y="590">council: Opus (A ★) / Sol (B) xhigh, Neon (C) high; other work ≤ high</text>
+  <text class="sans sub" x="306" y="590">council: Opus (A ★) / Sol (B) / Neon (C) xhigh; other work ≤ high</text>
 
   <g>
     <rect x="84" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
     <text class="sans pname" x="104" y="630">Antigravity</text>
-    <text class="sans pmeta" x="104" y="648">google · thinking_level</text>
-    <text class="mono pmodels" x="104" y="668">gemini-4-neon (primary / C · high)</text>
-    <text class="mono pmodels" x="104" y="686">gemini-4-carbon · gemini-3.8-flash</text>
+    <text class="sans pmeta" x="104" y="648">google · thinking_level (council xhigh)</text>
+    <text class="mono pmodels" x="104" y="668">gemini-4-neon (driver / impl / C)</text>
+    <text class="mono pmodels" x="104" y="686">gemini-4-hydrogen (ops / compaction)</text>
 
     <rect x="391" y="604" width="290" height="100" rx="12" fill="#0F2230" stroke="#1F4A56"/>
     <text class="sans pname" x="411" y="630">Codex</text>
@@ -176,8 +176,8 @@
     <rect x="1005" y="604" width="290" height="100" rx="12" fill="#0E1A2A" stroke="#3B4A63" stroke-dasharray="6 5"/>
     <text class="sans pname" x="1025" y="630">Claude Code</text>
     <text class="sans pmeta" x="1025" y="648">claudeAgent · effort (council xhigh)</text>
-    <text class="mono pmodels" x="1025" y="668">claude-fable-5-2 · opus-5-5 (fb / A ★)</text>
-    <text class="mono pmodels" x="1025" y="686">claude-sonnet-5-5 (driver fallback)</text>
+    <text class="mono pmodels" x="1025" y="668">claude-fable-5-2 (deep / design / dr-lr)</text>
+    <text class="mono pmodels" x="1025" y="686">claude-opus-5-5 (impl fb / A ★)</text>
   </g>
 
   <!-- ============ FEEDBACK LOOP CHANNEL ============ -->

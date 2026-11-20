@@ -4,7 +4,7 @@ The repository has exactly 12 skills. Skills define workflows, not standalone mo
 
 ## Context-scoped effort ceiling
 
-**Context-scoped effort ceiling:** Non-council work, including driver sessions, defaults, advisory/design work, task-reviewer, fixing and testing, must never request or inherit effort above `high`. Only runtime council reviewer-a/b/c seats and fresh captain rulings may use profile-configured `xhigh`; council is the only skill permitting above high, with maximum `xhigh`. `max`, `ultra`, `ultrathink`, `ultracode`, and equivalent higher levels are forbidden everywhere. Verify provider capabilities before dispatch; use explicit provider-native options from `PROVIDERS.md`. Gemini 4 Neon uses explicit `thinking_level=high` because it has no xhigh support. Unknown/unsafe defaults require an explicit safe option or an unreachable rung; non-council defaults must be verified at most `high`. Shared reviewer contracts do not grant task reviews the council exception. Invoking a skill never changes the driver session or its ceiling.
+**Context-scoped effort ceiling:** Non-council work, including driver sessions, defaults, advisory/design work, task-reviewer, fixing and testing, must never request or inherit effort above `high`. Only runtime council reviewer-a/b/c seats and fresh captain rulings may use profile-configured `xhigh`; council is the only skill permitting above high, with maximum `xhigh`. `max`, `ultra`, `ultrathink`, `ultracode`, and equivalent higher levels are forbidden everywhere. Verify provider capabilities before dispatch; use explicit provider-native options from `PROVIDERS.md`. Models without `xhigh` support use explicit `high` in council. Unknown/unsafe defaults require an explicit safe option or an unreachable rung; non-council defaults must be verified at most `high`. Shared reviewer contracts do not grant task reviews the council exception. Invoking a skill never changes the driver session or its ceiling.
 
 Non-council work uses explicit provider-native options at `low`, `medium`, or `high`; council seats/rulings alone may use configured `xhigh`. A `-` default or omitted option is usable only when the effective default is verified at most `high`; otherwise explicitly set `high` or mark the rung unreachable. A native pin or inherited session setting is subject to the same check. Changing to a deeper model/seat never raises this ceiling.
 
@@ -12,40 +12,40 @@ Non-council work uses explicit provider-native options at `low`, `medium`, or `h
 
 | Role | Primary model and provider | Effort / routing notes |
 | --- | --- | --- |
-| `driver` (advisory) | GPT6.2 Sol (`gpt-6.2-sol`), Codex | At most high; stays in-session. |
-| `designer` (optional ad-hoc) | Fable 5.2 (`claude-fable-5-2`), Claude Code | Read-only design draft, `effort=high`; fallback Sol/Codex `reasoningEffort=high`, then last-resort Gemini 4 Carbon (`gemini-4-carbon`)/Antigravity `thinking_level=high`. |
-| `planner` (optional ad-hoc) | Fable 5.2, Claude Code | Read-only implementation-plan draft, high; fallback Sol/Codex high, then last-resort Gemini 4 Carbon/Antigravity high. |
-| `scout` | Deepseek V4.1 Flash (`opencode-go/deepseek-v4.1-flash`), OpenCode Go | `variant=high`; fallback GPT6 Luna, then terminal Gemini 3.8 Flash. |
-| `tester` | Deepseek V4.1 Flash, OpenCode Go | High; fallback GPT6 Luna, then terminal Gemini 3.8 Flash. |
-| `patch` | Deepseek V4.1 Flash, OpenCode Go | High; fallback GPT6 Luna, then terminal Gemini 3.8 Flash; 1–2 file edits without test runs. |
+| `driver` (advisory) | Gemini 4 Neon (`gemini-4-neon`), Antigravity | `thinking_level=high`; fallback GPT6.2 Sol (`gpt-6.2-sol`)/Codex `reasoningEffort=high`, last-resort Fable 5.2 (`claude-fable-5-2`)/Claude Code `effort=high`; stays in-session. |
+| `designer` (optional ad-hoc) | Fable 5.2 (`claude-fable-5-2`), Claude Code | Read-only design draft, `effort=high`; fallback Sol/Codex `reasoningEffort=high`, then last-resort Gemini 4 Neon (`gemini-4-neon`)/Antigravity `thinking_level=high`. |
+| `planner` (optional ad-hoc) | Fable 5.2, Claude Code | Read-only implementation-plan draft, high; fallback Sol/Codex high, then last-resort Gemini 4 Neon/Antigravity high. |
+| `scout` | Deepseek V4.1 Flash (`opencode-go/deepseek-v4.1-flash`), OpenCode Go | `variant=high`; fallback GPT6 Luna (`low`), then terminal Gemini 4 Hydrogen (`gemini-4-hydrogen`, `low`). |
+| `tester` | Deepseek V4.1 Flash, OpenCode Go | High; fallback GPT6 Luna (`medium`), then terminal Gemini 4 Hydrogen (`medium`). |
+| `patch` | Deepseek V4.1 Flash, OpenCode Go | High; fallback GPT6 Luna (`medium`), then terminal Gemini 4 Hydrogen (`medium`); 1–2 file edits without test runs. |
 | `implementer` | Gemini 4 Neon (`gemini-4-neon`), Antigravity | `thinking_level=high`; Opus 5.5 (`claude-opus-5-5`) fallback on Claude Code (`effort=high`), then terminal Sol (`gpt-6.2-sol`) on Codex (`reasoningEffort=high`). |
 | `implementer-deep` | Fable 5.2, Claude Code | High; Sol fallback on Codex, then terminal Gemini 4 Neon on Antigravity. |
 | `task-reviewer` (ad-hoc) | Sol, Codex | High; Astra then Fable. Both task stages and final task review use this role. |
 | `reviewer-a` (preferred captain) | Opus 5.5, Claude Code | Xhigh; eligible review backups only from the three-model review set below. |
 | `reviewer-b` | Sol, Codex | Xhigh; same allowlist and active-model checks. |
-| `reviewer-c` | Gemini 4 Neon, Antigravity | High (no xhigh support); same allowlist and active-model checks. |
+| `reviewer-c` | Gemini 4 Neon, Antigravity | Xhigh (`thinking_level=xhigh`); same allowlist and active-model checks. |
 | Captain ruling | Current healthy captain's model/rung | Fresh read-only council dispatch, captain rung effort (at most xhigh). |
 | `design` (T3 transport role) | `designer`/`planner` profile rungs | Includes design-it-twice alternatives on designer rungs; distinct families where reachable. Legacy alternatives use deep/implementation rungs only when designer is absent. |
-| `compaction` / summary (advisory) | Gemini 3.8 Flash (`gemini-3.8-flash`), Antigravity | Cheap low effort; fallback GPT6 Luna (`gpt-6-luna`), Codex, low. Never training-enabled routing. |
+| `compaction` / summary (advisory) | Gemini 4 Hydrogen (`gemini-4-hydrogen`), Antigravity | Cheap low effort; fallback GPT6 Luna (`gpt-6-luna`), Codex, low. Never training-enabled routing. |
 
-Fallback Gemini 3.8 Flash uses Antigravity's explicit safe `thinking_level`; GPT6 Luna uses Codex's explicit safe `reasoningEffort`. Both are at most high. Profiles carry the actual options, not skill text.
+Fallback Gemini 4 Hydrogen uses Antigravity's explicit safe `thinking_level`; GPT6 Luna uses Codex's explicit safe `reasoningEffort`. Both are at most high. Profiles carry the actual options, not skill text.
 
 ## All 12 skills
 
-The recommended driver is Sol. Design and planning drafts are delegated to Fable with Sol fallback and Gemini 4 Carbon last resort; invoking a skill keeps the driver session and its gates in place.
+The recommended driver is Gemini 4 Neon (`high`), falling back to Sol (`high`), then Fable 5.2 (`high`). Design and planning drafts are delegated to Fable with Sol fallback and Gemini 4 Neon last resort; invoking a skill keeps the driver session and its gates in place.
 
 | Skill | In-session responsibility | Delegated seats/roles and primary models |
 | --- | --- | --- |
-| `codebase-design` | Module/interface decisions and canonical artifacts | `scout` → Deepseek; `designer` → Fable, Sol fallback, Carbon last resort; design-it-twice uses only designer rungs across distinct reachable families (Fable, Sol, Carbon). |
-| `council` | Orchestrate review, verify findings and record verdicts | A/captain → Opus (xhigh); B → Sol (xhigh); C → Neon (high); ruling → healthy captain; accepted-finding fixers → Neon/Fable; `tester` → Deepseek. |
+| `codebase-design` | Module/interface decisions and canonical artifacts | `scout` → Deepseek; `designer` → Fable, Sol fallback, Neon last resort; design-it-twice uses only designer rungs across distinct reachable families (Fable, Sol, Neon). |
+| `council` | Orchestrate review, verify findings and record verdicts | A/captain → Opus (xhigh); B → Sol (xhigh); C → Neon (xhigh); ruling → healthy captain; accepted-finding fixers → Neon/Fable; `tester` → Deepseek. |
 | `debug` | Root-cause discipline and escalation decisions | `scout` → Deepseek for discovery; `tester` → Deepseek for reproduction/checks; fixers → Neon, or Fable for resistant bugs. |
 | `dispatch` | Plan/task orchestration and review loop | `tester` → Deepseek; `implementer` → Neon; deep → Fable; `patch` → Deepseek; `task-reviewer` → Sol (Astra then Fable). |
-| `domain-modeling` | Glossary/ADR decisions and domain terminology | `scout` → Deepseek when discovery needs delegation; substantive draft via `designer` → Fable, Sol fallback, Carbon last resort. |
+| `domain-modeling` | Glossary/ADR decisions and domain terminology | `scout` → Deepseek when discovery needs delegation; substantive draft via `designer` → Fable, Sol fallback, Neon last resort. |
 | `land` | Branch/PR/merge decisions and backlog handoff | No dedicated landing model; uses `tester` → Deepseek and routes verification, council or CI work through their owning skills when needed. |
 | `make-ci-green` | Monitor checks, assess findings, orchestrate fixes | `tester` → Deepseek for logs/reruns; fixers → Neon or Fable; `patch` is not a test-running fixer. |
 | `oneshot` | Full controller pipeline in the driver session | All workflow roles above via owning skills; no whole-pipeline child or standalone oneshot model. |
-| `plan` | Approve/apply decomposition of approved requirements | `scout` → Deepseek for discovery; `planner` → Fable, Sol fallback, Carbon last resort for draft only; execution belongs to `dispatch`. |
-| `shape` | Intent/conversation, design approval and spec artifact | `scout` → Deepseek; `designer` → Fable, Sol fallback, Carbon last resort for design draft; includes domain/module guidance or design-it-twice alternatives without duplicate drafts. |
+| `plan` | Approve/apply decomposition of approved requirements | `scout` → Deepseek for discovery; `planner` → Fable, Sol fallback, Neon last resort for draft only; execution belongs to `dispatch`. |
+| `shape` | Intent/conversation, design approval and spec artifact | `scout` → Deepseek; `designer` → Fable, Sol fallback, Neon last resort for design draft; includes domain/module guidance or design-it-twice alternatives without duplicate drafts. |
 | `tdd` | Red/green/refactor discipline applied by the current worker | Under dispatch: `tester` → Deepseek for red; `implementer` → Neon or deep → Fable for green/refactor. No independent TDD model. |
 | `verify` | Evidence-before-assertions gate | `tester` → Deepseek for suites/scripts/checks; failures route through `debug` and implementation seats. |
 
@@ -55,7 +55,7 @@ The recommended driver is Sol. Design and planning drafts are delegated to Fable
 
 The driver owns user conversation, approvals, canonical document application/self-review, commits and phase advancement. Oneshot invokes shape and plan once each; they own the draft handoffs. Domain/module guidance for the same draft is included in that brief, not duplicated. Draft-only authors are not automatically code authors; actual implementation authors are recorded for audit only.
 
-Only the nine original dispatched roles are required for old profiles. Optional roles require primary iff mentioned, with ordinary rung/effort validation. Profiles without them retain driver drafting and the legacy deep/implementation family ladder for design-it-twice. Present roles use only their profile ladders and explicitly named backups, never generic `*` backups or implementation siblings; exhaustion/unreachability stops rather than using the driver. All privacy, quotas and at-most-high rules apply. Every shipped/generated profile has Fable primary, Sol fallback, and Gemini 4 Carbon last-resort for each, with no other backup.
+Only the nine original dispatched roles are required for old profiles. Optional roles require primary iff mentioned, with ordinary rung/effort validation. Profiles without them retain driver drafting and the legacy deep/implementation family ladder for design-it-twice. Present roles use only their profile ladders and explicitly named backups, never generic `*` backups or implementation siblings; exhaustion/unreachability stops rather than using the driver. All privacy, quotas and at-most-high rules apply. Every shipped/generated profile has Fable primary, Sol fallback, and Gemini 4 Neon last-resort for each, with no other backup.
 
 ## Closed review set and availability
 

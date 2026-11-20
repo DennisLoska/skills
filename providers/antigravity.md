@@ -4,31 +4,32 @@ All six shipped profiles and every `--providers` combination share the same mode
 
 ## Role distribution
 
-- **Driver:** Codex `gpt-6.2-sol` at `medium`, with Claude Sonnet 5.5 at `medium` as fallback. Invoking a skill does not switch the driver.
-- **Design and planning drafts:** `designer` (`shape`, `domain-modeling`, `codebase-design`) and `planner` (`plan`) delegate read-only drafts to Claude Fable 5.2 at `high`, falling back to Sol at `high`, then Gemini 4 Carbon at `high`. The driver owns conversation, approvals, canonical artifacts and phase advancement.
-- **Discovery, testing, patching:** OpenCode Go Deepseek V4.1 Flash at `variant=high`, then GPT Luna and Gemini 3.8 Flash at `low` for discovery or `medium` for testing and patching.
+- **Driver:** Antigravity `gemini-4-neon` at `high`, falling back to Codex `gpt-6.2-sol` at `high`, then Claude Fable 5.2 at `high` as last resort. Invoking a skill does not switch the driver.
+- **Design and planning drafts:** `designer` (`shape`, `domain-modeling`, `codebase-design`) and `planner` (`plan`) delegate read-only drafts to Claude Fable 5.2 at `high`, falling back to Sol at `high`, then Gemini 4 Neon at `high`. The driver owns conversation, approvals, canonical artifacts and phase advancement.
+- **Discovery, testing, patching:** OpenCode Go Deepseek V4.1 Flash at `variant=high`, then GPT Luna and Gemini 4 Hydrogen at `low` for discovery or `medium` for testing and patching.
 - **Implementation:** Antigravity Gemini 4 Neon primary at `high` (falling back to Claude Code Opus 5.5 at `high`, then terminal Codex Sol at `high`), and Claude Code Fable 5.2 deep at `high` (falling back to Codex Sol at `high`, then terminal Antigravity Gemini 4 Neon at `high`).
 - **Per-task review:** GPT Sol, then GPT Astra, then Claude Fable 5.2, all at `high`; self-review is allowed.
-- **Council:** Opus 5.5 is preferred captain (A) at `effort=xhigh`, Sol is Seat B at `reasoningEffort=xhigh`, and Gemini 4 Neon is Seat C at `thinking_level=high` (no xhigh support). Council fallbacks, backups and captain rulings use only these models and efforts. Simultaneously active models stay distinct; self-review is allowed and unavailable members are skipped.
-- **Compaction:** Gemini 3.8 Flash at `low`, then GPT Luna at `low`.
+- **Council:** Opus 5.5 is preferred captain (A) at `effort=xhigh`, Sol is Seat B at `reasoningEffort=xhigh`, and Gemini 4 Neon is Seat C at `thinking_level=xhigh`. Council fallbacks, backups and captain rulings use only these models and efforts. Simultaneously active models stay distinct; self-review is allowed and unavailable members are skipped.
+- **Compaction:** Gemini 4 Hydrogen at `low`, then GPT Luna at `low`.
 
 ## Budget facts and provider load split
 
-Antigravity carries only Gemini routes, including Gemini 4 Neon for primary implementation, deep implementation last-resort, and council Seat C. Claude Code carries Opus implementation fallback, Fable deep implementation, and the review captain. Codex carries operational fallbacks/last-resort, the driver, Sol council review, and Sol/Astra task review. OpenCode Go carries only Deepseek Flash for cheap non-review work. Non-council effort is at most `high`; only council seats and captain rulings permit `xhigh`. Defaults require context-scoped runtime verification; max/ultra/ultrathink/ultracode are forbidden everywhere.
+Antigravity carries only Gemini routes, including Gemini 4 Neon for driver primary, primary implementation, deep implementation last-resort, designer/planner last-resort, and council Seat C, plus Gemini 4 Hydrogen for operational last-resort and compaction. Claude Code carries Opus implementation fallback, Fable deep implementation, designer/planner primary, driver last-resort, and the review captain. Codex carries driver/designer/planner/deep fallbacks, operational fallbacks/last-resort, Sol council review, and Sol/Astra task review. OpenCode Go carries only Deepseek Flash for cheap non-review work. Non-council effort is at most `high`; only council seats and captain rulings permit `xhigh`. Defaults require context-scoped runtime verification; max/ultra/ultrathink/ultracode are forbidden everywhere.
 
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
-| driver | primary | codex | gpt-6.2-sol | reasoningEffort=medium | openai | ok |
-| driver | fallback | claudeAgent | claude-sonnet-5-5 | effort=medium | anthropic | ok |
+| driver | primary | antigravity | gemini-4-neon | thinking_level=high | google | ok |
+| driver | fallback | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
+| driver | last-resort | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | designer | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | designer | fallback | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
-| designer | last-resort | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| designer | last-resort | antigravity | gemini-4-neon | thinking_level=high | google | ok |
 | planner | primary | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | planner | fallback | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
-| planner | last-resort | antigravity | gemini-4-carbon | thinking_level=high | google | ok |
+| planner | last-resort | antigravity | gemini-4-neon | thinking_level=high | google | ok |
 | scout | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | scout | fallback | codex | gpt-6-luna | reasoningEffort=low | openai | ok |
-| scout | last-resort | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |
+| scout | last-resort | antigravity | gemini-4-hydrogen | thinking_level=low | google | ok |
 | implementer | primary | antigravity | gemini-4-neon | thinking_level=high | google | ok |
 | implementer | fallback | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |
 | implementer | last-resort | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
@@ -37,23 +38,23 @@ Antigravity carries only Gemini routes, including Gemini 4 Neon for primary impl
 | implementer-deep | last-resort | antigravity | gemini-4-neon | thinking_level=high | google | ok |
 | tester | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | tester | fallback | codex | gpt-6-luna | reasoningEffort=medium | openai | ok |
-| tester | last-resort | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |
+| tester | last-resort | antigravity | gemini-4-hydrogen | thinking_level=medium | google | ok |
 | patch | primary | opencode | opencode-go/deepseek-v4.1-flash | variant=high | deepseek | ok |
 | patch | fallback | codex | gpt-6-luna | reasoningEffort=medium | openai | ok |
-| patch | last-resort | antigravity | gemini-3.8-flash | thinking_level=medium | google | ok |
+| patch | last-resort | antigravity | gemini-4-hydrogen | thinking_level=medium | google | ok |
 | task-reviewer | primary | codex | gpt-6.2-sol | reasoningEffort=high | openai | ok |
 | task-reviewer | fallback | codex | gpt-6.2-astra | reasoningEffort=high | openai | ok |
 | task-reviewer | last-resort | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | reviewer-a | primary | claudeAgent | claude-opus-5-5 | effort=xhigh | anthropic | ok |
 | reviewer-a | fallback | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |
-| reviewer-a | last-resort | antigravity | gemini-4-neon | thinking_level=high | google | ok |
+| reviewer-a | last-resort | antigravity | gemini-4-neon | thinking_level=xhigh | google | ok |
 | reviewer-b | primary | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |
-| reviewer-b | fallback | antigravity | gemini-4-neon | thinking_level=high | google | ok |
+| reviewer-b | fallback | antigravity | gemini-4-neon | thinking_level=xhigh | google | ok |
 | reviewer-b | last-resort | claudeAgent | claude-opus-5-5 | effort=xhigh | anthropic | ok |
-| reviewer-c | primary | antigravity | gemini-4-neon | thinking_level=high | google | ok |
+| reviewer-c | primary | antigravity | gemini-4-neon | thinking_level=xhigh | google | ok |
 | reviewer-c | fallback | claudeAgent | claude-opus-5-5 | effort=xhigh | anthropic | ok |
 | reviewer-c | last-resort | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |
-| compaction | primary | antigravity | gemini-3.8-flash | thinking_level=low | google | ok |
+| compaction | primary | antigravity | gemini-4-hydrogen | thinking_level=low | google | ok |
 | compaction | fallback | codex | gpt-6-luna | reasoningEffort=low | openai | ok |
 
 ## Quota pools
@@ -77,7 +78,7 @@ Only review backup rows ship; operational last-resort rungs are terminal. Resolv
 | 5 | task-reviewer | claudeAgent | claude-fable-5-2 | effort=high | anthropic | ok |
 | 6 | reviewer-a,reviewer-b,reviewer-c | claudeAgent | claude-opus-5-5 | effort=xhigh | anthropic | ok |
 | 7 | reviewer-a,reviewer-b,reviewer-c | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |
-| 8 | reviewer-a,reviewer-b,reviewer-c | antigravity | gemini-4-neon | thinking_level=high | google | ok |
+| 8 | reviewer-a,reviewer-b,reviewer-c | antigravity | gemini-4-neon | thinking_level=xhigh | google | ok |
 
 ## Single-provider review
 
@@ -87,7 +88,7 @@ Council tries configured seats and fallbacks, skipping unavailable/exhausted mem
 | --- | --- | --- | --- | --- |
 | claudeAgent | claude-opus-5-5 | effort=xhigh | anthropic | ok |
 | codex | gpt-6.2-sol | reasoningEffort=xhigh | openai | ok |
-| antigravity | gemini-4-neon | thinking_level=high | google | ok |
+| antigravity | gemini-4-neon | thinking_level=xhigh | google | ok |
 
 ## Supported driver setups
 
