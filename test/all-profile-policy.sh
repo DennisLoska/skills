@@ -20,7 +20,7 @@ import sys
 root, scratch = map(Path, sys.argv[1:])
 install_sh = root / 'install.sh'
 
-ALLOWED_REVIEW_MODELS = {'claude-opus-5-5', 'gpt-6.2-sol', 'gemini-4-argon'}
+ALLOWED_REVIEW_MODELS = {'claude-opus-5-5', 'gpt-6.2-sol', 'gemini-4-neon'}
 TASK_MODELS = {'claude-fable-5-2', 'gpt-6.2-astra', 'gpt-6.2-sol'}
 CODEX_MODELS = {'gpt-6.2-sol', 'gpt-6.2-astra', 'gpt-6-luna'}
 REVIEW_ROLES = {'reviewer-a', 'reviewer-b', 'reviewer-c'}
@@ -119,11 +119,11 @@ def validate_profile_policy(name, text):
     def get_role_rows(role_name):
         return [r for r in roles_table if r['role'] == role_name]
 
-    # 1. Primary implementer: Opus 5.5
+    # 1. Primary implementer: Gemini 4 Neon
     imp_primary = [r for r in get_role_rows('implementer') if r['rung'] == 'primary']
     assert imp_primary, f"[{name}] missing primary implementer row"
-    assert imp_primary[0]['base_model'] == 'claude-opus-5-5', (
-        f"[{name}] implementer primary must be claude-opus-5-5, got {imp_primary[0]['model']}"
+    assert imp_primary[0]['provider'] == 'antigravity' and imp_primary[0]['base_model'] == 'gemini-4-neon', (
+        f"[{name}] implementer primary must be antigravity/gemini-4-neon, got {imp_primary[0]['provider']}/{imp_primary[0]['model']}"
     )
 
     # 2. Deep implementer: Fable 5.2
@@ -141,7 +141,7 @@ def validate_profile_policy(name, text):
                 f"[{name}] implementation role {r['role']} (rung {r['rung']}) has forbidden model gemini-4-hydrogen: {r['line']}"
             )
 
-    # Explicit deep fallback Sol check and Argon last-resort retention
+    # Explicit deep fallback Sol check and Neon last-resort retention
     deep_fallback = [r for r in get_role_rows('implementer-deep') if r['rung'] == 'fallback']
     assert deep_fallback, f"[{name}] missing fallback implementer-deep row"
     assert deep_fallback[0]['base_model'] == 'gpt-6.2-sol', (
@@ -150,20 +150,20 @@ def validate_profile_policy(name, text):
 
     deep_last = [r for r in get_role_rows('implementer-deep') if r['rung'] in ('last-resort', 'final')]
     if deep_last:
-        assert deep_last[0]['base_model'] == 'gemini-4-argon', (
-            f"[{name}] implementer-deep final must be gemini-4-argon, got {deep_last[0]['model']}"
+        assert deep_last[0]['base_model'] == 'gemini-4-neon', (
+            f"[{name}] implementer-deep final must be gemini-4-neon, got {deep_last[0]['model']}"
         )
 
     imp_fallback = [r for r in get_role_rows('implementer') if r['rung'] == 'fallback']
     if imp_fallback:
-        assert imp_fallback[0]['base_model'] == 'gpt-6.2-sol', (
-            f"[{name}] implementer fallback must be gpt-6.2-sol, got {imp_fallback[0]['model']}"
+        assert imp_fallback[0]['base_model'] == 'claude-opus-5-5', (
+            f"[{name}] implementer fallback must be claude-opus-5-5, got {imp_fallback[0]['model']}"
         )
 
     imp_last = [r for r in get_role_rows('implementer') if r['rung'] in ('last-resort', 'final')]
     if imp_last:
-        assert imp_last[0]['base_model'] == 'gemini-4-argon', (
-            f"[{name}] implementer final must be gemini-4-argon, got {imp_last[0]['model']}"
+        assert imp_last[0]['base_model'] == 'gpt-6.2-sol', (
+            f"[{name}] implementer final must be gpt-6.2-sol, got {imp_last[0]['model']}"
         )
 
     # 3. Shipped policy requires both draft roles; custom legacy profiles are tested separately.
@@ -201,7 +201,7 @@ def validate_profile_policy(name, text):
             f"[{name}] {role} primary must be DeepSeek 4.1 Flash, got {p[0]['model']}"
         )
 
-    # 6. Council seats: A Opus captain, B Sol, C Argon; each council model distinct
+    # 6. Council seats: A Opus captain, B Sol, C Neon; each council model distinct
     a_primary = [r for r in get_role_rows('reviewer-a') if r['rung'] == 'primary']
     b_primary = [r for r in get_role_rows('reviewer-b') if r['rung'] == 'primary']
     c_primary = [r for r in get_role_rows('reviewer-c') if r['rung'] == 'primary']
@@ -215,8 +215,8 @@ def validate_profile_policy(name, text):
     assert b_primary[0]['base_model'] == 'gpt-6.2-sol', (
         f"[{name}] reviewer-b primary must be gpt-6.2-sol, got {b_primary[0]['model']}"
     )
-    assert c_primary[0]['base_model'] == 'gemini-4-argon', (
-        f"[{name}] reviewer-c primary must be gemini-4-argon, got {c_primary[0]['model']}"
+    assert c_primary[0]['base_model'] == 'gemini-4-neon', (
+        f"[{name}] reviewer-c primary must be gemini-4-neon, got {c_primary[0]['model']}"
     )
 
     council_models = {
@@ -235,7 +235,7 @@ def validate_profile_policy(name, text):
         f"[{name}] task-reviewer primary must be gpt-6.2-sol, got {task_rev_primary[0]['model']}"
     )
 
-    # 8. Council rungs/backups/single-provider strictly Opus/Sol/Argon; task review stays separate
+    # 8. Council rungs/backups/single-provider strictly Opus/Sol/Neon; task review stays separate
     # No wildcard or mixed backups giving excluded review models
     for r in roles_table:
         if r['role'] == 'task-reviewer': assert r['base_model'] in TASK_MODELS
@@ -275,7 +275,7 @@ def validate_profile_policy(name, text):
 
     # Exact closed recovery set, including the sole Claude reviewer.
     assert {(r['provider'], r['base_model']) for r in single_provider_review} == {
-        ('claudeAgent', 'claude-opus-5-5'), ('antigravity', 'gemini-4-argon'),
+        ('claudeAgent', 'claude-opus-5-5'), ('antigravity', 'gemini-4-neon'),
         ('codex', 'gpt-6.2-sol')}, f"[{name}] incorrect single-provider recovery set"
     compaction = get_role_rows('compaction')
     assert compaction[0]['base_model'] == 'gemini-3.8-flash' and compaction[0]['effort'].endswith('=low')
@@ -297,7 +297,7 @@ def validate_profile_policy(name, text):
             val = eff.split('=', 1)[-1] if '=' in eff else eff
             council = (row.get('role') in REVIEW_ROLES or (row.get('roles') and set(row['roles']) <= REVIEW_ROLES) or row['section'] in ('Single-provider review', 'single'))
             if council:
-                assert (row['provider'], row['base_model'], eff) in {('claudeAgent', 'claude-opus-5-5', 'effort=xhigh'), ('codex', 'gpt-6.2-sol', 'reasoningEffort=xhigh'), ('antigravity', 'gemini-4-argon', 'thinking_level=high')}, row['line']
+                assert (row['provider'], row['base_model'], eff) in {('claudeAgent', 'claude-opus-5-5', 'effort=xhigh'), ('codex', 'gpt-6.2-sol', 'reasoningEffort=xhigh'), ('antigravity', 'gemini-4-neon', 'thinking_level=high')}, row['line']
             assert council or val in VALID_EFFORT_LEVELS, (
                 f"[{name}] invalid effort level '{val}' in: {row['line']}"
             )
@@ -349,7 +349,7 @@ for combo in combos:
     validate_profile_policy(f"dyn:{combo}", rendered_providers)
     primary = next(r for r in parse_markdown_tables(rendered_providers)['roles_table']
                    if r['role'] == 'implementer' and r['rung'] == 'primary')
-    expected_path = 'claudeAgent'
+    expected_path = 'antigravity'
     assert primary['provider'] == expected_path, f"selection ignored: {combo}"
     manifest = opencode_dir / '.harness-manifest'
     assert f'# providers {combo}' in manifest.read_text()

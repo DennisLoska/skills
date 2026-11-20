@@ -2562,7 +2562,7 @@ for prov_combo in antigravity,codex,opencode antigravity,claude,codex,opencode c
   [ "$rc" -eq 0 ] || { cat "$TMPROOT/prov-install-$prov_case.out" >&2; fail "--providers $prov_combo exits 0 (got $rc)"; }
   [ -f "$prov_md" ] || fail "--providers $prov_combo installs PROVIDERS.md"
   grep -qxF "# providers $prov_combo" "$prov_home/.config/opencode/.harness-manifest" || fail "--providers $prov_combo records '# providers $prov_combo' in .harness-manifest"
-  [ "$(prov_reviewer_c_row "$prov_md" primary)" = "antigravity gemini-4-argon" ] || fail "--providers $prov_combo keeps Seat C on Argon"
+  [ "$(prov_reviewer_c_row "$prov_md" primary)" = "antigravity gemini-4-neon" ] || fail "--providers $prov_combo keeps Seat C on Neon"
 
   if awk -F '|' '$2 ~ /^ reviewer-[abc] $/ && $4 == " opencode "' "$prov_md" | grep -q .; then
     fail "--providers $prov_combo puts no reviewer rung on opencode"
@@ -2630,10 +2630,12 @@ for non_oc_combo in antigravity,codex antigravity,claude claude,codex; do
       ;;
   esac
   if [ "$non_oc_combo" = "antigravity,claude" ]; then
-    [ "$(prov_role_rung_pool "$prov_md" implementer primary)" = "claude-code" ] || fail "--providers implementer primary uses Claude Code"
-    [ "$(prov_role_rung_pool "$prov_md" implementer fallback)" = "codex" ] || fail "--providers implementer fallback is Sol"
+    [ "$(prov_role_rung_pool "$prov_md" implementer primary)" = "antigravity-gemini" ] || fail "--providers implementer primary uses Antigravity Gemini"
+    [ "$(prov_role_rung_pool "$prov_md" implementer fallback)" = "claude-code" ] || fail "--providers implementer fallback uses Claude Code"
+    [ "$(prov_role_rung_pool "$prov_md" implementer last-resort)" = "codex" ] || fail "--providers implementer last-resort is Sol"
     [ "$(prov_role_rung_pool "$prov_md" implementer-deep primary)" = "claude-fable" ] || fail "--providers antigravity,claude implementer-deep primary is claudeAgent Fable on the claude-fable pool"
-    grep -qF '| implementer | primary | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |' "$prov_md" || fail "--providers implementer uses Claude Code Opus"
+    grep -qF '| implementer | primary | antigravity | gemini-4-neon | thinking_level=high | google | ok |' "$prov_md" || fail "--providers implementer uses Antigravity Neon"
+    grep -qF '| implementer | fallback | claudeAgent | claude-opus-5-5 | effort=high | anthropic | ok |' "$prov_md" || fail "--providers implementer fallback uses Claude Code Opus"
   fi
   case "$non_oc_combo" in
     *claude*)
@@ -2764,15 +2766,15 @@ seat_cell() {
 }
 
 # Under --providers antigravity,claude the captain takes Opus on claudeAgent,
-# Seat B retains Sol and Seat C Argon even though Codex was not selected.
+# Seat B retains Sol and Seat C Neon even though Codex was not selected.
 prov_test_home="$TMPROOT/prov-dual-home"
 HOME="$prov_test_home" "$INSTALL" --providers antigravity,claude >/dev/null 2>&1
 dual_md="$prov_test_home/.config/opencode/PROVIDERS.md"
 [ "$(seat_cell "$dual_md" reviewer-a 5)" = "claude-opus-5-5" ] || fail "--providers antigravity,claude seat A (captain) primary is claude-opus-5-5"
 [ "$(seat_cell "$dual_md" reviewer-a 4)" = "claudeAgent" ] || fail "--providers antigravity,claude seat A runs on claudeAgent"
 [ "$(seat_cell "$dual_md" reviewer-b 7)" = "openai" ] || fail "--providers antigravity,claude seat B retains OpenAI family"
-[ "$(seat_cell "$dual_md" reviewer-c 5)" = "gemini-4-argon" ] || fail "--providers antigravity,claude seat C primary is Sol"
-[ "$(seat_cell "$dual_md" implementer 5)" = "claude-opus-5-5" ] || fail "--providers antigravity,claude implementer primary is claude-opus-5-5"
+[ "$(seat_cell "$dual_md" reviewer-c 5)" = "gemini-4-neon" ] || fail "--providers antigravity,claude seat C primary is Neon"
+[ "$(seat_cell "$dual_md" implementer 5)" = "gemini-4-neon" ] || fail "--providers antigravity,claude implementer primary is gemini-4-neon"
 [ "$(seat_cell "$dual_md" implementer-deep 5)" = "claude-fable-5-2" ] || fail "--providers antigravity,claude implementer-deep primary is claude-fable-5-2"
 
 # Under --providers claude,opencode retain cross-provider independent review
@@ -3063,7 +3065,7 @@ check_council_profile() {
         n = 0
         for (k in models) { split(k, kk, SUBSEP); if (kk[1] == p) n++ }
         if (p == "codex" && n != 1) print "single-provider review lists " n " model(s) for " p " (expected 2)"
-        if (p == "antigravity" && n != 1) print "missing Argon single-provider row"
+        if (p == "antigravity" && n != 1) print "missing Neon single-provider row"
         if ((p == "claude" || p == "claudeAgent") && n != 1) print "single-provider review lists " n " model(s) for " p " (expected 1)"
         if (p != "codex" && p != "claude" && p != "claudeAgent" && p != "antigravity" && n > 0) print "single-provider review lists " n " model(s) for " p " (expected 0)"
       }
@@ -3073,9 +3075,9 @@ check_council_profile() {
   [ "$(seat_cell "$md" reviewer-a 5)" != "$(seat_cell "$md" reviewer-b 5)" ] && [ "$(seat_cell "$md" reviewer-a 5)" != "$(seat_cell "$md" reviewer-c 5)" ] && [ "$(seat_cell "$md" reviewer-b 5)" != "$(seat_cell "$md" reviewer-c 5)" ] || fail "80e: $label council primaries are pairwise-distinct models"
   [ "$(seat_cell "$md" reviewer-a 5)" = "claude-opus-5-5" ] || fail "$label captain is Opus"
   [ "$(seat_cell "$md" implementer-deep 5)" = "claude-fable-5-2" ] || fail "$label deep implementer is Fable"
-  [ "$(seat_cell "$md" implementer 5)" = "claude-opus-5-5" ] || fail "$label implementer is Opus"
+  [ "$(seat_cell "$md" implementer 5)" = "gemini-4-neon" ] || fail "$label implementer is Neon"
   [ "$(seat_cell "$md" reviewer-b 5)" = "gpt-6.2-sol" ] || fail "$label seat B is Sol"
-  [ "$(seat_cell "$md" reviewer-c 5)" = "gemini-4-argon" ] || fail "$label seat C is Argon"
+  [ "$(seat_cell "$md" reviewer-c 5)" = "gemini-4-neon" ] || fail "$label seat C is Neon"
   return 0
 }
 for shipped in quad tri opencode-go codex antigravity claude; do
@@ -3088,9 +3090,9 @@ for shipped in quad tri opencode-go codex antigravity claude; do
       'planner|primary|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
       'planner|fallback|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
       'planner|last-resort|antigravity|gemini-4-carbon|thinking_level=high|google|ok' \
-      'implementer|last-resort|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
-      'implementer|fallback|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
-      'implementer-deep|last-resort|antigravity|gemini-4-argon|thinking_level=high|google|ok' \
+      'implementer|last-resort|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
+      'implementer|fallback|claudeAgent|claude-opus-5-5|effort=high|anthropic|ok' \
+      'implementer-deep|last-resort|antigravity|gemini-4-neon|thinking_level=high|google|ok' \
       'implementer-deep|fallback|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
       'task-reviewer|primary|codex|gpt-6.2-sol|reasoningEffort=high|openai|ok' \
       'task-reviewer|fallback|codex|gpt-6.2-astra|reasoningEffort=high|openai|ok' \
@@ -3098,7 +3100,7 @@ for shipped in quad tri opencode-go codex antigravity claude; do
       'implementer-deep|primary|claudeAgent|claude-fable-5-2|effort=high|anthropic|ok' \
       'reviewer-a|primary|claudeAgent|claude-opus-5-5|effort=xhigh|anthropic|ok' \
       'reviewer-b|primary|codex|gpt-6.2-sol|reasoningEffort=xhigh|openai|ok' \
-      'reviewer-c|primary|antigravity|gemini-4-argon|thinking_level=high|google|ok'; do
+      'reviewer-c|primary|antigravity|gemini-4-neon|thinking_level=high|google|ok'; do
       profile_rows "$shipped_md" roles | grep -qxF "$quad_spec" || fail "80e: providers/$shipped.md carries spec row $quad_spec"
     done
     for quad_cheap in \
@@ -3114,20 +3116,20 @@ for shipped in quad tri opencode-go codex antigravity claude; do
       profile_rows "$shipped_md" roles | grep -qxF "$quad_cheap" || fail "80e: providers/$shipped.md carries cheap seat row $quad_cheap"
     done
     awk -F '|' '
-      $1 ~ /^reviewer-[abc]$/ && $4 != "claude-opus-5-5" && $4 != "gemini-4-argon" && $4 != "gpt-6.2-sol" {
+      $1 ~ /^reviewer-[abc]$/ && $4 != "claude-opus-5-5" && $4 != "gemini-4-neon" && $4 != "gpt-6.2-sol" {
         print "forbidden policy reviewer model in roles: " $0
       }' "$TMPROOT/cp-roles.txt" >>"$TMPROOT/cp-bad.txt"
     awk -F '|' '
-      ($2 == "*" || $2 ~ /(^|,)reviewer-[abc](,|$)/) && $4 != "claude-opus-5-5" && $4 != "gemini-4-argon" && $4 != "gpt-6.2-sol" {
+      ($2 == "*" || $2 ~ /(^|,)reviewer-[abc](,|$)/) && $4 != "claude-opus-5-5" && $4 != "gemini-4-neon" && $4 != "gpt-6.2-sol" {
         print "forbidden policy reviewer model in backup: " $0
       }' "$TMPROOT/cp-backup.txt" >>"$TMPROOT/cp-bad.txt"
     awk -F '|' '
-      $1 != "provider" && $1 != "---" && !(($1 == "codex" && ($2 == "gpt-6.2-sol")) || (($1 == "claude" || $1 == "claudeAgent") && $2 == "claude-opus-5-5") || ($1 == "antigravity" && $2 == "gemini-4-argon")) {
+      $1 != "provider" && $1 != "---" && !(($1 == "codex" && ($2 == "gpt-6.2-sol")) || (($1 == "claude" || $1 == "claudeAgent") && $2 == "claude-opus-5-5") || ($1 == "antigravity" && $2 == "gemini-4-neon")) {
         print "forbidden policy model in single-provider review: " $0
       }' "$TMPROOT/cp-single.txt" >>"$TMPROOT/cp-bad.txt"
     if [ -s "$TMPROOT/cp-bad.txt" ]; then cat "$TMPROOT/cp-bad.txt" >&2; fail "80e: providers/$shipped.md reviewer whitelist"; fi
-  impl_row='implementer|primary|claudeAgent|claude-opus-5-5|effort=high|anthropic|ok'
-  profile_rows "$shipped_md" roles | grep -qxF "$impl_row" || fail "80e: providers/$shipped.md implementer primary is Opus 5.5 high"
+  impl_row='implementer|primary|antigravity|gemini-4-neon|thinking_level=high|google|ok'
+  profile_rows "$shipped_md" roles | grep -qxF "$impl_row" || fail "80e: providers/$shipped.md implementer primary is Gemini 4 Neon high"
 done
 for shipped in quad tri opencode-go codex antigravity claude; do
   if profile_rows "$ROOT/providers/$shipped.md" "Backup ladder" | grep -qE '\|(\*|[^|]*(scout|tester|patch|implementer)[^|]*)\|'; then fail "$shipped operational backup forbidden"; fi
@@ -3153,7 +3155,7 @@ for pv_combo in antigravity claude codex opencode antigravity,claude antigravity
       case ",$pv_combo," in *,antigravity,*) pv_agy=1 ;; esac
       case ",$pv_combo," in *,opencode,*) pv_oc=1 ;; esac
       check_council_profile "$pv_md" "--providers $pv_combo" "$pv_cld" "$pv_cdx" "$pv_agy" "$pv_oc"
-      profile_rows "$pv_md" roles | grep -qxF 'implementer|primary|claudeAgent|claude-opus-5-5|effort=high|anthropic|ok' || fail "80f: fixed Claude Code primary"
+      profile_rows "$pv_md" roles | grep -qxF 'implementer|primary|antigravity|gemini-4-neon|thinking_level=high|google|ok' || fail "80f: fixed Antigravity Neon primary"
       if profile_rows "$pv_md" "Quota pools" | grep -qE '\|[0-9]+\|reviewer-b$'; then fail "80f: --providers $pv_combo reserves no pool for reviewer-b"; fi
       ;;
   esac
