@@ -154,7 +154,7 @@ flowchart LR
     P_AG["Antigravity (Gemini only)"]
     P_CX["Codex (OpenAI)"]
     P_GO["OpenCode Go (open-weight + high-volume flash)"]
-    P_CC["Claude Code / claudeAgent (Opus and Fable primaries)"]
+    P_CC["Claude Code / claudeAgent (Fable primaries + Opus fallback/captain)"]
   end
 
   R_DRV --> SLOTS
@@ -290,17 +290,17 @@ All six shipped profiles and all 15 `--providers` combinations use the same mode
 
 - **Drafts:** `designer` and `planner` use Fable 5.2 with Sol fallback, then Gemini 4 Carbon as last resort. Workers return read-only drafts; the driver owns conversation, approvals, canonical documents and phase advancement.
 - **Cheap work:** scout, tester and patch use Deepseek V4.1 Flash, then Luna, then terminal Gemini 3.8 Flash. Compaction uses Gemini Flash then Luna at low effort. OpenCode routes only Deepseek Flash.
-- **Implementation:** Claude Code Opus 5.5 primary and Fable 5.2 deep; both use Codex Sol fallback, then terminal Antigravity Gemini Argon. Every shipped profile and generated combination uses these exact provider paths.
-- **Reviews:** task review starts on Sol; council A/captain is Opus at xhigh, B Sol at xhigh, C Argon at high. Council fallbacks, backups and recovery stay within those three models; task reviews retain Sol/Astra/Fable at high. Self-review is allowed.
+- **Implementation:** Antigravity Gemini 4 Neon primary (falling back to Claude Code Opus 5.5, then terminal Codex Sol) and Claude Code Fable 5.2 deep (falling back to Codex Sol, then terminal Antigravity Gemini 4 Neon). Every shipped profile and generated combination uses these exact provider paths.
+- **Reviews:** task review starts on Sol; council A/captain is Opus at xhigh, B Sol at xhigh, C Gemini 4 Neon at high. Council fallbacks, backups and recovery stay within those three models; task reviews retain Sol/Astra/Fable at high. Self-review is allowed.
 - **Unavailable providers:** mark rungs unreachable and walk configured fallbacks; skip unavailable review members and proceed with remaining members, or record SKIPPED with zero. Green actual verification remains required.
 
 #### 2. The Council: Three Seats and a Review Captain (Phase 6)
 
-- **Why multiple models?** Single-model reviews suffer from self-confirmation bias, hallucinated validations, and identical blind spots. The council runs three distinct models in parallel when available, using the active profile's allowed review models. Every shipped/generated policy permits only Opus, Sol, and Argon for council; task review retains Sol, Astra, and Fable at high.
+- **Why multiple models?** Single-model reviews suffer from self-confirmation bias, hallucinated validations, and identical blind spots. The council runs three distinct models in parallel when available, using the active profile's allowed review models. Every shipped/generated policy permits only Opus, Sol, and Gemini 4 Neon for council; task review retains Sol, Astra, and Fable at high.
 - **Council Seats**:
   - **Seat A (`reviewer-a`), review captain**: Anthropic `claude-opus-5-5` via Claude Code at `effort=xhigh`. If Seat A has no eligible rung, captaincy passes to Seat B, then Seat C.
   - **Seat B (`reviewer-b`)**: OpenAI `gpt-6.2-sol` via Codex at `reasoningEffort=xhigh`.
-  - **Seat C (`reviewer-c`) in every shipped profile**: Google `gemini-4-argon` via Antigravity at `thinking_level=high`.
+  - **Seat C (`reviewer-c`) in every shipped profile**: Google `gemini-4-neon` via Antigravity at `thinking_level=high`.
 - **Captain ruling**: the captain reviews like every seat. When any seat votes FAIL or raises a red/yellow finding, a fresh captain ruling labels each merged finding `accept` (fix in this PR), `defer` (valid but unrelated, overengineering, or out of scope: it becomes a backlog ticket), or `reject` (wrong, with `path:line` evidence), then votes `Captain verdict: PASS | FAIL`.
 - **Captain limits**: a red the driver confirms as an in-scope correctness, security, or data-loss bug introduced by the diff can never be deferred or rejected (`captain overruled: <finding-id>`). Green tests are always required. Fixers address only accepted findings.
 - **Verdict modes**:
@@ -324,9 +324,9 @@ Council tries configured members and quota/reachability fallbacks, skipping unav
 
 - **Operational Ladder**: Shipped operational roles define `primary` &rarr; `fallback` &rarr; terminal `last-resort`, using separate provider pools. An unavailable terminal rung stops the original role.
 - **Same-Model Alternate**: before leaving a primary/fallback rung (never an operational terminal rung), the driver uses a `## Backup ladder` row with the identical model on another pool (when a custom profile supplies an eligible alternate).
-- **Balanced Seat Fallback**: a council seat that loses its primary takes the eligible rung whose quota pool has the fewest dispatches this run, within the active profile review allowlist; shipped council recovery includes Argon at high.
-- **Single-Provider Review**: Sol on Codex, Opus on Claude Code, Argon on Antigravity. A sole available reviewer can PASS without provider-count gates.
-- **Context-scoped effort ceiling:** Non-council work, including driver sessions, defaults, advisory/design work, task-reviewer, fixing and testing, must never request or inherit effort above `high`. Only runtime council reviewer-a/b/c seats and fresh captain rulings may use profile-configured `xhigh`; council is the only skill permitting above high, with maximum `xhigh`. `max`, `ultra`, `ultrathink`, `ultracode`, and equivalent higher levels are forbidden everywhere. Verify provider capabilities before dispatch; use explicit provider-native options from `PROVIDERS.md`. Argon uses explicit `thinking_level=high` because it has no xhigh support. Unknown/unsafe defaults require an explicit safe option or an unreachable rung; non-council defaults must be verified at most `high`. Shared reviewer contracts do not grant task reviews the council exception. Invoking a skill never changes the driver session or its ceiling.
+- **Balanced Seat Fallback**: a council seat that loses its primary takes the eligible rung whose quota pool has the fewest dispatches this run, within the active profile review allowlist; shipped council recovery includes Gemini 4 Neon at high.
+- **Single-Provider Review**: Sol on Codex, Opus on Claude Code, Gemini 4 Neon on Antigravity. A sole available reviewer can PASS without provider-count gates.
+- **Context-scoped effort ceiling:** Non-council work, including driver sessions, defaults, advisory/design work, task-reviewer, fixing and testing, must never request or inherit effort above `high`. Only runtime council reviewer-a/b/c seats and fresh captain rulings may use profile-configured `xhigh`; council is the only skill permitting above high, with maximum `xhigh`. `max`, `ultra`, `ultrathink`, `ultracode`, and equivalent higher levels are forbidden everywhere. Verify provider capabilities before dispatch; use explicit provider-native options from `PROVIDERS.md`. Gemini 4 Neon uses explicit `thinking_level=high` because it has no xhigh support. Unknown/unsafe defaults require an explicit safe option or an unreachable rung; non-council defaults must be verified at most `high`. Shared reviewer contracts do not grant task reviews the council exception. Invoking a skill never changes the driver session or its ceiling.
 - **Shared Quota Pools & Soft Caps**: Models sharing an underlying subscription pool (e.g. `claude-code`; Fable has its own `claude-fable` limit) are grouped into pools. Soft caps prevent workhorse tasks from consuming tokens reserved for critical seats.
 - **Machine-Local Quota Ledger (`state/quota-ledger.tsv`)**: When a 429 or rate limit occurs, the pool and its cooldown timestamp are recorded in the ledger. Subsequent dispatches immediately skip dead pools without burning API calls or latency.
 - **Legacy Emergency Routing**: Only operational roles without explicit `last-resort` retain sibling hand-off and backup walks. Reviews keep balanced backup routing; shipped backups are review-only.
@@ -353,7 +353,7 @@ Council tries configured members and quota/reachability fallbacks, skipping unav
 | Provider | Instance ID | Effort Option ID & Values | Example Model IDs | Limit Inspection |
 | --- | --- | --- | --- | --- |
 | **OpenCode Go** | `opencode` | `variant` (`low\|medium\|high`, or verified safe `-`) | `muse-spark-1.3-contributor`, `deepseek-v4.1-flash`, `mimo-v2.6-flash`, `glm-5.3-flash` | `opencode.ai/docs/go` console (monthly $ allowance + 5h rolling cap) |
-| **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-argon`, `gemini-4-carbon`, `gemini-3.8-flash` | `/status` in Antigravity (rolling 5-hour window) |
+| **Antigravity** | `antigravity` | `thinking_level` (`low\|medium\|high`) | `gemini-4-neon`, `gemini-4-carbon`, `gemini-3.8-flash` | `/status` in Antigravity (rolling 5-hour window) |
 | **Codex** | `codex` | `reasoningEffort` (`low\|medium\|high`; council Sol also `xhigh`) | `gpt-6.2-astra`, `gpt-6.2-sol`, `gpt-6-luna`, `gpt-6-sol` | `/status` in Codex (rolling 5-hour window) |
 | **Claude Code** | `claudeAgent` | `effort` (`low\|medium\|high`; only council seats/rulings permit `xhigh`) | `claude-fable-5-2`, `claude-opus-5-5`, `claude-sonnet-5-5`, `claude-haiku-5-5` | `/status` in Claude Code (rolling 5-hour window) |
 
@@ -400,14 +400,14 @@ Non-council work is at most high; only council seats and captain rulings may use
 | role | primary | fallback | last-resort |
 | --- | --- | --- | --- |
 | `scout`, `tester`, `patch` | Deepseek V4.1 Flash (high) | GPT6 Luna | Gemini 3.8 Flash (terminal) |
-| `implementer` | Opus 5.5 (Claude Code) | Sol | Gemini 4 Argon (terminal) |
-| `implementer-deep` | Fable 5.2 | Sol | Gemini 4 Argon (terminal) |
+| `implementer` | Gemini 4 Neon (Antigravity) | Opus 5.5 (Claude Code) | Sol (terminal) |
+| `implementer-deep` | Fable 5.2 | Sol | Gemini 4 Neon (terminal) |
 | `designer` (optional draft) | Fable 5.2 | Sol | Gemini 4 Carbon |
 | `planner` (optional draft) | Fable 5.2 | Sol | Gemini 4 Carbon |
 | `task-reviewer` | Sol | Astra | Fable 5.2 |
-| Council A / B / C | Opus 5.5 (xhigh) / Sol (xhigh) / Argon (high) | Only eligible models from the same three-model set | One available reviewer proceeds; zero records SKIPPED |
+| Council A / B / C | Opus 5.5 (xhigh) / Sol (xhigh) / Gemini 4 Neon (high) | Only eligible models from the same three-model set | One available reviewer proceeds; zero records SKIPPED |
 
-Claude Code provides the Opus primary. Antigravity has no Anthropic routes or Claude quota pool. Review backups and single-provider rows cannot widen the closed review set. Codex-only council permits Sol; Claude-only permits Opus; Antigravity-only permits Argon. Each may review its own code and proceed alone. Zero available members records SKIPPED; never widen the council allowlist.
+Antigravity provides the Gemini 4 Neon primary for `implementer` and council Seat C (and has no Anthropic routes or Claude quota pool); Claude Code provides the Opus fallback and council captain primary. Review backups and single-provider rows cannot widen the closed review set. Codex-only council permits Sol; Claude-only permits Opus; Antigravity-only permits Gemini 4 Neon. Each may review its own code and proceed alone. Zero available members records SKIPPED; never widen the council allowlist.
 
 ---
 
@@ -422,12 +422,12 @@ cp providers/tri.md ~/.config/oneshot/my-profile.md
 ./install.sh --force --profile-file ~/.config/oneshot/my-profile.md
 ```
 
-**One-row override example** (setting an implementation fallback to Gemini 4 Argon; reviews keep their closed allowlist):
+**One-row override example** (setting an implementation fallback to Gemini 4 Neon; reviews keep their closed allowlist):
 
 ```text
 | role | rung | provider | model | effort | family | privacy |
 | --- | --- | --- | --- | --- | --- | --- |
-| implementer | fallback | antigravity | gemini-4-argon | thinking_level=high | google | ok |
+| implementer | fallback | antigravity | gemini-4-neon | thinking_level=high | google | ok |
 ```
 
 - Each profile must define a `primary` row for all nine dispatched roles (`scout`, `tester`, `implementer`, `implementer-deep`, `patch`, `task-reviewer`, `reviewer-a`, `reviewer-b`, `reviewer-c`), with pairwise-distinct council primary models (families may overlap).
